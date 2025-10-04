@@ -1,0 +1,28 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-black text-white;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    @apply font-montserrat font-black;
+  }
+
+  .subtext,
+  .subtitle {
+    @apply font-pt-mono font-bold;
+  }
+
+  p,
+  div {
+    @apply font-pt-mono;
+  }
+}
