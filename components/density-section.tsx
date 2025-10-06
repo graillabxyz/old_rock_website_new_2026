@@ -186,7 +186,7 @@ export function DensitySection() {
           >
             <div className="relative h-80 rounded-3xl overflow-hidden bg-gradient-to-br from-purple-900 via-pink-800 to-cyan-900 border border-pink-500/20">
               <Image
-                src="/images/bounty-call-bg.png"
+                src="/images/bounty-call-bg.jpg"
                 alt="Bounty Call Background"
                 fill
                 className="object-cover opacity-70 group-hover:opacity-80 transition-opacity duration-500"
