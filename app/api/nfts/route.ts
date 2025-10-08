@@ -36,85 +36,35 @@ export async function GET(request: NextRequest) {
   }
 }
 
-async function fetchGoliathNFTs(ALCHEMY_API_KEY: string) {
+async function fetchGoliathNFTs() {
   try {
-    console.log("✅ Using Alchemy API key:", ALCHEMY_API_KEY.substring(0, 10) + "...")
-
     const response = await fetch(
-      `https://eth-mainnet.g.alchemy.com/nft/v3/${ALCHEMY_API_KEY}/getNFTsForCollection?contractAddress=0x05ab5a50f77b9957b51145b259f05e805d84e92e&withMetadata=true&limit=100&startToken=0`,
+      `https://metadata.oldrocknft.com/goliath/random`,
       {
         method: "GET",
         headers: {
           Accept: "application/json",
         },
-        cache: "no-store",
       },
     )
 
     if (!response.ok) {
-      console.error(`❌ Alchemy API error: ${response.status} ${response.statusText}`)
+      console.error(`❌ Metadata service API error: ${response.status} ${response.statusText}`)
       return NextResponse.json({ success: false, error: `API Error: ${response.status}` }, { status: response.status })
     }
 
     const data = await response.json()
-    console.log("✅ Alchemy API response received, processing NFTs...")
+    console.log("✅ Metadata service API response received, processing NFTs...")
 
-    if (!data.nfts || data.nfts.length === 0) {
-      console.warn("⚠️ No Goliath NFTs found in collection")
+    if (!data || data.length === 0) {
+      console.warn("⚠️ No Goliath NFTs found in collection");
       return NextResponse.json({ success: false, error: "No NFTs found" })
     }
 
     const processedImages = []
 
-    for (const nft of data.nfts) {
-      let imageUrl = null
-
-      if (
-        nft.image?.originalUrl &&
-        !nft.image.originalUrl.includes("undefined") &&
-        nft.image.originalUrl !== "undefined"
-      ) {
-        imageUrl = nft.image.originalUrl
-      } else if (
-        nft.image?.cachedUrl &&
-        !nft.image.cachedUrl.includes("undefined") &&
-        nft.image.cachedUrl !== "undefined"
-      ) {
-        imageUrl = nft.image.cachedUrl
-      } else if (
-        nft.image?.thumbnailUrl &&
-        !nft.image.thumbnailUrl.includes("undefined") &&
-        nft.image.thumbnailUrl !== "undefined"
-      ) {
-        imageUrl = nft.image.thumbnailUrl
-      }
-
-      if (!imageUrl && nft.media && nft.media.length > 0) {
-        const media = nft.media[0]
-        if (media.gateway && !media.gateway.includes("undefined") && media.gateway !== "undefined") {
-          imageUrl = media.gateway
-        } else if (media.raw && !media.raw.includes("undefined") && media.raw !== "undefined") {
-          imageUrl = media.raw
-        }
-      }
-
-      if (
-        !imageUrl &&
-        nft.raw?.metadata?.image &&
-        !nft.raw.metadata.image.includes("undefined") &&
-        nft.raw.metadata.image !== "undefined"
-      ) {
-        let metadataImage = nft.raw.metadata.image
-        if (metadataImage.startsWith("ipfs://")) {
-          metadataImage = metadataImage.replace("ipfs://", "https://ipfs.io/ipfs/")
-        }
-        imageUrl = metadataImage
-      }
-
-      if (imageUrl && (imageUrl.startsWith("http://") || imageUrl.startsWith("https://"))) {
-        processedImages.push(imageUrl)
-        console.log(`✅ Added image for NFT ${nft.tokenId}`)
-      }
+    for (const nft of data) {
+      processedImages.push(nft.image.replace('.webp', '-300.webp'));
 
       if (processedImages.length >= 16) {
         break
@@ -122,7 +72,6 @@ async function fetchGoliathNFTs(ALCHEMY_API_KEY: string) {
     }
 
     const shuffledImages = processedImages.sort(() => Math.random() - 0.5)
-    console.log(`✅ Processed ${shuffledImages.length} valid Goliath NFT images`)
 
     return NextResponse.json({
       success: true,
