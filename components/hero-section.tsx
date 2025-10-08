@@ -75,6 +75,7 @@ export function HeroSection({ backgroundY, textY }: HeroSectionProps) {
       </motion.div>
 
       {/* Floating Particles */}
+      {/* Note: disabled due to performance concerns }
       <div className="absolute inset-0 z-15">
         {[...Array(15)].map((_, i) => (
           <motion.div
@@ -97,6 +98,7 @@ export function HeroSection({ backgroundY, textY }: HeroSectionProps) {
           />
         ))}
       </div>
+      {*/}
 
       {/* Main Content with Parallax */}
       <motion.div className="relative z-20 w-full px-[5%]" style={{ y: textY }}>
@@ -191,7 +193,7 @@ export function HeroSection({ backgroundY, textY }: HeroSectionProps) {
           <div className="space-y-6 hidden md:block max-w-md">
             {/* Game Modes Card */}
             <motion.div
-              className="bg-white/10 backdrop-blur-md border border-white/20 rounded-3xl p-6 hover:bg-white/15 transition-all duration-300"
+              className="bg-white/10 backdrop-blur-md border border-white/20 rounded-3xl p-6 hover:bg-white/15 transition-all duration-200"
               whileHover={{ scale: 1.02, y: -5 }}
             >
               <div className="flex items-center space-x-4 mb-4">
@@ -207,7 +209,7 @@ export function HeroSection({ backgroundY, textY }: HeroSectionProps) {
 
             {/* Rewards Card */}
             <motion.div
-              className="bg-white/10 backdrop-blur-md border border-white/20 rounded-3xl p-6 hover:bg-white/15 transition-all duration-300"
+              className="bg-white/10 backdrop-blur-md border border-white/20 rounded-3xl p-6 hover:bg-white/15 transition-all duration-200"
               whileHover={{ scale: 1.02, y: -5 }}
             >
               <div className="flex items-center space-x-4 mb-4">
@@ -224,7 +226,7 @@ export function HeroSection({ backgroundY, textY }: HeroSectionProps) {
 
             {/* Strategy Card */}
             <motion.div
-              className="bg-white/10 backdrop-blur-md border border-white/20 rounded-3xl p-6 hover:bg-white/15 transition-all duration-300"
+              className="bg-white/10 backdrop-blur-md border border-white/20 rounded-3xl p-6 hover:bg-white/15 transition-all duration-200"
               whileHover={{ scale: 1.02, y: -5 }}
             >
               <div className="flex items-center space-x-4 mb-4">
@@ -287,8 +289,9 @@ export function HeroSection({ backgroundY, textY }: HeroSectionProps) {
       </motion.div>
 
       {/* Floating Elements */}
+      {/* Note: disabled due to performance concerns }
       <motion.div
-        className="absolute top-20 right-20 w-20 h-20 bg-gradient-to-r from-purple-500/20 to-pink-500/20 rounded-full blur-xl"
+        className="absolute top-20 right-20 w-20 h-20 bg-gradient-to-r   rounded-full blur-xl"
         animate={{
           scale: [1, 1.2, 1],
           opacity: [0.3, 0.6, 0.3],
@@ -299,7 +302,6 @@ export function HeroSection({ backgroundY, textY }: HeroSectionProps) {
           ease: "easeInOut",
         }}
       />
-
       <motion.div
         className="absolute bottom-40 left-20 w-16 h-16 bg-gradient-to-r from-orange-500/20 to-yellow-500/20 rounded-full blur-xl"
         animate={{
@@ -313,6 +315,7 @@ export function HeroSection({ backgroundY, textY }: HeroSectionProps) {
           delay: 1,
         }}
       />
+      {*/}
 
       <ScrollIndicator />
     </section>

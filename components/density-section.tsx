@@ -65,7 +65,7 @@ export function DensitySection() {
             className="relative group"
             initial={{ opacity: 0, x: -50 }}
             whileInView={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.8 }}
+            transition={{ delay: 0.2, duration: 0.2 }}
             viewport={{ once: true }}
             whileHover={{ scale: 1.02 }}
           >
@@ -95,7 +95,7 @@ export function DensitySection() {
                   className="space-y-3"
                   initial={{ opacity: 0, y: 30 }}
                   whileInView={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.3, duration: 0.6 }}
+                  transition={{ delay: 0.2, duration: 0.2 }}
                   viewport={{ once: true }}
                 >
                   <h3 className="text-3xl font-black font-montserrat text-white">Amplify Heliosite</h3>
@@ -123,7 +123,7 @@ export function DensitySection() {
             className="relative group"
             initial={{ opacity: 0, x: 50 }}
             whileInView={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.8 }}
+            transition={{ delay: 0.2, duration: 0.2 }}
             viewport={{ once: true }}
             whileHover={{ scale: 1.02 }}
           >
@@ -153,7 +153,7 @@ export function DensitySection() {
                   className="space-y-3"
                   initial={{ opacity: 0, y: 30 }}
                   whileInView={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.3, duration: 0.6 }}
+                  transition={{ delay: 0.2, duration: 0.2 }}
                   viewport={{ once: true }}
                 >
                   <h3 className="text-3xl font-black font-montserrat text-white">Density Deck (BETA)</h3>
@@ -180,7 +180,7 @@ export function DensitySection() {
             className="relative group"
             initial={{ opacity: 0, x: -50 }}
             whileInView={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.8, delay: 0.2 }}
+            transition={{ duration: 0.2, delay: 0.2 }}
             viewport={{ once: true }}
             whileHover={{ scale: 1.02 }}
           >
@@ -238,7 +238,7 @@ export function DensitySection() {
             className="relative group"
             initial={{ opacity: 0, x: 50 }}
             whileInView={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.8, delay: 0.2 }}
+            transition={{ duration: 0.2, delay: 0.2 }}
             viewport={{ once: true }}
             whileHover={{ scale: 1.02 }}
           >
@@ -268,7 +268,7 @@ export function DensitySection() {
                   className="space-y-3"
                   initial={{ opacity: 0, y: 30 }}
                   whileInView={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.5, duration: 0.6 }}
+                  transition={{ delay: 0.2, duration: 0.2 }}
                   viewport={{ once: true }}
                 >
                   <h3 className="text-3xl font-black font-montserrat text-white">Stonebound Souls</h3>

@@ -378,6 +378,7 @@ export default function DensityDeckOverview() {
         </div>
 
         {/* Floating Elements - Smaller and fewer */}
+        {/* Note: disabled due to performance concerns }
         <motion.div
           className="absolute top-32 right-32 w-16 h-16 bg-gradient-to-r from-purple-500/20 to-pink-500/20 rounded-full blur-xl"
           animate={{
@@ -390,7 +391,6 @@ export default function DensityDeckOverview() {
             ease: "easeInOut",
           }}
         />
-
         <motion.div
           className="absolute bottom-32 left-32 w-12 h-12 bg-gradient-to-r from-orange-500/20 to-yellow-500/20 rounded-full blur-lg"
           animate={{
@@ -404,6 +404,7 @@ export default function DensityDeckOverview() {
             delay: 1,
           }}
         />
+        {*/}
       </div>
       <Footer />
     </>

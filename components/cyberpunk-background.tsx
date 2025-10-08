@@ -65,6 +65,7 @@ export function CyberpunkBackground() {
       </div>
 
       {/* Reduced Moving Scanlines - Only 2 instead of 3 */}
+      {/* Note: disabled due to performance concerns }
       {[...Array(2)].map((_, i) => (
         <motion.div
           key={i}
@@ -82,8 +83,10 @@ export function CyberpunkBackground() {
           }}
         />
       ))}
+      {*/}
 
       {/* Simplified Glitch Interference Lines */}
+      {/* Note: disabled due to performance concerns }
       <motion.div
         className="absolute inset-0 opacity-[0.015]"
         animate={{
@@ -99,8 +102,10 @@ export function CyberpunkBackground() {
         <div className="absolute top-[30%] left-0 w-full h-px bg-gradient-to-r from-transparent via-purple-500/08 to-transparent"></div>
         <div className="absolute top-[60%] left-0 w-full h-px bg-gradient-to-r from-transparent via-purple-500/06 to-transparent"></div>
       </motion.div>
+      {*/}
 
       {/* Reduced Random Glitch Blocks */}
+      {/* Note: disabled due to performance concerns }
       <motion.div
         className="absolute top-[20%] right-[25%] w-2 h-2 bg-purple-500/3"
         animate={{
@@ -113,8 +118,10 @@ export function CyberpunkBackground() {
           repeatDelay: 12, // Much longer delay
         }}
       />
+      {*/}
 
       {/* Reduced Floating particles - Only 2 instead of 4 */}
+      {/* Note: disabled due to performance concerns }
       <div className="absolute inset-0">
         {particles.map((particle) => (
           <motion.div
@@ -137,8 +144,10 @@ export function CyberpunkBackground() {
           />
         ))}
       </div>
+      {*/}
 
       {/* Simplified TV Signal Distortion */}
+      {/* Note: disabled due to performance concerns }
       <motion.div
         className="absolute inset-0 opacity-[0.008]"
         animate={{
@@ -153,6 +162,7 @@ export function CyberpunkBackground() {
       >
         <div className="absolute inset-0 w-full h-full bg-[repeating-linear-gradient(90deg,transparent,transparent_2px,rgba(255,255,255,0.04)_2px,rgba(255,255,255,0.04)_4px)]"></div>
       </motion.div>
+      {*/}
     </div>
   )
 }
