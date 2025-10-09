@@ -17,11 +17,11 @@ export async function GET(request: NextRequest) {
 
     switch (action) {
       case "goliath":
-        return await fetchGoliathNFTs(ALCHEMY_API_KEY)
+        return await fetchRandomNFTs('goliath')
+      case "oldrock":
+        return await fetchRandomNFTs('oldrock')
       case "goliath-density":
         return await fetchGoliathNFTsByDensity(ALCHEMY_API_KEY)
-      case "old-rock":
-        return await fetchOldRockNFTs(ALCHEMY_API_KEY)
       case "collection-stats":
         return await fetchCollectionStats(ALCHEMY_API_KEY)
       default:
@@ -36,11 +36,12 @@ export async function GET(request: NextRequest) {
   }
 }
 
-async function fetchGoliathNFTs() {
+async function fetchRandomNFTs(collection: string) {
   try {
     const response = await fetch(
-      `https://metadata.oldrocknft.com/goliath/random`,
+      `https://metadata.oldrocknft.com/${collection}/random`,
       {
+        cache: "no-store",
         method: "GET",
         headers: {
           Accept: "application/json",
@@ -57,25 +58,23 @@ async function fetchGoliathNFTs() {
     console.log("✅ Metadata service API response received, processing NFTs...")
 
     if (!data || data.length === 0) {
-      console.warn("⚠️ No Goliath NFTs found in collection");
+      console.warn("⚠️ No NFTs found in collection");
       return NextResponse.json({ success: false, error: "No NFTs found" })
     }
 
     const processedImages = []
 
     for (const nft of data) {
-      processedImages.push(nft.image.replace('.webp', '-300.webp'));
+      processedImages.push(nft?.image.replace('.webp', '-300.webp'));
 
       if (processedImages.length >= 16) {
         break
       }
     }
 
-    const shuffledImages = processedImages.sort(() => Math.random() - 0.5)
-
     return NextResponse.json({
       success: true,
-      images: shuffledImages,
+      images: processedImages,
     })
   } catch (error) {
     console.error("💥 Error fetching Goliath NFTs:", error)

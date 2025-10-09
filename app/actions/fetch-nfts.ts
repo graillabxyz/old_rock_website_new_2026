@@ -22,6 +22,31 @@ export async function fetchGoliathNFTs() {
   }
 }
 
+export async function fetchOldRockNFTs() {
+  try {
+    const response = await fetch("/api/nfts?action=oldrock", {
+      method: "GET",
+      cache: "no-store",
+    })
+
+    if (!response.ok) {
+      console.error(`❌ API error: ${response.status} ${response.statusText}`)
+      return { success: false, nfts: {}, counts: {}, error: `API Error: ${response.status}` }
+    }
+
+    const data = await response.json()
+    return data
+  } catch (error) {
+    console.error("💥 Error fetching Old Rock NFTs:", error)
+    return {
+      success: false,
+      nfts: {},
+      counts: {},
+      error: error instanceof Error ? error.message : "Unknown error occurred",
+    }
+  }
+}
+
 export async function fetchCollectionStats() {
   try {
     const response = await fetch("/api/nfts?action=collection-stats", {
@@ -41,31 +66,6 @@ export async function fetchCollectionStats() {
     return {
       success: false,
       stats: null,
-      error: error instanceof Error ? error.message : "Unknown error occurred",
-    }
-  }
-}
-
-export async function fetchOldRockNFTs() {
-  try {
-    const response = await fetch("/api/nfts?action=old-rock", {
-      method: "GET",
-      cache: "no-store",
-    })
-
-    if (!response.ok) {
-      console.error(`❌ API error: ${response.status} ${response.statusText}`)
-      return { success: false, nfts: {}, counts: {}, error: `API Error: ${response.status}` }
-    }
-
-    const data = await response.json()
-    return data
-  } catch (error) {
-    console.error("💥 Error fetching Old Rock NFTs:", error)
-    return {
-      success: false,
-      nfts: {},
-      counts: {},
       error: error instanceof Error ? error.message : "Unknown error occurred",
     }
   }

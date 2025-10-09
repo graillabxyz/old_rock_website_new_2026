@@ -4,7 +4,7 @@ import { motion } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import Image from "next/image"
 import { useState, useEffect } from "react"
-import { fetchGoliathNFTs } from "@/app/actions/fetch-nfts"
+import { fetchGoliathNFTs, fetchOldRockNFTs } from "@/app/actions/fetch-nfts"
 
 export function NFTCollectionsSection() {
   // Create array for 4x4 grid
@@ -13,35 +13,35 @@ export function NFTCollectionsSection() {
   const [nftImages, setNftImages] = useState<string[]>([])
   const [isLoadingNFTs, setIsLoadingNFTs] = useState(true)
   const [loadErrors, setLoadErrors] = useState<Record<number, boolean>>({})
+  const [activeCollection, setActiveCollection] = useState<"GOLIATH" | "OLD_ROCK">("GOLIATH")
 
-  // Fetch random Goliath NFTs using server action
+  // Fetch NFTs for the active collection
   useEffect(() => {
-    const loadGoliathNFTs = async () => {
+    const loadImages = async () => {
       setIsLoadingNFTs(true)
+      setLoadErrors({})
       try {
-        const result = await fetchGoliathNFTs()
+        const result =
+          activeCollection === "GOLIATH" ? await fetchGoliathNFTs() : await fetchOldRockNFTs()
         if (result.success) {
-          const images = result.images
-          // Fill remaining slots with placeholders if needed
+          const images = result.images as string[]
           while (images.length < 16) {
             images.push("/images/nft-placeholder.jpg")
           }
           setNftImages(images)
-          console.log("Fetched Goliath NFTs for grid:", result.images.length)
         } else {
-          // Use placeholder images on error
           setNftImages(Array(16).fill("/images/nft-placeholder.jpg"))
         }
       } catch (error) {
-        console.error("Error loading Goliath NFTs:", error)
+        console.error("Error loading NFT images:", error)
         setNftImages(Array(16).fill("/images/nft-placeholder.jpg"))
       } finally {
         setIsLoadingNFTs(false)
       }
     }
 
-    loadGoliathNFTs()
-  }, [])
+    loadImages()
+  }, [activeCollection])
 
   // Handle image load error
   const handleImageError = (index: number) => {
@@ -82,55 +82,79 @@ export function NFTCollectionsSection() {
           >
             <div>
               <p className="text-purple-400 text-sm font-bold font-pt-mono mb-1">CHAPTER 1 • THE GENESIS COLLECTION</p>
-              <a
-                href="https://opensea.io/collection/oldrock"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-3xl md:text-4xl font-black font-montserrat hover:text-purple-400 transition-colors cursor-pointer text-white"
+              <button
+                type="button"
+                onClick={() => setActiveCollection("OLD_ROCK")}
+                className={`text-3xl md:text-4xl font-black font-montserrat transition-colors cursor-pointer ${
+                  activeCollection === "OLD_ROCK" ? "text-white hover:text-purple-400" : "text-purple-400"
+                }`}
               >
                 OLD ROCK
-              </a>
+              </button>
             </div>
 
             <div>
               <p className="text-purple-400 text-sm font-bold font-pt-mono mb-1">CHAPTER 2 • THE GAME PIECES</p>
-              <a
-                href="https://opensea.io/collection/oldrock-goliath"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-3xl md:text-4xl font-black font-montserrat text-purple-400 hover:text-purple-300 transition-colors cursor-pointer"
+              <button
+                type="button"
+                onClick={() => setActiveCollection("GOLIATH")}
+                className={`text-3xl md:text-4xl font-black font-montserrat transition-colors cursor-pointer ${
+                  activeCollection === "GOLIATH" ? "text-white hover:text-purple-300" : "text-purple-400"
+                }`}
               >
                 GOLIATH
-              </a>
+              </button>
             </div>
 
-            <h4 className="text-xl font-black font-montserrat mt-6 text-white">PUBLIC MINT</h4>
+            {activeCollection === "GOLIATH" ? (
+              <h4 className="text-xl font-black font-montserrat mt-6 text-white">PUBLIC MINT</h4>
+            ) : (
+              <h4 className="text-xl font-black font-montserrat mt-6 text-white">MINT COMPLETE</h4>
+            )}
 
             <div className="space-y-4 font-pt-mono text-sm leading-relaxed text-gray-300">
-              <p>
-                Goliath is a collection of the individuals that live within the fictional world of Old Rock. Some are
-                unaffected by the Goliath disease, and some are not as lucky.
-              </p>
-              <p>
-                Each Goliath NFT is your pass to future gaming experiences in the Old Rock ecosystem, as well as an
-                integral element to our unique rarity & combination based staking platform.
-              </p>
+              {activeCollection === "GOLIATH" ? (
+                <>
+                  <p>
+                    Goliath is a collection of the individuals that live within the fictional world of Old Rock. Some are
+                    unaffected by the Goliath disease, and some are not as lucky.
+                  </p>
+                  <p>
+                    Each Goliath NFT is your pass to future gaming experiences in the Old Rock ecosystem, as well as an
+                    integral element to our unique rarity & combination based staking platform.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p>
+                    An enigmatic world exists among these Old Rocks... and the path to enter this world is at your fingertips.
+                  </p>
+                  <p>
+                    Old Rock is the genesis collection of the Old Rock ecosystem and the foundation of the Amplify Rewards Program.
+                  </p>
+                </>
+              )}
               <p>If you have any questions please join our Discord and open a ticket.</p>
             </div>
 
-            <motion.div
-              className="pt-4"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              transition={{ duration: 0.2 }}
-            >
-              <Button
-                className="bg-purple-500 hover:bg-purple-600 text-white px-8 py-3 text-lg font-bold rounded-lg font-pt-mono transition-colors duration-300"
-                onClick={() => window.open("https://mint.oldrocknft.com", "_blank")}
+            <div className="flex items-center gap-4">
+              {activeCollection === "GOLIATH" && (
+                <Button
+                  className="bg-purple-500 hover:bg-purple-600 text-white px-8 py-3 text-lg font-bold rounded-lg font-pt-mono transition-colors duration-300"
+                  onClick={() => window.open("https://mint.oldrocknft.com", "_blank")}
+                >
+                  GO TO MINT PAGE
+                </Button>
+              )}
+              <a
+                href={activeCollection === "GOLIATH" ? "https://opensea.io/collection/oldrock-goliath" : "https://opensea.io/collection/oldrock"}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm font-pt-mono text-gray-400 hover:text-gray-200 underline underline-offset-4"
               >
-                GO TO MINT PAGE
-              </Button>
-            </motion.div>
+                View on OpenSea
+              </a>
+            </div>
           </motion.div>
         </motion.div>
 
@@ -173,7 +197,7 @@ export function NFTCollectionsSection() {
               ) : (
                 <Image
                   src={nftImages[index] || "/images/nft-placeholder.jpg"}
-                  alt={`Goliath NFT ${index + 1}`}
+                  alt={`${activeCollection === "GOLIATH" ? "Goliath" : "Old Rock"} NFT ${index + 1}`}
                   fill
                   loading="lazy"
                   className="object-cover"
