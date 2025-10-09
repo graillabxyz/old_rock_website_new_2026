@@ -95,7 +95,7 @@ export default function OldRockSite() {
   return (
     <div className="flex">
       <Sidebar isWalletConnected={isWalletConnected} userProfile={userProfile} />
-      <div ref={containerRef} className="min-h-[500vh] text-white overflow-hidden relative w-full ml-0 md:ml-[79px]">
+      <div ref={containerRef} className="min-h-screen flex flex-col text-white overflow-hidden relative w-full ml-0 md:ml-[79px]">
         <CyberpunkBackground />
         <Header />
         <HeroSection backgroundY={backgroundY} textY={textY} />

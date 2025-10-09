@@ -6,7 +6,7 @@ import { ChevronDown, ArrowUpDown, TrendingUp, Lock } from "lucide-react"
 
 export function DensitySwapSection() {
   return (
-    <section className="relative z-20 min-h-screen py-12 md:py-20 w-full">
+    <section className="relative z-20 py-12 md:py-20 w-full mb-20">
       <div className="w-full px-6 lg:px-12 xl:px-16 relative z-10">
         {/* Section Header */}
         <motion.div
