@@ -24,6 +24,8 @@ export async function GET(request: NextRequest) {
         return await fetchGoliathNFTsByDensity(ALCHEMY_API_KEY)
       case "collection-stats":
         return await fetchCollectionStats(ALCHEMY_API_KEY)
+      case "user-data":
+        return await fetchUserData(request)
       default:
         return NextResponse.json({ success: false, error: "Invalid action" }, { status: 400 })
     }
@@ -31,6 +33,78 @@ export async function GET(request: NextRequest) {
     console.error("💥 Error in NFT API route:", error)
     return NextResponse.json(
       { success: false, error: error instanceof Error ? error.message : "Unknown error" },
+      { status: 500 },
+    )
+  }
+}
+
+async function fetchUserData(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url)
+    const walletAddress = searchParams.get("walletAddress")
+
+    if (!walletAddress) {
+      return NextResponse.json({ success: false, error: "Wallet address required" }, { status: 400 })
+    }
+
+    const authResponse = await fetch(
+      `https://amplify-api.oldrocknft.com/auth`,
+      {
+        method: "POST",
+        cache: "no-store",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          client: 'old-rock-website-c3f4e151d9d0',
+          secret: process.env.AMPLIFY_API_CLIENT_SECRET,
+        }),
+      },
+    );
+
+    if (!authResponse.ok) {
+      console.error(`❌ Amplify API authorization error: ${authResponse.status} ${authResponse.statusText}`)
+      return NextResponse.json({ success: false, error: `API Error: ${authResponse.status}` }, { status: authResponse.status })
+    }
+
+    const authData = await authResponse.json()
+
+    if (!authData?.data?.token) {
+      console.error(`❌ Amplify API authorization error: No token found`);
+      return NextResponse.json({ success: false, error: `API Error: no authorization token found`});
+    }
+
+    console.log(authData.data.token)
+
+    const response = await fetch(
+      `https://amplify-api.oldrocknft.com/user/${walletAddress}`,
+      {
+        method: "GET",
+        cache: "no-store",
+        headers: {
+          "authorization": authData.data.token,
+        },
+      },
+    )
+
+    if (!response.ok) {
+      console.error(`❌ Amplify API service error: ${response.status} ${response.statusText}`)
+      return NextResponse.json({ success: false, error: `API Error: ${response.status}` }, { status: response.status })
+    }
+
+    const data = await response.json()
+    console.log("✅ Amplify API service response received, processing user data...")
+
+    return NextResponse.json({
+      success: true,
+      data: {
+        ensName: data?.data?.ensName,
+        discord: !!data?.data?.social?.discord,
+        x: !!data?.data?.social?.x,
+      },
+    })
+  } catch (error) {
+    console.error("💥 Error fetching user data:", error)
+    return NextResponse.json(
+      { success: false, error: error instanceof Error ? error.message : "Unknown error occurred" },
       { status: 500 },
     )
   }
@@ -433,3 +507,4 @@ async function fetchGoliathNFTsByDensity(ALCHEMY_API_KEY: string) {
     )
   }
 }
+

@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "framer-motion"
 import Image from "next/image"
 import { ChevronDown, Copy, ExternalLink, LogOut, Wallet, Plus, Settings, Check } from "lucide-react"
 import Link from "next/link"
+import { fetchUserData } from "@/app/actions/fetch-user-data"
 
 interface Props {
   className?: string
@@ -22,6 +23,7 @@ const SimpleWalletButton: React.FC<Props> = ({ className, onConnectionChange, pr
   const [isConnecting, setIsConnecting] = useState(false)
   const [connectedAccounts, setConnectedAccounts] = useState<string[]>([])
   const [selectedAccount, setSelectedAccount] = useState<string>("")
+  const [userData, setUserData] = useState({})
 
   // New states for social connections
   const [isDiscordConnected, setIsDiscordConnected] = useState(false)
@@ -92,6 +94,19 @@ const SimpleWalletButton: React.FC<Props> = ({ className, onConnectionChange, pr
     setSelectedAccount(userAddress)
     setAddress(userAddress)
     setIsConnected(true)
+
+    if (userAddress) {
+      const loadUserData = async () => {
+        const result = await fetchUserData(userAddress)
+        
+        if (result.success) {
+          // Use result.data for your dropdown
+          console.log("User data:", result.data)
+        }
+      }
+  
+      loadUserData()
+    }
 
     // Store connected accounts in localStorage
     localStorage.setItem("connectedAccounts", JSON.stringify(accounts))
@@ -397,9 +412,8 @@ const SimpleWalletButton: React.FC<Props> = ({ className, onConnectionChange, pr
                       <button
                         key={account}
                         onClick={() => switchAccount(account)}
-                        className={`w-full flex items-center space-x-2 px-3 py-2 text-gray-300 hover:text-white hover:bg-gray-800/50 rounded-lg transition-colors font-pt-mono text-sm ${
-                          account === selectedAccount ? "bg-gray-800/50 text-white" : ""
-                        }`}
+                        className={`w-full flex items-center space-x-2 px-3 py-2 text-gray-300 hover:text-white hover:bg-gray-800/50 rounded-lg transition-colors font-pt-mono text-sm ${account === selectedAccount ? "bg-gray-800/50 text-white" : ""
+                          }`}
                       >
                         <span>
                           {account.slice(0, 6)}...{account.slice(-4)}
