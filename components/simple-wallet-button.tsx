@@ -100,8 +100,19 @@ const SimpleWalletButton: React.FC<Props> = ({ className, onConnectionChange, pr
         const result = await fetchUserData(userAddress)
         
         if (result.success) {
-          // Use result.data for your dropdown
-          console.log("User data:", result.data)
+          setUserData(result);
+
+          if (result.data.discord) {
+            setIsDiscordConnected(true);
+          } else {
+            setIsDiscordConnected(false)
+          }
+
+          if (result.data.x) {
+            setIsTwitterConnected(true);
+          } else {
+            setIsTwitterConnected(false)
+          }
         }
       }
   
@@ -316,26 +327,6 @@ const SimpleWalletButton: React.FC<Props> = ({ className, onConnectionChange, pr
     setIsDropdownOpen(false)
   }
 
-  const connectDiscord = () => {
-    // Simulate Discord connection
-    setTimeout(() => {
-      setIsDiscordConnected(true)
-      localStorage.setItem("discordConnected", "true")
-      setIsDropdownOpen(false)
-      alert("Discord connected successfully!") // Provide feedback
-    }, 1000)
-  }
-
-  const connectTwitter = () => {
-    // Simulate Twitter connection
-    setTimeout(() => {
-      setIsTwitterConnected(true)
-      localStorage.setItem("twitterConnected", "true")
-      setIsDropdownOpen(false)
-      alert("X connected successfully!") // Provide feedback
-    }, 1000)
-  }
-
   if (!isConnected) {
     return (
       <button
@@ -437,7 +428,7 @@ const SimpleWalletButton: React.FC<Props> = ({ className, onConnectionChange, pr
 
                 {/* Discord Connection */}
                 <button
-                  onClick={connectDiscord}
+                  onClick={() => window.open("https://amplify-api.oldrocknft.com/auth/discord", "_blank")}
                   disabled={isDiscordConnected}
                   className="w-full flex items-center space-x-2 px-3 py-2 text-gray-300 hover:text-white hover:bg-gray-800/50 rounded-lg transition-colors font-pt-mono text-sm disabled:opacity-70 disabled:cursor-not-allowed"
                 >
@@ -457,7 +448,7 @@ const SimpleWalletButton: React.FC<Props> = ({ className, onConnectionChange, pr
 
                 {/* X Connection */}
                 <button
-                  onClick={connectTwitter}
+                  onClick={() => window.open("https://amplify-api.oldrocknft.com/auth/x", "_blank")}
                   disabled={isTwitterConnected}
                   className="w-full flex items-center space-x-2 px-3 py-2 text-gray-300 hover:text-white hover:bg-gray-800/50 rounded-lg transition-colors font-pt-mono text-sm disabled:opacity-70 disabled:cursor-not-allowed"
                 >
