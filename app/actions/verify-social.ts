@@ -2,6 +2,8 @@ export async function verifySocial(platform: string, walletAddress: string, sign
     try {
         const response = await fetch(`/api/nfts?action=verify-social`, {
             method: "POST",
+            cache: "no-store",
+            credentials: "include",
             headers: {
                 "Content-Type": "application/json",
             },

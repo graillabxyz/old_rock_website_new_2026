@@ -61,6 +61,7 @@ export async function POST(request: NextRequest) {
 async function verifySocial(request: NextRequest) {
   try {
     const body = await request.json();
+    const cookieHeader = request.headers.get('cookie') ?? '';
     const response = await fetch(
       `${process.env.NEXT_PUBLIC_AMPLIFY_API_URL}/verify/${body.platform}/${body.walletAddress}`,
       {
@@ -70,6 +71,7 @@ async function verifySocial(request: NextRequest) {
         headers: {
           "Content-Type": "application/json",
           signature: body.signature,
+          cookie: cookieHeader,
         }
       },
     )
