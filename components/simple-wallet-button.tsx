@@ -4,14 +4,20 @@ import type React from "react"
 import { useState, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import Image from "next/image"
-import { ChevronDown, Copy, ExternalLink, LogOut, Wallet, Plus, Settings, Check } from "lucide-react"
+import { ChevronDown, Copy, ExternalLink, LogOut, Wallet, Plus, Settings, Check, X } from "lucide-react"
 import Link from "next/link"
 import { fetchUserData } from "@/app/actions/fetch-user-data"
+import { verifySocial } from "@/app/actions/verify-social"
 
 interface Props {
   className?: string
   onConnectionChange?: (connected: boolean, address?: string, avatar?: string) => void
   profileNFT?: any
+}
+
+const verificationMessages = {
+  x: "Old Rock / Amplify / Verify + link\n\nBy signing this message, I allow Old Rock NFT to verify ownership of my wallet address and link my 𝕏 account.",
+  discord: "Old Rock / Amplify / Verify + link\n\nBy signing this message, I allow Old Rock NFT to verify ownership of my wallet address and link my Discord account.",
 }
 
 const SimpleWalletButton: React.FC<Props> = ({ className, onConnectionChange, profileNFT }) => {
@@ -23,11 +29,53 @@ const SimpleWalletButton: React.FC<Props> = ({ className, onConnectionChange, pr
   const [isConnecting, setIsConnecting] = useState(false)
   const [connectedAccounts, setConnectedAccounts] = useState<string[]>([])
   const [selectedAccount, setSelectedAccount] = useState<string>("")
-  const [userData, setUserData] = useState({})
-
-  // New states for social connections
   const [isDiscordConnected, setIsDiscordConnected] = useState(false)
   const [isTwitterConnected, setIsTwitterConnected] = useState(false)
+  let flow: string;
+
+  if (typeof window !== "undefined") {
+    const params = new URLSearchParams(window.location.search)
+
+    flow = params.get('flow') || ''
+  }
+
+  async function doVerifySocial(platform:string) {
+    try {
+      if (!window.ethereum) {
+        console.error("No wallet detected. Please install MetaMask or another Web3 wallet.")
+        return;
+      }
+
+      const [address] = await window.ethereum.request({ method: "eth_requestAccounts" });
+      if (!address) {
+        console.error("No wallet address found")
+        return;
+      }
+
+      const signature = await window.ethereum.request({
+        method: "personal_sign",
+        params: [verificationMessages[platform], address],
+      });
+
+      await verifySocial(platform, address, signature)
+        .catch((error) => {
+          const errorMessage = error?.response?.data?.message;
+
+          if (errorMessage?.includes("timeout")) {
+            console.error("You must wait before performing this action again");
+          } else {
+            console.error(errorMessage || "Verification failed", "error");
+          }
+        })
+        .finally(() => {
+          console.log("Your wallet address has been verified and account linked", "success");
+          window.history.replaceState({}, document.title, window.location.pathname);
+          loadUserData(address)
+        });
+    } catch (err) {
+      console.error("Wallet verification failed:", err);
+    }
+  }
 
   // Check connection on mount
   useEffect(() => {
@@ -88,6 +136,24 @@ const SimpleWalletButton: React.FC<Props> = ({ className, onConnectionChange, pr
     setIsTwitterConnected(savedTwitter)
   }
 
+  const loadUserData = async (address) => {
+    const result = await fetchUserData(address)
+
+    if (result.success) {
+      if (result.data.discord) {
+        setIsDiscordConnected(true)
+      } else {
+        setIsDiscordConnected(false)
+      }
+
+      if (result.data.x) {
+        setIsTwitterConnected(true)
+      } else {
+        setIsTwitterConnected(false)
+      }
+    }
+  }
+
   const handleConnection = async (accounts: string[]) => {
     setConnectedAccounts(accounts)
     const userAddress = accounts[0]
@@ -96,27 +162,19 @@ const SimpleWalletButton: React.FC<Props> = ({ className, onConnectionChange, pr
     setIsConnected(true)
 
     if (userAddress) {
-      const loadUserData = async () => {
-        const result = await fetchUserData(userAddress)
-        
-        if (result.success) {
-          setUserData(result);
-
-          if (result.data.discord) {
-            setIsDiscordConnected(true);
-          } else {
-            setIsDiscordConnected(false)
-          }
-
-          if (result.data.x) {
-            setIsTwitterConnected(true);
-          } else {
-            setIsTwitterConnected(false)
-          }
+      if (flow === 'auth-x' || flow === 'auth-discord') {
+        if (flow === 'auth-discord') {
+          doVerifySocial('discord')
         }
+
+        if (flow === 'auth-x') {
+          doVerifySocial('x')
+        }
+
+        flow = '';
       }
-  
-      loadUserData()
+
+      loadUserData(userAddress)
     }
 
     // Store connected accounts in localStorage
@@ -428,7 +486,7 @@ const SimpleWalletButton: React.FC<Props> = ({ className, onConnectionChange, pr
 
                 {/* Discord Connection */}
                 <button
-                  onClick={() => window.open(`${process.env.NEXT_PUBLIC_AMPLIFY_API_URL}/auth/discord?from=website`, "_blank")}
+                  onClick={() => window.open(`${process.env.NEXT_PUBLIC_AMPLIFY_API_URL}/auth/discord?from=website`, "_self")}
                   className="w-full flex items-center space-x-2 px-3 py-2 text-gray-300 hover:text-white hover:bg-gray-800/50 rounded-lg transition-colors font-pt-mono text-sm disabled:opacity-70 disabled:cursor-not-allowed"
                 >
                   <svg
@@ -447,7 +505,7 @@ const SimpleWalletButton: React.FC<Props> = ({ className, onConnectionChange, pr
 
                 {/* X Connection */}
                 <button
-                  onClick={() => window.open(`${process.env.NEXT_PUBLIC_AMPLIFY_API_URL}/auth/x?from=website`, "_blank")}
+                  onClick={() => window.open(`${process.env.NEXT_PUBLIC_AMPLIFY_API_URL}/auth/x?from=website`, "_self")}
                   className="w-full flex items-center space-x-2 px-3 py-2 text-gray-300 hover:text-white hover:bg-gray-800/50 rounded-lg transition-colors font-pt-mono text-sm disabled:opacity-70 disabled:cursor-not-allowed"
                 >
                   <svg

@@ -38,6 +38,57 @@ export async function GET(request: NextRequest) {
   }
 }
 
+export async function POST(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url)
+    const action = searchParams.get("action")
+
+    switch (action) {
+      case "verify-social":
+        return await verifySocial(request)
+      default:
+        return NextResponse.json({ success: false, error: "Invalid action" }, { status: 400 })
+    }
+  } catch (error) {
+    console.error("💥 Error in NFT API route:", error)
+    return NextResponse.json(
+      { success: false, error: error instanceof Error ? error.message : "Unknown error" },
+      { status: 500 },
+    )
+  }
+}
+
+async function verifySocial(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const response = await fetch(
+      `${process.env.NEXT_PUBLIC_AMPLIFY_API_URL}/verify/${body.platform}/${body.walletAddress}`,
+      {
+        method: "POST",
+        cache: "no-store",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          signature: body.signature,
+        }
+      },
+    )
+
+    if (!response.ok) {
+      console.error(`❌ API error: ${response.status} ${response.statusText}`)
+      return NextResponse.json({ success: false, error: `API Error: ${response.status}` }, { status: response.status })
+    }
+
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    console.error("💥 Error verifying social against API:", error)
+    return NextResponse.json(
+      { success: false, error: error instanceof Error ? error.message : "Unknown error occurred" },
+      { status: 500 },
+    )
+  }
+}
+
 async function fetchUserData(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
@@ -71,8 +122,6 @@ async function fetchUserData(request: NextRequest) {
       console.error(`❌ Amplify API authorization error: No token found`);
       return NextResponse.json({ success: false, error: `API Error: no authorization token found`});
     }
-
-    console.log(authData.data.token)
 
     const response = await fetch(
       `${process.env.NEXT_PUBLIC_AMPLIFY_API_URL}/user/${walletAddress}`,
@@ -151,7 +200,7 @@ async function fetchRandomNFTs(collection: string) {
       images: processedImages,
     })
   } catch (error) {
-    console.error("💥 Error fetching Goliath NFTs:", error)
+    console.error("💥 Error fetching random NFTs:", error)
     return NextResponse.json(
       { success: false, error: error instanceof Error ? error.message : "Unknown error occurred" },
       { status: 500 },
