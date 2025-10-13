@@ -428,8 +428,7 @@ const SimpleWalletButton: React.FC<Props> = ({ className, onConnectionChange, pr
 
                 {/* Discord Connection */}
                 <button
-                  onClick={() => window.open("https://amplify-api.oldrocknft.com/auth/discord", "_blank")}
-                  disabled={isDiscordConnected}
+                  onClick={() => window.open(`${process.env.NEXT_PUBLIC_AMPLIFY_API_URL}/auth/discord?from=website`, "_blank")}
                   className="w-full flex items-center space-x-2 px-3 py-2 text-gray-300 hover:text-white hover:bg-gray-800/50 rounded-lg transition-colors font-pt-mono text-sm disabled:opacity-70 disabled:cursor-not-allowed"
                 >
                   <svg
@@ -448,8 +447,7 @@ const SimpleWalletButton: React.FC<Props> = ({ className, onConnectionChange, pr
 
                 {/* X Connection */}
                 <button
-                  onClick={() => window.open("https://amplify-api.oldrocknft.com/auth/x", "_blank")}
-                  disabled={isTwitterConnected}
+                  onClick={() => window.open(`${process.env.NEXT_PUBLIC_AMPLIFY_API_URL}/auth/x?from=website`, "_blank")}
                   className="w-full flex items-center space-x-2 px-3 py-2 text-gray-300 hover:text-white hover:bg-gray-800/50 rounded-lg transition-colors font-pt-mono text-sm disabled:opacity-70 disabled:cursor-not-allowed"
                 >
                   <svg

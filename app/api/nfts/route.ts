@@ -48,7 +48,7 @@ async function fetchUserData(request: NextRequest) {
     }
 
     const authResponse = await fetch(
-      `https://amplify-api.oldrocknft.com/auth`,
+      `${process.env.NEXT_PUBLIC_AMPLIFY_API_URL}/auth`,
       {
         method: "POST",
         cache: "no-store",
@@ -75,7 +75,7 @@ async function fetchUserData(request: NextRequest) {
     console.log(authData.data.token)
 
     const response = await fetch(
-      `https://amplify-api.oldrocknft.com/user/${walletAddress}`,
+      `${process.env.NEXT_PUBLIC_AMPLIFY_API_URL}/user/${walletAddress}`,
       {
         method: "GET",
         cache: "no-store",
@@ -113,7 +113,7 @@ async function fetchUserData(request: NextRequest) {
 async function fetchRandomNFTs(collection: string) {
   try {
     const response = await fetch(
-      `https://metadata.oldrocknft.com/${collection}/random`,
+      `${process.env.METADATA_SERVICE_URL}/${collection}/random`,
       {
         cache: "no-store",
         method: "GET",
