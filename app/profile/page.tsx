@@ -459,6 +459,7 @@ export default function ProfilePage() {
           )}
 
           {/* Badges Section */}
+          {/*}
           <div className="mb-12">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-2xl font-bold text-white">Badges</h2>
@@ -499,6 +500,7 @@ export default function ProfilePage() {
               )}
             </div>
           </div>
+          {*/}
 
           {/* NFT Collection */}
           <div>
