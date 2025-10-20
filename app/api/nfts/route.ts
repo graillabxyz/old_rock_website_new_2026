@@ -26,6 +26,8 @@ export async function GET(request: NextRequest) {
         return await fetchCollectionStats(ALCHEMY_API_KEY)
       case "user-data":
         return await fetchUserData(request)
+      case "user-density":
+        return await fetchUserDensity(request)
       default:
         return NextResponse.json({ success: false, error: "Invalid action" }, { status: 400 })
     }
@@ -154,6 +156,44 @@ async function fetchUserData(request: NextRequest) {
     })
   } catch (error) {
     console.error("💥 Error fetching user data:", error)
+    return NextResponse.json(
+      { success: false, error: error instanceof Error ? error.message : "Unknown error occurred" },
+      { status: 500 },
+    )
+  }
+}
+
+async function fetchUserDensity(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url)
+    const walletAddress = searchParams.get("walletAddress")
+
+    if (!walletAddress) {
+      return NextResponse.json({ success: false, error: "Wallet address required" }, { status: 400 })
+    }
+
+    const response = await fetch(
+      `${process.env.NEXT_PUBLIC_AMPLIFY_API_URL}/density/${walletAddress}`,
+      {
+        method: "GET",
+        cache: "no-store",
+      },
+    )
+
+    if (!response.ok) {
+      console.error(`❌ Amplify API service error: ${response.status} ${response.statusText}`)
+      return NextResponse.json({ success: false, error: `API Error: ${response.status}` }, { status: response.status })
+    }
+
+    const data = await response.json()
+    console.log("✅ Amplify API service response received, processing user DENSITY data...")
+
+    return NextResponse.json({
+      success: true,
+      data: data?.data
+    })
+  } catch (error) {
+    console.error("💥 Error fetching user DENSITY data:", error)
     return NextResponse.json(
       { success: false, error: error instanceof Error ? error.message : "Unknown error occurred" },
       { status: 500 },

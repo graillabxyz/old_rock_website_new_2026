@@ -5,12 +5,17 @@ import Image from "next/image"
 import { SimpleWalletButton } from "@/components/simple-wallet-button"
 import { SearchBar } from "@/components/search-bar"
 import { useRouter } from "next/navigation"
+import { fetchUserDensity } from "@/app/actions/fetch-user-density"
 
 export function Header() {
   const [isConnected, setIsConnected] = useState(false)
   const [walletAddress, setWalletAddress] = useState("")
-  const [usdcBalance, setUsdcBalance] = useState("0.00")
-  const [densityBalance, setDensityBalance] = useState("0.00")
+  const [usdcBalance, setUsdcBalance] = useState(0.00)
+  const [densityAmount, setDensityAmount] = useState(0.00)
+  const [densityWalletAmount, setDensityWalletAmount] = useState(0.00)
+  const [densityAllocated, setDensityAllocated] = useState(0.00)
+  const [densityLocked, setDensityLocked] = useState(0.00)
+  const [densityUnclaimed, setDensityUnclaimed] = useState(0.00)
   const [densityDropdownOpen, setDensityDropdownOpen] = useState(false)
   const [sidebarExpanded, setSidebarExpanded] = useState(false)
   const [selectedProfileNFT, setSelectedProfileNFT] = useState<any>(null)
@@ -18,12 +23,6 @@ export function Header() {
 
   const router = useRouter()
 
-  // Mock DENSITY balance breakdown
-  const densityBreakdown = {
-    ecosystem: "847.23",
-    wallet: "325.60",
-    unextracted: "75.00",
-  }
 
   // Load saved profile NFT on mount
   useEffect(() => {
@@ -130,6 +129,7 @@ export function Header() {
           {isConnected && (
             <>
               {/* USDC Balance */}
+              {/*
               <div className="hidden lg:flex items-center space-x-2 bg-gray-800/60 backdrop-blur-sm border border-gray-600/30 rounded-xl px-3 md:px-4 py-2">
                 <Image
                   src="/icons/usdc-icon.png"
@@ -142,6 +142,7 @@ export function Header() {
                 />
                 <span className="text-white font-pt-mono text-xs md:text-sm font-bold">{usdcBalance} USDC</span>
               </div>
+              */}
 
               {/* DENSITY Balance - Show on mobile but simplified */}
               <div className="relative density-dropdown-container">
@@ -161,7 +162,7 @@ export function Header() {
                     sizes="20px"
                   />
                   <span className="text-white font-pt-mono font-bold text-xs md:text-sm">
-                    <span className="hidden sm:inline">{densityBalance} </span>$DENSITY
+                    <span className="hidden sm:inline">{densityAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} </span>$DENSITY
                   </span>
                 </div>
                 {/* Dropdown remains the same but with mobile-specific positioning */}
@@ -190,7 +191,7 @@ export function Header() {
                               height={16}
                               className="w-4 h-4"
                             />
-                            <span className="text-white font-pt-mono font-bold">{densityBreakdown.ecosystem}</span>
+                            <span className="text-white font-pt-mono font-bold">{densityAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                           </div>
                         </div>
 
@@ -207,25 +208,27 @@ export function Header() {
                               height={16}
                               className="w-4 h-4"
                             />
-                            <span className="text-white font-pt-mono font-bold">{densityBreakdown.wallet}</span>
+                            <span className="text-white font-pt-mono font-bold">{densityWalletAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                           </div>
                         </div>
 
                         {/* Unextracted Balance */}
                         <div>
-                          <div className="text-xs text-gray-400 font-pt-mono font-bold uppercase tracking-wider mb-1">
-                            UNEXTRACTED BALANCE
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <Image
-                              src="/images/density-white.svg"
-                              alt="DENSITY"
-                              width={16}
-                              height={16}
-                              className="w-4 h-4"
-                            />
-                            <span className="text-white font-pt-mono font-bold">{densityBreakdown.unextracted}</span>
-                          </div>
+                          <a href="http://amplify.oldrocknft.com" target="_blank">
+                            <div className="text-xs text-gray-400 font-pt-mono font-bold uppercase tracking-wider mb-1">
+                              UNEXTRACTED BALANCE
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <Image
+                                src="/images/density-white.svg"
+                                alt="DENSITY"
+                                width={16}
+                                height={16}
+                                className="w-4 h-4"
+                              />
+                              <span className="text-white font-pt-mono font-bold">{densityUnclaimed.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                            </div>
+                          </a>
                         </div>
                       </div>
                     </motion.div>
@@ -237,16 +240,28 @@ export function Header() {
 
           {/* Wallet Section */}
           <SimpleWalletButton
-            onConnectionChange={(connected, address, avatar) => {
+            onConnectionChange={async (connected, address, avatar) => {
               setIsConnected(connected)
+
               if (connected && address) {
+                const result = await fetchUserDensity(address);
+
+                if (result.success) {
+                  setDensityAmount(result.data.amount)
+                  setDensityWalletAmount(0.00)
+                  setDensityAllocated(result.data.amountAllocated)
+                  setDensityLocked(result.data.amountLocked)
+                  setDensityUnclaimed(result.data.amountUnclaimed)
+                }
+
                 setWalletAddress(address)
-                setDensityBalance("1,247.83")
-                setUsdcBalance("125.50")
               } else {
                 setWalletAddress("")
-                setUsdcBalance("0.00")
-                setDensityBalance("0.00")
+                setDensityAmount(0.00)
+                setDensityWalletAmount(0.00)
+                setDensityAllocated(0.00)
+                setDensityLocked(0.00)
+                setDensityUnclaimed(0.00)
               }
             }}
             profileNFT={selectedProfileNFT}
