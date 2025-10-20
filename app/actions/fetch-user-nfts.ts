@@ -5,35 +5,17 @@
 
 export async function fetchUserNFTs(walletAddress: string) {
   try {
-    const ALCHEMY_API_KEY = process.env.ALCHEMY_API_KEY
-
-    if (!ALCHEMY_API_KEY) {
-      console.warn("Alchemy API key not found")
-      return { success: false, oldRockNFTs: [], goliathNFTs: [] }
-    }
-
     // Create AbortController for timeout
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), 10000) // 10 second timeout
 
     try {
-      // Fetch Old Rock NFTs for the user
-      const oldRockResponse = await fetch(
-        `https://eth-mainnet.g.alchemy.com/nft/v3/${ALCHEMY_API_KEY}/getNFTsForOwner?owner=${walletAddress}&contractAddresses[]=0x5c83df384971eF5bA252336f78Ad97D26a0EC7DF&withMetadata=true&limit=100`,
+      // Fetch NFTs for the user
+      const nftResponse = await fetch(
+        `${process.env.NEXT_PUBLIC_AMPLIFY_API_URL}/nfts/${walletAddress}`,
         {
           signal: controller.signal,
-          headers: {
-            Accept: "application/json",
-            "Content-Type": "application/json",
-          },
-        },
-      )
-
-      // Fetch Goliath NFTs for the user
-      const goliathResponse = await fetch(
-        `https://eth-mainnet.g.alchemy.com/nft/v3/${ALCHEMY_API_KEY}/getNFTsForOwner?owner=${walletAddress}&contractAddresses[]=0x05ab5a50f77b9957b51145b259f05e805d84e92e&withMetadata=true&limit=100`,
-        {
-          signal: controller.signal,
+          cache: "no-store",
           headers: {
             Accept: "application/json",
             "Content-Type": "application/json",
@@ -43,39 +25,35 @@ export async function fetchUserNFTs(walletAddress: string) {
 
       clearTimeout(timeoutId)
 
-      if (!oldRockResponse.ok || !goliathResponse.ok) {
-        console.error("API Response not OK:", {
-          oldRock: oldRockResponse.status,
-          goliath: goliathResponse.status,
-        })
-        throw new Error(`API Error: Old Rock ${oldRockResponse.status}, Goliath ${goliathResponse.status}`)
+      if (!nftResponse.ok) {
+        console.error(`API Response not OK: ${nftResponse.status}`);
+        throw new Error(`API Error: get NFTs for user ${nftResponse.status}`)
       }
 
-      const oldRockData = await oldRockResponse.json()
-      const goliathData = await goliathResponse.json()
+      const nftData = await nftResponse.json()
 
       // Process Old Rock NFTs
       const oldRockNFTs =
-        oldRockData.ownedNfts?.map((nft: any) => ({
-          tokenId: nft.tokenId,
-          name: nft.raw?.metadata?.name || `Old Rock #${nft.tokenId}`,
-          image: nft.image?.originalUrl || nft.image?.cachedUrl || nft.image?.thumbnailUrl,
+        nftData?.data.OldRocks?.map((nft: any) => ({
+          tokenId: nft.id,
+          name: nft.name,
+          image: nft.imageId?.replace('.webp', '-300.webp'),
           collection: "Old Rock",
           contractAddress: "0x5c83df384971eF5bA252336f78Ad97D26a0EC7DF",
-          attributes: nft.raw?.metadata?.attributes || [],
-          backgroundColor: getBackgroundColor(nft.raw?.metadata?.attributes, "oldrock"),
+          attributes: nft.attributes,
+          backgroundColor: getBackgroundColor(nft.attributes, "oldrock"),
         })) || []
 
       // Process Goliath NFTs
       const goliathNFTs =
-        goliathData.ownedNfts?.map((nft: any) => ({
-          tokenId: nft.tokenId,
-          name: nft.raw?.metadata?.name || `Goliath #${nft.tokenId}`,
-          image: nft.image?.originalUrl || nft.image?.cachedUrl || nft.image?.thumbnailUrl,
+        nftData?.data.Goliath?.map((nft: any) => ({
+          tokenId: nft.id,
+          name: nft.name,
+          image: nft.imageId?.replace('.webp', '-300.webp'),
           collection: "Goliath",
           contractAddress: "0x05ab5a50f77b9957b51145b259f05e805d84e92e",
-          attributes: nft.raw?.metadata?.attributes || [],
-          backgroundColor: getBackgroundColor(nft.raw?.metadata?.attributes, "goliath"),
+          attributes: nft.attributes,
+          backgroundColor: getBackgroundColor(nft.attributes, "goliath"),
         })) || []
 
       return {
@@ -108,9 +86,7 @@ function getBackgroundColor(attributes: any[], collection: string): string {
 
   if (collection === "oldrock") {
     // Map Old Rock colors to background colors
-    const typeAttribute = attributes.find(
-      (attr: any) => attr.trait_type === "Type" || attr.trait_type === "COLOR" || attr.trait_type === "color",
-    )
+    const typeAttribute = attributes.Type;
 
     if (typeAttribute) {
       const colorMap: { [key: string]: string } = {
@@ -126,30 +102,23 @@ function getBackgroundColor(attributes: any[], collection: string): string {
         Black: "#1F1F1F",
         White: "#F8F8FF",
       }
-      return colorMap[typeAttribute.value] || "#6B46C1"
+      return colorMap[typeAttribute] || "#6B46C1"
     }
   } else if (collection === "goliath") {
     // Map Goliath density to background colors
-    const densityAttribute = attributes.find(
-      (attr: any) => attr.trait_type === "DENSITY" || attr.trait_type === "Density",
-    )
+    const densityAttribute = attributes.Density
 
     if (densityAttribute) {
       const densityMap: { [key: string]: string } = {
         Uninfected: "#10B981",
-        "Low Density": "#3B82F6",
-        "Medium Density": "#8B5CF6",
-        "High Density": "#EF4444",
+        Low: "#3B82F6",
+        Medium: "#8B5CF6",
+        High: "#EF4444",
         Mystic: "#F59E0B",
         Bounty: "#EC4899",
       }
 
-      const densityValue = densityAttribute.value.toLowerCase()
-      for (const [key, color] of Object.entries(densityMap)) {
-        if (densityValue.includes(key.toLowerCase())) {
-          return color
-        }
-      }
+      return densityMap[densityAttribute] || "#6B46C1"
     }
   }
 
@@ -203,9 +172,7 @@ function calculateNFTBadges(oldRockNFTs: any[], goliathNFTs: any[], walletAddres
   // Color Wheel - check if user owns every color of Old Rocks
   const oldRockColors = new Set()
   oldRockNFTs.forEach((nft) => {
-    const colorAttr = nft.attributes?.find(
-      (attr) => attr.trait_type === "Type" || attr.trait_type === "COLOR" || attr.trait_type === "color",
-    )
+    const colorAttr = nft.attributes?.Type;
     if (colorAttr) {
       oldRockColors.add(colorAttr.value)
     }
@@ -245,17 +212,13 @@ function calculateNFTBadges(oldRockNFTs: any[], goliathNFTs: any[], walletAddres
   }
 
   // Mystic Holder
-  const hasMysticRock = oldRockNFTs.some((nft) =>
-    nft.attributes?.some((attr) => attr.value && attr.value.toString().toLowerCase().includes("mystic")),
-  )
+  const hasMysticRock = oldRockNFTs.some((nft) => !!nft?.attributes?.Mystic)
   if (hasMysticRock) {
     badges.push({ id: 51, unlocked: true })
   }
 
   // Bounty Hunter
-  const hasBountyGoliath = goliathNFTs.some((nft) =>
-    nft.attributes?.some((attr) => attr.value && attr.value.toString().toLowerCase().includes("bounty")),
-  )
+  const hasBountyGoliath = goliathNFTs.some((nft) => !!nft?.attributes?.Bounty)
   if (hasBountyGoliath) {
     badges.push({ id: 52, unlocked: true })
   }
