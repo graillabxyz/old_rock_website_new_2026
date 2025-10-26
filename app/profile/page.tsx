@@ -39,6 +39,7 @@ export default function ProfilePage() {
   const [connectedWallet, setConnectedWallet] = useState<string>("")
   const [isOwnProfile, setIsOwnProfile] = useState(false)
   const [ensName, setEnsName] = useState<string>("")
+  const [ensAvatar, setEnsAvatar] = useState<string>("")
   const [oldRockNFTs, setOldRockNFTs] = useState<NFT[]>([])
   const [goliathNFTs, setGoliathNFTs] = useState<NFT[]>([])
   const [selectedProfileNFT, setSelectedProfileNFT] = useState<NFT | null>(null)
@@ -117,6 +118,10 @@ export default function ProfilePage() {
       const name = await fetchENSName(address)
       setEnsName(name)
 
+      // Fetch ENS avatar
+      const avatar = await fetchENSAvatar(address)
+      setEnsAvatar(avatar)
+
       // Fetch NFTs
       const nftResult = await fetchUserNFTs(address)
       if (nftResult.success) {
@@ -185,6 +190,29 @@ export default function ProfilePage() {
       console.error("Error fetching ENS name:", error)
     }
     return `${address.slice(0, 6)}...${address.slice(-4)}`
+  }
+
+  const fetchENSAvatar = async (address: string): Promise<string> => {
+    try {
+      const ensResponse = await fetch(`https://api.ensideas.com/ens/resolve/${address}`)
+      if (ensResponse.ok) {
+        const ensData = await ensResponse.json()
+        if (ensData.name) {
+          const avatarResponse = await fetch(`https://metadata.ens.domains/mainnet/avatar/${ensData.name}`)
+          console.dir(avatarResponse)
+          if (avatarResponse.ok) {
+            const avatarUrl = avatarResponse.url
+            if (avatarUrl && !avatarUrl.includes("404")) {
+              return avatarUrl
+            }
+          }
+        }
+      }
+      return `https://effigy.im/a/${address}.png`
+    } catch (error) {
+      console.error("Error fetching ENS avatar:", error)
+      return "/images/rock-logo.png"
+    }
   }
 
   const handleSelectProfileNFT = async (nft: NFT) => {
@@ -305,21 +333,23 @@ export default function ProfilePage() {
                   style={{ backgroundColor: selectedProfileNFT?.backgroundColor || "#6B46C1" }}
                 >
                   <Image
-                    src={selectedProfileNFT?.image || "/placeholder-user.jpg"}
+                    src={ensAvatar}
                     alt="Profile"
                     width={192}
                     height={192}
                     className="w-full h-full object-cover"
                   />
                 </div>
-                {isOwnProfile && (
-                  <button
-                    onClick={() => setIsSelectingProfileNFT(true)}
-                    className="absolute bottom-2 right-2 bg-purple-600 hover:bg-purple-700 text-white p-2 rounded-lg transition-colors"
-                  >
-                    <Edit2 className="w-4 h-4" />
-                  </button>
-                )}
+                {/*}
+                  {isOwnProfile && (
+                    <button
+                      onClick={() => setIsSelectingProfileNFT(true)}
+                      className="absolute bottom-2 right-2 bg-purple-600 hover:bg-purple-700 text-white p-2 rounded-lg transition-colors"
+                    >
+                      <Edit2 className="w-4 h-4" />
+                    </button>
+                  )}
+                {*/}
               </div>
 
               {/* User Info */}
@@ -330,6 +360,7 @@ export default function ProfilePage() {
                 </p>
 
                 {/* Social Connections */}
+                {/*}
                 <div className="flex items-center space-x-4">
                   {discordUsername && (
                     <div className="flex items-center space-x-2 bg-gray-800/50 rounded-lg px-3 py-1">
@@ -356,6 +387,7 @@ export default function ProfilePage() {
                     </button>
                   )}
                 </div>
+                {*/}
               </div>
             </div>
 
@@ -365,6 +397,7 @@ export default function ProfilePage() {
                 <div className="text-3xl font-bold text-white">{oldRockNFTs.length + goliathNFTs.length}</div>
                 <div className="text-sm text-gray-400">NFTs</div>
               </div>
+              {/*}
               <div className="text-center">
                 <div className="text-3xl font-bold text-purple-400">{userStats?.totalDensity || "0"}</div>
                 <div className="text-sm text-gray-400">DENSITY</div>
@@ -373,6 +406,7 @@ export default function ProfilePage() {
                 <div className="text-3xl font-bold text-white">{userStats?.rank || "Unranked"}</div>
                 <div className="text-sm text-gray-400">Rank</div>
               </div>
+              {*/}
             </div>
           </div>
         </div>
@@ -509,25 +543,22 @@ export default function ProfilePage() {
               <div className="flex items-center space-x-2">
                 <button
                   onClick={() => setSelectedFilter("all")}
-                  className={`px-4 py-2 rounded-lg transition-colors ${
-                    selectedFilter === "all" ? "bg-purple-600 text-white" : "bg-gray-800 text-gray-400"
-                  }`}
+                  className={`px-4 py-2 rounded-lg transition-colors ${selectedFilter === "all" ? "bg-purple-600 text-white" : "bg-gray-800 text-gray-400"
+                    }`}
                 >
                   All ({allNFTs.length})
                 </button>
                 <button
                   onClick={() => setSelectedFilter("oldrock")}
-                  className={`px-4 py-2 rounded-lg transition-colors ${
-                    selectedFilter === "oldrock" ? "bg-purple-600 text-white" : "bg-gray-800 text-gray-400"
-                  }`}
+                  className={`px-4 py-2 rounded-lg transition-colors ${selectedFilter === "oldrock" ? "bg-purple-600 text-white" : "bg-gray-800 text-gray-400"
+                    }`}
                 >
                   Old Rock ({oldRockNFTs.length})
                 </button>
                 <button
                   onClick={() => setSelectedFilter("goliath")}
-                  className={`px-4 py-2 rounded-lg transition-colors ${
-                    selectedFilter === "goliath" ? "bg-purple-600 text-white" : "bg-gray-800 text-gray-400"
-                  }`}
+                  className={`px-4 py-2 rounded-lg transition-colors ${selectedFilter === "goliath" ? "bg-purple-600 text-white" : "bg-gray-800 text-gray-400"
+                    }`}
                 >
                   Goliath ({goliathNFTs.length})
                 </button>
