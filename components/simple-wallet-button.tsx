@@ -8,6 +8,7 @@ import { ChevronDown, Copy, ExternalLink, LogOut, Wallet, Plus, Settings, Check,
 import Link from "next/link"
 import { fetchUserData } from "@/app/actions/fetch-user-data"
 import { verifySocial } from "@/app/actions/verify-social"
+import { CopyToClipboard } from 'react-copy-to-clipboard';
 
 interface Props {
   className?: string
@@ -39,7 +40,7 @@ const SimpleWalletButton: React.FC<Props> = ({ className, onConnectionChange, pr
     flow = params.get('flow') || ''
   }
 
-  async function doVerifySocial(platform:string) {
+  async function doVerifySocial(platform: string) {
     try {
       if (!window.ethereum) {
         console.error("No wallet detected. Please install MetaMask or another Web3 wallet.")
@@ -348,11 +349,6 @@ const SimpleWalletButton: React.FC<Props> = ({ className, onConnectionChange, pr
     window.dispatchEvent(new CustomEvent("walletDisconnected"))
   }
 
-  const copyAddress = async () => {
-    await navigator.clipboard.writeText(address)
-    setIsDropdownOpen(false)
-  }
-
   const openEtherscan = () => {
     window.open(`https://etherscan.io/address/${address}`, "_blank")
     setIsDropdownOpen(false)
@@ -539,13 +535,15 @@ const SimpleWalletButton: React.FC<Props> = ({ className, onConnectionChange, pr
                     </>
                   )}
 
-                <button
-                  onClick={copyAddress}
-                  className="w-full flex items-center space-x-2 px-3 py-2 text-gray-300 hover:text-white hover:bg-gray-800/50 rounded-lg transition-colors font-pt-mono text-sm"
-                >
-                  <Copy className="w-4 h-4" />
-                  <span>Copy Address</span>
-                </button>
+
+                <CopyToClipboard text={address} onCopy={() => setIsDropdownOpen(false)}>
+                  <button
+                    className="w-full flex items-center space-x-2 px-3 py-2 text-gray-300 hover:text-white hover:bg-gray-800/50 rounded-lg transition-colors font-pt-mono text-sm"
+                  >
+                    <Copy className="w-4 h-4" />
+                    <span>Copy to clipboard</span>
+                  </button>
+                </CopyToClipboard>
 
                 <button
                   onClick={openEtherscan}

@@ -198,14 +198,14 @@ function calculateNFTBadges(oldRockNFTs: any[], goliathNFTs: any[], walletAddres
   // Density Spectrum - check if user owns every density of Goliaths
   const goliathDensities = new Set()
   goliathNFTs.forEach((nft) => {
-    const densityAttr = nft.attributes?.find((attr) => attr.trait_type === "DENSITY" || attr.trait_type === "Density")
+    const densityAttr = nft.attributes?.Density;
     if (densityAttr) {
-      goliathDensities.add(densityAttr.value)
+      goliathDensities.add(densityAttr)
     }
   })
-  const requiredDensities = ["Uninfected", "Low Density", "Medium Density", "High Density", "Mystic", "Bounty"]
+  const requiredDensities = ["Common", "Low", "Medium", "High", "Mystic"]
   const hasAllDensities = requiredDensities.every((density) =>
-    Array.from(goliathDensities).some((userDensity) => userDensity.toLowerCase().includes(density.toLowerCase())),
+    Array.from(goliathDensities).some((userDensity) => userDensity?.includes(density)),
   )
   if (hasAllDensities) {
     badges.push({ id: 50, unlocked: true })
