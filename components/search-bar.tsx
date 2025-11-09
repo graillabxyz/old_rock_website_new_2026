@@ -200,7 +200,7 @@ export function SearchBar() {
       const mockResults: SearchResult[] = [];
       const queryTrimmedNumber = +(query
         .replace(/old rock/i, '')
-        .replace(/oldrock/i, '')  
+        .replace(/oldrock/i, '')
         .replace(/goliath/i, '')
         .trim()
       );
@@ -216,7 +216,9 @@ export function SearchBar() {
             id: `old-rock-${queryTrimmedNumber}`,
             type: "nft",
             name: `Old Rock #${queryTrimmedNumber}`,
-            image: "/placeholder.svg?height=100&width=100",
+            image: process.env.NEXT_PUBLIC_METADATA_SERVICE_URL
+              ? `${process.env.NEXT_PUBLIC_METADATA_SERVICE_URL}/oldrock/${queryTrimmedNumber}/image`
+              : "/placeholder.svg?height=100&width=100",
             collection: "Old Rock",
           });
         }
@@ -226,7 +228,9 @@ export function SearchBar() {
             id: `goliath-${queryTrimmedNumber}`,
             type: "nft",
             name: `Goliath #${queryTrimmedNumber}`,
-            image: "/placeholder.svg?height=100&width=100",
+            image: process.env.NEXT_PUBLIC_METADATA_SERVICE_URL
+              ? `${process.env.NEXT_PUBLIC_METADATA_SERVICE_URL}/goliath/${queryTrimmedNumber}/image`
+              : "/placeholder.svg?height=100&width=100",
             collection: "Goliath",
           });
         }
@@ -241,7 +245,9 @@ export function SearchBar() {
               id: `old-rock-${+match}`,
               type: "nft",
               name: `Old Rock #${match}`,
-              image: "/placeholder.svg?height=100&width=100",
+              image: process.env.NEXT_PUBLIC_METADATA_SERVICE_URL
+                ? `${process.env.NEXT_PUBLIC_METADATA_SERVICE_URL}/oldrock/${queryTrimmedNumber}/image`
+                : "/placeholder.svg?height=100&width=100",
               collection: "Old Rock",
             });
           });
@@ -251,7 +257,9 @@ export function SearchBar() {
               id: `goliath-${+match}`,
               type: "nft",
               name: `Goliath #${match}`,
-              image: "/placeholder.svg?height=100&width=100",
+              image: process.env.NEXT_PUBLIC_METADATA_SERVICE_URL
+                ? `${process.env.NEXT_PUBLIC_METADATA_SERVICE_URL}/oldrock/${queryTrimmedNumber}/image`
+                : "/placeholder.svg?height=100&width=100",
               collection: "Goliath",
             });
           });
