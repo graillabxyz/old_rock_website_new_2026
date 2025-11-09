@@ -204,7 +204,7 @@ async function fetchUserDensity(request: NextRequest) {
 async function fetchRandomNFTs(collection: string) {
   try {
     const response = await fetch(
-      `${process.env.METADATA_SERVICE_URL}/${collection}/random`,
+      `${process.env.NEXT_PUBLIC_METADATA_SERVICE_URL}/${collection}/random`,
       {
         cache: "no-store",
         method: "GET",

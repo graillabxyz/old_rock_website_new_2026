@@ -5,7 +5,7 @@ import { useState, useEffect } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { motion, AnimatePresence } from "framer-motion"
-import { ChevronRight, FileText, BookOpen, BarChart3, Menu, X, Settings, User } from "lucide-react"
+import { ChevronRight, FileText, BookOpen, BarChart3, Menu, X, Settings, User, Boxes } from "lucide-react"
 import { AudioPlayer } from "@/components/audio-player"
 
 type MenuItem = {
@@ -241,9 +241,8 @@ export function Sidebar() {
     },
     {
       name: "NFT Collections",
-      icon: "/icons/nft-collections-icon.png",
+      icon: <Boxes className="w-5 h-5" />,
       href: "/collections",
-      iconSize: 22,
     },
   ]
 

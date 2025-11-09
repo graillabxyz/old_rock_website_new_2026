@@ -49,6 +49,7 @@ export function SearchBar() {
   const [searchResults, setSearchResults] = useState<SearchResult[]>([])
   const [contentSuggestions, setContentSuggestions] = useState<ContentSuggestion[]>([])
   const [isLoading, setIsLoading] = useState(false)
+  const [goliathCollectionLimit, setGoliathCollectionLimit] = useState(3717)
   const searchRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const router = useRouter()
@@ -141,6 +142,25 @@ export function SearchBar() {
     return () => document.removeEventListener("mousedown", handleClickOutside)
   }, [])
 
+  // Retrieve Goliath collection limit on mount
+  useEffect(() => {
+    async function fetchGoliathCollectionLimit() {
+      try {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_METADATA_SERVICE_URL}/goliath/limit`);
+
+        if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+
+        const data = await response.json();
+
+        setGoliathCollectionLimit(data.limit);
+      } catch (e) {
+        console.dir(e);
+      }
+    }
+
+    fetchGoliathCollectionLimit();
+  }, []);
+
   // Focus input when search opens
   useEffect(() => {
     if (isSearchOpen && inputRef.current) {
@@ -189,7 +209,7 @@ export function SearchBar() {
       await new Promise((resolve) => setTimeout(resolve, 300))
 
       // Append results for Old Rock NFT assets
-      if (queryTrimmedNumber && queryTrimmedNumber > 0 && queryTrimmedNumber <= 5000) {
+      if (queryTrimmedNumber && queryTrimmedNumber > 0 && queryTrimmedNumber <= goliathCollectionLimit) {
         // Push exact matches to top
         if (queryTrimmedNumber <= 500) {
           mockResults.push({
@@ -201,7 +221,7 @@ export function SearchBar() {
           });
         }
 
-        if (queryTrimmedNumber <= 5000) {
+        if (queryTrimmedNumber <= goliathCollectionLimit) {
           mockResults.push({
             id: `goliath-${queryTrimmedNumber}`,
             type: "nft",
@@ -213,7 +233,7 @@ export function SearchBar() {
 
         // Only "search" related NFT numbers for double digit integers to prevent long list
         if (queryTrimmedNumber >= 10) {
-          const goliathMatches = numbersContaining(queryTrimmedNumber, 5000);
+          const goliathMatches = numbersContaining(queryTrimmedNumber, goliathCollectionLimit);
           const oldRockMatches = numbersContaining(queryTrimmedNumber, 500);
 
           oldRockMatches.forEach((match) => {
