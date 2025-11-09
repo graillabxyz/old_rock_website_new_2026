@@ -30,7 +30,7 @@ interface ContentSuggestion {
   category: string
 }
 
-function numbersContaining(input, maximum) {
+function numbersContaining(input, maximum, limit) {
   const result = [];
   const target = input.toString();
 
@@ -38,6 +38,10 @@ function numbersContaining(input, maximum) {
     if (i.toString().includes(target) && i.toString() !== target) {
       result.push(i);
     }
+  }
+
+  if (limit) {
+    return result.slice(0, limit);
   }
 
   return result;
@@ -202,6 +206,7 @@ export function SearchBar() {
         .replace(/old rock/i, '')
         .replace(/oldrock/i, '')
         .replace(/goliath/i, '')
+        .replace(/#/, '')
         .trim()
       );
 
@@ -213,67 +218,68 @@ export function SearchBar() {
         // Push exact matches to top
         if (queryTrimmedNumber <= 500) {
           mockResults.push({
-            id: `old-rock-${queryTrimmedNumber}`,
+            id: `oldrock/${queryTrimmedNumber}`,
             type: "nft",
             name: `Old Rock #${queryTrimmedNumber}`,
-            image: process.env.NEXT_PUBLIC_METADATA_SERVICE_URL
-              ? `${process.env.NEXT_PUBLIC_METADATA_SERVICE_URL}/oldrock/${queryTrimmedNumber}/image`
-              : "/placeholder.svg?height=100&width=100",
+            image: "/placeholder.svg?height=100&width=100",
             collection: "Old Rock",
           });
         }
 
         if (queryTrimmedNumber <= goliathCollectionLimit) {
           mockResults.push({
-            id: `goliath-${queryTrimmedNumber}`,
+            id: `goliath/${queryTrimmedNumber}`,
             type: "nft",
             name: `Goliath #${queryTrimmedNumber}`,
-            image: process.env.NEXT_PUBLIC_METADATA_SERVICE_URL
-              ? `${process.env.NEXT_PUBLIC_METADATA_SERVICE_URL}/goliath/${queryTrimmedNumber}/image`
-              : "/placeholder.svg?height=100&width=100",
+            image: "/placeholder.svg?height=100&width=100",
             collection: "Goliath",
           });
         }
 
         // Only "search" related NFT numbers for double digit integers to prevent long list
         if (queryTrimmedNumber >= 10) {
-          const goliathMatches = numbersContaining(queryTrimmedNumber, goliathCollectionLimit);
-          const oldRockMatches = numbersContaining(queryTrimmedNumber, 500);
+          const goliathMatches = numbersContaining(queryTrimmedNumber, goliathCollectionLimit, 3);
+          const oldRockMatches = numbersContaining(queryTrimmedNumber, 500, 3);
 
           oldRockMatches.forEach((match) => {
             mockResults.push({
-              id: `old-rock-${+match}`,
+              id: `oldrock/${+match}`,
               type: "nft",
               name: `Old Rock #${match}`,
-              image: process.env.NEXT_PUBLIC_METADATA_SERVICE_URL
-                ? `${process.env.NEXT_PUBLIC_METADATA_SERVICE_URL}/oldrock/${queryTrimmedNumber}/image`
-                : "/placeholder.svg?height=100&width=100",
+              image: "/placeholder.svg?height=100&width=100",
               collection: "Old Rock",
             });
           });
 
           goliathMatches.forEach((match) => {
             mockResults.push({
-              id: `goliath-${+match}`,
+              id: `goliath/${+match}`,
               type: "nft",
               name: `Goliath #${match}`,
-              image: process.env.NEXT_PUBLIC_METADATA_SERVICE_URL
-                ? `${process.env.NEXT_PUBLIC_METADATA_SERVICE_URL}/oldrock/${queryTrimmedNumber}/image`
-                : "/placeholder.svg?height=100&width=100",
+              image: "/placeholder.svg?height=100&width=100",
               collection: "Goliath",
             });
           });
         }
       }
 
-      // Filter results based on query
-      /*
-      const filteredResults = mockResults.filter(
-        (result) =>
-          result.name.toLowerCase().includes(query.toLowerCase()) ||
-          (result.collection && result.collection.toLowerCase().includes(query.toLowerCase())) ||
-          (result.address && result.address.toLowerCase().includes(query.toLowerCase())),
-      )*/
+      // Retrieve image URLs from metadata service
+      // NOTE: Inefficient and should be refactored
+      for (const result of mockResults) {
+        if (result.type === 'nft' && result.image?.includes('placeholder')) {
+          try {
+            const response = await fetch(`${process.env.NEXT_PUBLIC_METADATA_SERVICE_URL}/${result.id}`);
+
+            if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+
+            const data = await response.json();
+
+            result.image = data.image?.replace('.webp', '-300.webp');
+          } catch (e) {
+            // no-op
+          }
+        }
+      }
 
       setSearchResults(mockResults)
     } catch (error) {
