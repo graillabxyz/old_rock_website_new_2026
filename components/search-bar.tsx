@@ -30,6 +30,35 @@ interface ContentSuggestion {
   category: string
 }
 
+function DynamicImage({ id }: { id: string }) {
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function fetchImage() {
+      try {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_METADATA_SERVICE_URL}/${id}`);
+        if (!res.ok) throw new Error("Failed to fetch image metadata");
+        const data = await res.json();
+        setImageUrl(data.image.replace('.webp', '-300.webp'));
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    fetchImage();
+  }, [id]);
+
+  return (
+    <NextImage
+      src={imageUrl || "/placeholder.svg"}
+      alt={id}
+      width={40}
+      height={40}
+      className="object-cover"
+    />
+  );
+}
+
 function numbersContaining(input, maximum, limit) {
   const result = [];
   const target = input.toString();
@@ -263,24 +292,6 @@ export function SearchBar() {
         }
       }
 
-      // Retrieve image URLs from metadata service
-      // NOTE: Inefficient and should be refactored
-      for (const result of mockResults) {
-        if (result.type === 'nft' && result.image?.includes('placeholder')) {
-          try {
-            const response = await fetch(`${process.env.NEXT_PUBLIC_METADATA_SERVICE_URL}/${result.id}`);
-
-            if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
-
-            const data = await response.json();
-
-            result.image = data.image?.replace('.webp', '-300.webp');
-          } catch (e) {
-            // no-op
-          }
-        }
-      }
-
       setSearchResults(mockResults)
     } catch (error) {
       console.error("Search error:", error)
@@ -437,12 +448,8 @@ export function SearchBar() {
                                 onClick={() => handleResultClick(result)}
                               >
                                 <div className="w-10 h-10 rounded-lg overflow-hidden bg-gray-800 flex-shrink-0">
-                                  <NextImage
-                                    src={result.image || "/placeholder.svg"}
-                                    alt={result.name}
-                                    width={40}
-                                    height={40}
-                                    className="object-cover"
+                                  <DynamicImage
+                                    id={result.id}
                                   />
                                 </div>
                                 <div>
