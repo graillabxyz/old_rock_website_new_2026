@@ -5,7 +5,7 @@ import { useState, useEffect } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { motion, AnimatePresence } from "framer-motion"
-import { ChevronRight, FileText, BookOpen, BarChart3, Menu, X, Settings } from "lucide-react"
+import { ChevronRight, FileText, BookOpen, BarChart3, Menu, X, Settings, User } from "lucide-react"
 import { AudioPlayer } from "@/components/audio-player"
 
 type MenuItem = {
@@ -13,13 +13,14 @@ type MenuItem = {
   icon: string | React.ReactNode
   href: string
   isExternal?: boolean
-  comingSoon?: boolean
+  disabled?: boolean
+  disabledText?: string
   hasArrow?: boolean
   isProfile?: boolean
   onClick?: () => void
   iconSize?: number
   hasSubmenu?: boolean
-  submenuItems?: { name: string; href: string; comingSoon?: boolean }[]
+  submenuItems?: { name: string; href: string; disabled?: boolean, disabledText?: string }[]
 }
 
 export function Sidebar() {
@@ -101,46 +102,9 @@ export function Sidebar() {
   const handleConnection = async (accounts: string[]) => {
     if (accounts.length > 0) {
       const userAddress = accounts[0]
-
-      // Try to get ENS avatar first
-      let avatarUrl = `https://effigy.im/a/${userAddress}.png`
-
-      try {
-        const ensResponse = await fetch(`https://api.ensideas.com/ens/resolve/${userAddress}`)
-        if (ensResponse.ok) {
-          const ensData = await ensResponse.json()
-          if (ensData.name) {
-            const avatarResponse = await fetch(`https://metadata.ens.domains/mainnet/avatar/${ensData.name}`)
-            if (avatarResponse.ok) {
-              const ensAvatarUrl = avatarResponse.url
-              if (ensAvatarUrl && !ensAvatarUrl.includes("404")) {
-                avatarUrl = ensAvatarUrl
-              }
-            }
-          }
-        }
-      } catch (error) {
-        console.error("Error fetching ENS avatar:", error)
-      }
-
-      // Check for saved profile NFT and override avatar if found
-      const savedProfileNFT = localStorage.getItem(`profile-nft-${userAddress}`)
-      if (savedProfileNFT) {
-        try {
-          const nft = JSON.parse(savedProfileNFT)
-          if (nft.image) {
-            avatarUrl = nft.image
-            setSelectedProfileNFT(nft)
-            console.log("Sidebar: Using saved profile NFT:", nft)
-          }
-        } catch (e) {
-          console.error("Error parsing profile NFT:", e)
-        }
-      }
-
       const newUserProfile = {
         name: `${userAddress.slice(0, 6)}...${userAddress.slice(-4)}`,
-        avatar: avatarUrl,
+        avatar: null,
         address: userAddress,
       }
 
@@ -153,7 +117,7 @@ export function Sidebar() {
       // Dispatch event for other components
       window.dispatchEvent(
         new CustomEvent("walletConnected", {
-          detail: { connected: true, address: userAddress, avatar: avatarUrl },
+          detail: { connected: true, address: userAddress, avatar: null },
         }),
       )
     }
@@ -233,7 +197,7 @@ export function Sidebar() {
         {
           name: "SBS LIVE",
           href: "#",
-          comingSoon: true,
+          disabled: true,
         },
         {
           name: "Game Overview",
@@ -249,13 +213,13 @@ export function Sidebar() {
       name: "Density",
       icon: "/icons/density-icon.png",
       href: "#",
-      comingSoon: true,
+      disabled: true,
     },
     {
       name: "Leaderboard",
       icon: <BarChart3 className="w-5 h-5" />,
-      href: "/leaderboard",
-      isExternal: false,
+      href: "#",
+      disabled: true
     },
     {
       name: "Documentation",
@@ -285,26 +249,23 @@ export function Sidebar() {
 
   // Update the getMenuItems function to use local state
   const getMenuItems = () => {
-    const profileItem: MenuItem =
-      isWalletConnected && userProfile
-        ? {
-            name: "Profile",
-            icon: selectedProfileNFT?.image || userProfile.avatar || "/icons/no-user.png",
-            href: "/profile",
-            hasArrow: true,
-            isProfile: true,
-          }
-        : {
-            name: "Connect",
-            icon: "/icons/no-user.png",
-            href: "#",
-            hasArrow: false,
-            isProfile: true,
-            onClick: connectWallet,
-          }
-
     const items = [...mainMenuItems]
-    items.splice(6, 0, profileItem) // Insert profile after Density (index 5 + 1)
+
+    // Add profile item for connected users
+    if (
+      isWalletConnected &&
+      userProfile?.address
+    ) {
+      const profileItem = {
+        name: "Profile",
+        icon: <User className="w-5 h-5" />,
+        href: "/profile",
+        hasArrow: true,
+        isProfile: true,
+      };
+
+      items.splice(6, 0, profileItem) // Insert profile after Density (index 5 + 1)
+    }
 
     // Add admin item for authorized users
     if (
@@ -343,11 +304,10 @@ export function Sidebar() {
 
     const content = (
       <div
-        className={`relative w-full flex items-center group ${
-          isProfileItem
-            ? `h-20 border-t border-b border-white/10 bg-gray-800/30 rounded-none mx-0 ${isMobile ? "my-6" : "my-5"}`
-            : `${isMobile ? "h-16" : "h-12"}`
-        } ${isMobile ? "px-4" : ""}`}
+        className={`relative w-full flex items-center group ${isProfileItem
+          ? `h-20 border-t border-b border-white/10 bg-gray-800/30 rounded-none mx-0 ${isMobile ? "my-6" : "my-5"}`
+          : `${isMobile ? "h-16" : "h-12"}`
+          } ${isMobile ? "px-4" : ""}`}
       >
         <div
           className={`absolute ${isMobile ? "left-8" : "left-6"} top-1/2 transform -translate-y-1/2 w-7 h-7 flex items-center justify-center z-10`}
@@ -391,11 +351,11 @@ export function Sidebar() {
                 >
                   {item.name}
                 </span>
-                {item.comingSoon && (
+                {item.disabled && (
                   <span
                     className={`${isMobile ? "text-sm" : "text-xs"} text-gray-400 block leading-tight opacity-80 -translate-y-[3.5px]`}
                   >
-                    coming soon
+                    {item.disabledText || 'coming soon'}
                   </span>
                 )}
               </div>
@@ -418,7 +378,7 @@ export function Sidebar() {
 
     const baseClasses = "transition-colors relative block"
 
-    if (item.comingSoon) {
+    if (item.disabled) {
       return <div className={`${baseClasses} cursor-not-allowed opacity-70`}>{content}</div>
     }
 
@@ -555,9 +515,8 @@ export function Sidebar() {
 
       <motion.div
         data-sidebar
-        className={`fixed left-0 top-0 bottom-0 z-50 bg-black/95 backdrop-blur-md border-r border-white/20 flex flex-col overflow-hidden shadow-2xl ${
-          isMobile ? "w-full" : ""
-        }`}
+        className={`fixed left-0 top-0 bottom-0 z-50 bg-black/95 backdrop-blur-md border-r border-white/20 flex flex-col overflow-hidden shadow-2xl ${isMobile ? "w-full" : ""
+          }`}
         initial={{ width: isMobile ? 0 : 79 }}
         animate={{
           width: isMobile ? (mobileMenuOpen ? "100vw" : 0) : isExpanded ? 280 : 79,
@@ -609,10 +568,10 @@ export function Sidebar() {
                   >
                     {item.submenuItems?.map((subItem, subIndex) => (
                       <div key={subIndex} className="pl-8 py-2">
-                        {subItem.comingSoon ? (
+                        {subItem.disabled ? (
                           <div className="flex items-center justify-between text-sm text-gray-400 cursor-not-allowed">
                             <span>{subItem.name}</span>
-                            <span className="text-xs bg-gray-700 px-2 py-1 rounded-l">Coming Soon</span>
+                            <span className="text-xs bg-gray-700 px-2 py-1 rounded-l">{subItem.disabledText || 'Coming Soon'}</span>
                           </div>
                         ) : (
                           <Link
