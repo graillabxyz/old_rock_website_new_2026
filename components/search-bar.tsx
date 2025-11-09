@@ -30,6 +30,19 @@ interface ContentSuggestion {
   category: string
 }
 
+function numbersContaining(input, maximum) {
+  const result = [];
+  const target = input.toString();
+
+  for (let i = 1; i <= maximum; i++) {
+    if (i.toString().includes(target) && i.toString() !== target) {
+      result.push(i);
+    }
+  }
+
+  return result;
+}
+
 export function SearchBar() {
   const [isSearchOpen, setIsSearchOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
@@ -162,60 +175,79 @@ export function SearchBar() {
 
   const performSearch = async (query: string) => {
     setIsLoading(true)
+
     try {
+      const mockResults: SearchResult[] = [];
+      const queryTrimmedNumber = +(query
+        .replace(/old rock/i, '')
+        .replace(/oldrock/i, '')  
+        .replace(/goliath/i, '')
+        .trim()
+      );
+
       // Simulate network delay
       await new Promise((resolve) => setTimeout(resolve, 300))
 
-      // Mock results - in a real app, this would come from your API
-      const mockResults: SearchResult[] = [
-        // Profiles
-        {
-          id: "1",
-          type: "profile",
-          name: "NamelessOne.eth",
-          image: "/placeholder.svg?height=100&width=100",
-          address: "0x54adBA466fe1cBAF191...EB64",
-        },
-        {
-          id: "2",
-          type: "profile",
-          name: "CryptoCollector.eth",
-          image: "/placeholder.svg?height=100&width=100",
-          address: "0x3a2bD96Da96F4826F3...5C21",
-        },
-        // NFTs
-        {
-          id: "101",
-          type: "nft",
-          name: "Old Rock #345",
-          image: "/placeholder.svg?height=100&width=100",
-          collection: "Old Rock",
-        },
-        {
-          id: "102",
-          type: "nft",
-          name: "Goliath #782",
-          image: "/placeholder.svg?height=100&width=100",
-          collection: "Goliath",
-        },
-        {
-          id: "103",
-          type: "nft",
-          name: "Old Rock #129",
-          image: "/placeholder.svg?height=100&width=100",
-          collection: "Old Rock",
-        },
-      ]
+      // Append results for Old Rock NFT assets
+      if (queryTrimmedNumber && queryTrimmedNumber > 0 && queryTrimmedNumber <= 5000) {
+        // Push exact matches to top
+        if (queryTrimmedNumber <= 500) {
+          mockResults.push({
+            id: `old-rock-${queryTrimmedNumber}`,
+            type: "nft",
+            name: `Old Rock #${queryTrimmedNumber}`,
+            image: "/placeholder.svg?height=100&width=100",
+            collection: "Old Rock",
+          });
+        }
+
+        if (queryTrimmedNumber <= 5000) {
+          mockResults.push({
+            id: `goliath-${queryTrimmedNumber}`,
+            type: "nft",
+            name: `Goliath #${queryTrimmedNumber}`,
+            image: "/placeholder.svg?height=100&width=100",
+            collection: "Goliath",
+          });
+        }
+
+        // Only "search" related NFT numbers for double digit integers to prevent long list
+        if (queryTrimmedNumber >= 10) {
+          const goliathMatches = numbersContaining(queryTrimmedNumber, 5000);
+          const oldRockMatches = numbersContaining(queryTrimmedNumber, 500);
+
+          oldRockMatches.forEach((match) => {
+            mockResults.push({
+              id: `old-rock-${+match}`,
+              type: "nft",
+              name: `Old Rock #${match}`,
+              image: "/placeholder.svg?height=100&width=100",
+              collection: "Old Rock",
+            });
+          });
+
+          goliathMatches.forEach((match) => {
+            mockResults.push({
+              id: `goliath-${+match}`,
+              type: "nft",
+              name: `Goliath #${match}`,
+              image: "/placeholder.svg?height=100&width=100",
+              collection: "Goliath",
+            });
+          });
+        }
+      }
 
       // Filter results based on query
+      /*
       const filteredResults = mockResults.filter(
         (result) =>
           result.name.toLowerCase().includes(query.toLowerCase()) ||
           (result.collection && result.collection.toLowerCase().includes(query.toLowerCase())) ||
           (result.address && result.address.toLowerCase().includes(query.toLowerCase())),
-      )
+      )*/
 
-      setSearchResults(filteredResults)
+      setSearchResults(mockResults)
     } catch (error) {
       console.error("Search error:", error)
     } finally {
