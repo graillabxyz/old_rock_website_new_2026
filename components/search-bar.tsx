@@ -309,7 +309,13 @@ export function SearchBar() {
     <div className="relative" ref={searchRef}>
       <button
         className="flex items-center space-x-2 bg-gray-800/60 backdrop-blur-sm border border-gray-600/30 rounded-xl px-4 py-2 hover:bg-gray-700/60 transition-colors"
-        onClick={() => setIsSearchOpen(true)}
+        onClick={() => {
+          setIsSearchOpen(true);
+
+          if (isSearchOpen && inputRef.current) {
+            inputRef.current.focus()
+          }
+        }}
       >
         <Search className="w-4 h-4 text-gray-400" />
         <span className="text-gray-400 text-sm hidden md:inline whitespace-nowrap">

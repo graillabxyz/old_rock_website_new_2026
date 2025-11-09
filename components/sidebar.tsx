@@ -5,7 +5,7 @@ import { useState, useEffect } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { motion, AnimatePresence } from "framer-motion"
-import { ChevronRight, FileText, BookOpen, BarChart3, Menu, X, Settings, User, Boxes } from "lucide-react"
+import { ChevronRight, FileText, BookOpen, BarChart3, Menu, X, Settings, User, Boxes, Package } from "lucide-react"
 import { AudioPlayer } from "@/components/audio-player"
 
 type MenuItem = {
@@ -155,10 +155,9 @@ export function Sidebar() {
   const mainMenuItems: MenuItem[] = [
     {
       name: "Airdrop",
-      icon: "/icons/airdrop-icon.png",
+      icon: <Package className="w-5 h-5" />,
       href: "https://airdrop.oldrocknft.com",
       isExternal: true,
-      iconSize: 62,
     },
     {
       name: "Density Deck Beta",
@@ -234,15 +233,15 @@ export function Sidebar() {
       isExternal: false,
     },
     {
+      name: "NFT Collections",
+      icon: <Boxes className="w-5 h-5" />,
+      href: "/collections",
+    },
+    {
       name: "BountyCall",
       icon: "/icons/bc.png",
       href: "/bounty-call",
       iconSize: 34,
-    },
-    {
-      name: "NFT Collections",
-      icon: <Boxes className="w-5 h-5" />,
-      href: "/collections",
     },
   ]
 
