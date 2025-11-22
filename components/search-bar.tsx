@@ -3,7 +3,7 @@
 import type React from "react"
 
 import { useState, useEffect, useRef } from "react"
-import { Search, Loader2, FileText, Gamepad2, ImageIcon, Gift } from "lucide-react"
+import { Search, Loader2, FileText, Gamepad2, ImageIcon, Gift, BookOpen, User, Sprout, SatelliteDish } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import NextImage from "next/image"
 import { useRouter } from "next/navigation"
@@ -140,7 +140,7 @@ export function SearchBar() {
       title: "Amplify NFT Staking",
       description: "Soft stake your NFTs to earn rewards",
       url: "https://amplify.oldrocknft.com",
-      icon: <ImageIcon className="w-4 h-4" />,
+      icon: <SatelliteDish className="w-4 h-4" />,
       category: "DeFi",
     },
     {
@@ -149,7 +149,7 @@ export function SearchBar() {
       title: "Goliath Mint",
       description: "Mint new Goliath NFTs from the collection",
       url: "https://mint.oldrocknft.com",
-      icon: <ImageIcon className="w-4 h-4" />,
+      icon: <Sprout className="w-4 h-4" />,
       category: "NFTs",
     },
     {
@@ -158,8 +158,17 @@ export function SearchBar() {
       title: "User Profiles",
       description: "View NFT collections, achievements, and set profile pictures",
       url: "/profile",
-      icon: <ImageIcon className="w-4 h-4" />,
+      icon: <User className="w-4 h-4" />,
       category: "Profile",
+    },
+    {
+      id: "documentation",
+      type: "feature",
+      title: "Documentation",
+      description: "View Old Rock ecosystem documentation",
+      url: "https://docs.oldrocknft.com",
+      icon: <BookOpen className="w-4 h-4" />,
+      category: "Docs",
     },
   ]
 
