@@ -8,7 +8,6 @@ import { motion } from "framer-motion"
 import Image from "next/image"
 import { useState, useEffect } from "react"
 import { fetchCollectionStats, fetchOldRockNFTs, fetchGoliathNFTsByDensity } from "@/app/actions/fetch-nfts"
-import { RefreshCw } from "lucide-react"
 
 // Complete rock color data with all 11 types and updated rarities
 const rockColors = [
@@ -19,6 +18,7 @@ const rockColors = [
     rarity: "Common",
     positive: "Grounded, reliable, practical, stable, dependable",
     negative: "Boring, predictable, stubborn, unimaginative, rigid",
+    image: 'https://media.oldrocknft.com/oldrock/bde23b99a7fa509b4c233017744fc61cf725226e738954eb4237d4ced3cdbe72.webp',
   },
   {
     name: "YELLOW",
@@ -27,6 +27,7 @@ const rockColors = [
     rarity: "Uncommon",
     positive: "Cheerful, adaptable, optimistic, energetic, light-hearted",
     negative: "Unpredictable, inconsistent, superficial, flighty, impulsive",
+    image: 'https://media.oldrocknft.com/oldrock/844d57492be9d79ebc56b18ef4c741334adc62aa64de003b60775a43bd36ecae.webp',
   },
   {
     name: "TURQUOISE",
@@ -35,6 +36,7 @@ const rockColors = [
     rarity: "Uncommon",
     positive: "Quick-witted, adaptable, creative, energetic, inspiring",
     negative: "Unpredictable, impulsive, restless, volatile, erratic",
+    image: 'https://media.oldrocknft.com/oldrock/2b15b670bf62e8652562a26d43a6e05c9367b56fff38e880efe99fd96463311b.webp',
   },
   {
     name: "BLUE",
@@ -43,6 +45,7 @@ const rockColors = [
     rarity: "Rare",
     positive: "Calm, rational, introspective, patient, stable",
     negative: "Cold, aloof, unemotional, indecisive, detached",
+    image: 'https://media.oldrocknft.com/oldrock/ba87ec247fe8c3cb3be85faa47800c292e5fb1ae1e3686592f979dfcbbc63007.webp',
   },
   {
     name: "PURPLE",
@@ -51,6 +54,7 @@ const rockColors = [
     rarity: "Rare",
     positive: "Wise, intuitive, thoughtful, intellectual, sensitive",
     negative: "Overthinking, secretive, indecisive, overly complex, mysterious",
+    image: 'https://media.oldrocknft.com/oldrock/13f4a85189c0eee61a751d0737432cef62f9e0811e118c6ffa72af7e18f51816.webp',
   },
   {
     name: "RED",
@@ -59,6 +63,7 @@ const rockColors = [
     rarity: "Rare",
     positive: "Passionate, assertive, confident, courageous, energetic",
     negative: "Impulsive, hot-headed, aggressive, domineering, volatile",
+    image: 'https://media.oldrocknft.com/oldrock/22acd694a93ef6e6dd1b198cb7f460a4812f2cf35b70926339dcd799797df74d.webp',
   },
   {
     name: "SILVER",
@@ -67,6 +72,7 @@ const rockColors = [
     rarity: "Epic",
     positive: "Agile, resilient, competitive, disciplined, strong",
     negative: "Over-competitive, stubborn, uncompromising, aggressive",
+    image: 'https://media.oldrocknft.com/oldrock/906482ba151149b13c78ec39c1b4998b62fa036915da582c78006adac0e6b493.webp',
   },
   {
     name: "GOLD",
@@ -75,6 +81,7 @@ const rockColors = [
     rarity: "Epic",
     positive: "Ambitious, successful, confident, charismatic, influential",
     negative: "Greedy, materialistic, arrogant, superficial, selfish",
+    image: 'https://media.oldrocknft.com/oldrock/f4498dc532aefcabdacb8a11542c7e0711ab4ba95e5bfc035fcf06ec15fec263.webp',
   },
   {
     name: "AQUAMARINE",
@@ -83,6 +90,7 @@ const rockColors = [
     rarity: "Legendary",
     positive: "Healing, peaceful, empathetic, nurturing, harmonious",
     negative: "Overly emotional, passive, indecisive, escapist, dependent",
+    image: 'https://media.oldrocknft.com/oldrock/889c73f8d0342892ac6f2e13f322a4dbb349bfb11dd7696c36afdedd8dae9cdf.webp'
   },
   {
     name: "BLACK",
@@ -91,6 +99,7 @@ const rockColors = [
     rarity: "Mythic",
     positive: "Mysterious, powerful, protective, sophisticated, elegant",
     negative: "Dark, pessimistic, secretive, intimidating, destructive",
+    image: 'https://media.oldrocknft.com/oldrock/692ea335df064eebe67b5d304e667fbb31907be13a5dc23db2fd4a25cdd66e12.webp',
   },
   {
     name: "WHITE",
@@ -99,6 +108,7 @@ const rockColors = [
     rarity: "Mythic",
     positive: "Pure, enlightened, peaceful, spiritual, transcendent",
     negative: "Naive, detached, perfectionist, judgmental, sterile",
+    image: 'https://media.oldrocknft.com/oldrock/20c9e610701fbc27f5e66cb26e994aaf29a3d938d50257488ec4f11de53651bf.webp',
   },
 ]
 
@@ -109,36 +119,42 @@ const characterTypes = [
     description: "Pure humans untouched by the Goliath disease, maintaining their original form and consciousness",
     rarity: "Common",
     densityKey: "UNINFECTED",
+    image: 'https://media.oldrocknft.com/goliath/9db0c2345dea04975533db2c13b8fbf11e64680d11e7b1b58247e47170f925ab.webp',
   },
   {
     name: "LOW DENSITY",
     description: "Early stage infection with minimal symptoms, showing subtle changes in appearance and behavior",
     rarity: "Uncommon",
     densityKey: "LOW DENSITY",
+    image: 'https://media.oldrocknft.com/goliath/1bfccadbd2ecdccf437f4ee10d2b536f70042d1c260d6932965b568ec9107517.webp'
   },
   {
     name: "MEDIUM DENSITY",
     description: "Moderate infection showing clear mutations, with enhanced strength and partial transformation",
     rarity: "Rare",
     densityKey: "MEDIUM DENSITY",
+    image: 'https://media.oldrocknft.com/goliath/4194f46548076b68ce4028bebf8e7d60b604fc29b4e91bc7b9a365075f23a174.webp',
   },
   {
     name: "HIGH DENSITY",
     description: "Advanced infection with severe mutations, exhibiting extreme physical changes and volatile nature",
     rarity: "Epic",
     densityKey: "HIGH DENSITY",
+    image: 'https://media.oldrocknft.com/goliath/4d4e032ed469c5110d5c16b11779f6eb2169354f7a816e5c01b628b220bfe5ee.webp',
   },
   {
     name: "BOUNTIES",
     description: "Dangerous outlaws with prices on their heads, hunted across the wasteland",
     rarity: "Legendary",
     densityKey: "BOUNTIES",
+    image: 'https://media.oldrocknft.com/goliath/b96e69c85813b46fc131c239b654eec1f284d631a56a490ca1c8d6c20c850526.webp',
   },
   {
     name: "MYSTICS",
     description: "Legendary beings with mysterious powers, transcending the limitations of normal Goliath infection",
     rarity: "Mythic",
     densityKey: "MYSTICS",
+    image: 'https://media.oldrocknft.com/goliath/5c06d5fc255f7c3c5b4a5305c946554cf32cb4c47e07b7cf8c3cba970b60ea5f.webp',
   },
 ]
 
@@ -184,11 +200,7 @@ const getGoliathRarityColor = (rarity: string) => {
 
 export default function CollectionsPage() {
   const [collectionStats, setCollectionStats] = useState<any>(null)
-  const [oldRockNFTs, setOldRockNFTs] = useState<any>({})
-  const [goliathNFTs, setGoliathNFTs] = useState<any>({})
   const [isLoadingStats, setIsLoadingStats] = useState(true)
-  const [isLoadingOldRockNFTs, setIsLoadingOldRockNFTs] = useState(true)
-  const [isLoadingNFTs, setIsLoadingNFTs] = useState(true)
   const [isWalletConnected, setIsWalletConnected] = useState(false)
   const [userProfile, setUserProfile] = useState<any>(null)
   const [rockDistribution, setRockDistribution] = useState<any>({})
@@ -237,116 +249,32 @@ export default function CollectionsPage() {
     loadCollectionData()
   }, [])
 
-  // Fetch Old Rock NFTs
-  useEffect(() => {
-    console.log("🚀 OLD ROCK useEffect triggered")
-    const loadOldRockNFTs = async () => {
-      console.log("🚀 Starting to load Old Rock NFTs...")
-      setIsLoadingOldRockNFTs(true)
-      try {
-        console.log("📞 Calling fetchOldRockNFTs...")
-        const result = await fetchOldRockNFTs()
-        console.log("📞 fetchOldRockNFTs result:", result)
-        if (result.success) {
-          setOldRockNFTs(result.nfts)
-          console.log("✅ Old Rock NFTs set:", result.nfts)
-        } else {
-          console.error("❌ Old Rock NFTs fetch failed:", result.error)
-        }
-      } catch (error) {
-        console.error("💥 Error in loadOldRockNFTs:", error)
-      } finally {
-        setIsLoadingOldRockNFTs(false)
-        console.log("🏁 Old Rock NFTs loading finished")
-      }
-    }
+   // Fetch distribution data
+   useEffect(() => {
+     const loadDistributionData = async () => {
+       try {
+         // Fetch Old Rock distribution with actual counts
+         const oldRockResult = await fetchOldRockNFTs()
+         if (oldRockResult.success && oldRockResult.counts) {
+           // Use the actual counts returned from the API
+           setRockDistribution(oldRockResult.counts)
+           console.log("Rock distribution loaded:", oldRockResult.counts)
+         }
 
-    loadOldRockNFTs()
-  }, [])
+         // Fetch Goliath distribution with actual counts
+         const goliathResult = await fetchGoliathNFTsByDensity()
+         if (goliathResult.success && goliathResult.counts) {
+           // Use the actual counts returned from the API
+           setGoliathDistribution(goliathResult.counts)
+           console.log("Goliath distribution loaded:", goliathResult.counts)
+         }
+       } catch (error) {
+         console.error("Error fetching distribution data:", error)
+       }
+     }
 
-  // Fetch Goliath NFTs
-  useEffect(() => {
-    console.log("🚀 GOLIATH useEffect triggered")
-    const loadGoliathNFTs = async () => {
-      console.log("🚀 Starting to load Goliath NFTs...")
-      setIsLoadingNFTs(true)
-      try {
-        console.log("📞 Calling fetchGoliathNFTsByDensity...")
-        const result = await fetchGoliathNFTsByDensity()
-        console.log("📞 fetchGoliathNFTsByDensity result:", result)
-        if (result.success) {
-          setGoliathNFTs(result.nfts)
-          console.log("✅ Goliath NFTs set:", result.nfts)
-        } else {
-          console.error("❌ Goliath NFTs fetch failed:", result.error)
-        }
-      } catch (error) {
-        console.error("💥 Error in loadGoliathNFTs:", error)
-      } finally {
-        setIsLoadingNFTs(false)
-        console.log("🏁 Goliath NFTs loading finished")
-      }
-    }
-
-    loadGoliathNFTs()
-  }, [])
-
-  // Refresh Old Rock NFTs
-  const refreshOldRockNFTs = async () => {
-    setIsLoadingOldRockNFTs(true)
-    try {
-      const result = await fetchOldRockNFTs()
-      if (result.success) {
-        setOldRockNFTs(result.nfts)
-      }
-    } catch (error) {
-      console.error("Error refreshing Old Rock NFTs:", error)
-    } finally {
-      setIsLoadingOldRockNFTs(false)
-    }
-  }
-
-  // Refresh Goliath NFTs
-  const refreshGoliathNFTs = async () => {
-    setIsLoadingNFTs(true)
-    try {
-      const result = await fetchGoliathNFTsByDensity()
-      if (result.success) {
-        setGoliathNFTs(result.nfts)
-      }
-    } catch (error) {
-      console.error("Error refreshing Goliath NFTs:", error)
-    } finally {
-      setIsLoadingNFTs(false)
-    }
-  }
-
-  // Fetch distribution data
-  useEffect(() => {
-    const loadDistributionData = async () => {
-      try {
-        // Fetch Old Rock distribution with actual counts
-        const oldRockResult = await fetchOldRockNFTs()
-        if (oldRockResult.success && oldRockResult.counts) {
-          // Use the actual counts returned from the API
-          setRockDistribution(oldRockResult.counts)
-          console.log("Rock distribution loaded:", oldRockResult.counts)
-        }
-
-        // Fetch Goliath distribution with actual counts
-        const goliathResult = await fetchGoliathNFTsByDensity()
-        if (goliathResult.success && goliathResult.counts) {
-          // Use the actual counts returned from the API
-          setGoliathDistribution(goliathResult.counts)
-          console.log("Goliath distribution loaded:", goliathResult.counts)
-        }
-      } catch (error) {
-        console.error("Error fetching distribution data:", error)
-      }
-    }
-
-    loadDistributionData()
-  }, [])
+     loadDistributionData()
+   }, [])
 
   return (
     <div className="flex">
@@ -549,19 +477,10 @@ export default function CollectionsPage() {
                     color that matches their inner archetype.
                   </p>
                 </div>
-                <button
-                  onClick={refreshOldRockNFTs}
-                  disabled={isLoadingOldRockNFTs}
-                  className="flex items-center space-x-2 bg-purple-500 hover:bg-purple-600 disabled:opacity-50 text-white px-4 py-2 rounded-lg font-pt-mono font-bold transition-colors"
-                >
-                  <RefreshCw className={`w-4 h-4 ${isLoadingOldRockNFTs ? "animate-spin" : ""}`} />
-                  <span>Refresh</span>
-                </button>
               </div>
 
               <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 {rockColors.map((rock, index) => {
-                  const nftData = oldRockNFTs[rock.name]
                   return (
                     <motion.div
                       key={rock.name}
@@ -572,13 +491,9 @@ export default function CollectionsPage() {
                     >
                       {/* NFT Image */}
                       <div className="relative aspect-square bg-gray-800 overflow-hidden">
-                        {isLoadingOldRockNFTs ? (
-                          <div className="w-full h-full bg-gray-700/50 animate-pulse flex items-center justify-center">
-                            <span className="text-gray-400 font-pt-mono text-sm">Loading...</span>
-                          </div>
-                        ) : nftData?.image ? (
+                        {rock?.image ? (
                           <Image
-                            src={nftData.image.replace('.webp', '-300.webp') || "/placeholder.svg"}
+                            src={rock.image.replace('.webp', '-600.webp') || "/placeholder.svg"}
                             alt={`${rock.name} Rock NFT`}
                             fill
                             className="object-cover group-hover:scale-105 transition-transform duration-300"
@@ -642,19 +557,10 @@ export default function CollectionsPage() {
                   <h2 className="text-3xl font-black font-montserrat text-white mb-2">GOLIATH COLLECTION</h2>
                   <p className="text-gray-400 font-pt-mono">Character types by density level</p>
                 </div>
-                <button
-                  onClick={refreshGoliathNFTs}
-                  disabled={isLoadingNFTs}
-                  className="flex items-center space-x-2 bg-purple-500 hover:bg-purple-600 disabled:opacity-50 text-white px-4 py-2 rounded-lg font-pt-mono font-bold transition-colors"
-                >
-                  <RefreshCw className={`w-4 h-4 ${isLoadingNFTs ? "animate-spin" : ""}`} />
-                  <span>Refresh</span>
-                </button>
               </div>
 
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {characterTypes.map((character, index) => {
-                  const nftData = goliathNFTs[character.densityKey]
                   return (
                     <motion.div
                       key={character.name}
@@ -665,13 +571,9 @@ export default function CollectionsPage() {
                     >
                       {/* NFT Image */}
                       <div className="relative aspect-square bg-gray-800 overflow-hidden">
-                        {isLoadingNFTs ? (
-                          <div className="w-full h-full bg-gray-700/50 animate-pulse flex items-center justify-center">
-                            <span className="text-gray-400 font-pt-mono text-sm">Loading...</span>
-                          </div>
-                        ) : nftData?.image ? (
+                        {character?.image ? (
                           <Image
-                            src={nftData.image.replace('.webp', '-600.webp') || "/placeholder.svg"}
+                            src={character.image.replace('.webp', '-600.webp') || "/placeholder.svg"}
                             alt={`${character.name} NFT`}
                             fill
                             className="object-cover group-hover:scale-105 transition-transform duration-300"
