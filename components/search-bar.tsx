@@ -30,6 +30,14 @@ interface ContentSuggestion {
   category: string
 }
 
+function shortenAddress(address: string, chars = 6) {
+  if (!address.startsWith("0x") || address.length < chars * 2 + 2) {
+    return address;
+  }
+
+  return address.slice(0, 2 + chars) + "..." + address.slice(-chars);
+}
+
 function DynamicImage({ id }: { id: string }) {
   const [imageUrl, setImageUrl] = useState<string | null>(null);
 
@@ -83,6 +91,7 @@ export function SearchBar() {
   const [contentSuggestions, setContentSuggestions] = useState<ContentSuggestion[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [goliathCollectionLimit, setGoliathCollectionLimit] = useState(3717)
+  const [nftOwnersList, setNftOwnersList] = useState([])
   const searchRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const router = useRouter()
@@ -200,7 +209,22 @@ export function SearchBar() {
       }
     }
 
+    async function fetchNftOwnersList() {
+      try {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_AMPLIFY_API_URL}/nfts/owners`);
+
+        if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+
+        const data = await response.json();
+
+        setNftOwnersList(data.data);
+      } catch (e) {
+        console.dir(e);
+      }
+    }
+
     fetchGoliathCollectionLimit();
+    fetchNftOwnersList();
   }, []);
 
   // Focus input when search opens
@@ -238,21 +262,42 @@ export function SearchBar() {
   const performSearch = async (query: string) => {
     setIsLoading(true)
 
+    query = query.toLowerCase();
+
     try {
       const mockResults: SearchResult[] = [];
-      const queryTrimmedNumber = +(query
+      const queryTrimmed = query
         .replace(/old rock/i, '')
         .replace(/oldrock/i, '')
         .replace(/goliath/i, '')
         .replace(/#/, '')
+        .replace(/0x/i, '')
         .trim()
-      );
+      const queryTrimmedNumber = +queryTrimmed;
 
       // Simulate network delay
       await new Promise((resolve) => setTimeout(resolve, 300))
 
+      // Append wallet address list of NFT owners
+      if (queryTrimmed.length >= 3) {
+        nftOwnersList.forEach((owner) => {
+          if (owner.includes(query.replace('0x', ''))) {
+            mockResults.push({
+              id: owner,
+              type: "profile",
+              name: shortenAddress(owner),
+              image: "/placeholder.svg?height=100&width=100",
+              collection: "Profile",
+            });
+          }
+        })
+      }
+
       // Append results for Old Rock NFT assets
-      if (queryTrimmedNumber && queryTrimmedNumber > 0 && queryTrimmedNumber <= goliathCollectionLimit) {
+      if (
+        queryTrimmedNumber && queryTrimmedNumber > 0
+        && queryTrimmedNumber <= goliathCollectionLimit
+      ) {
         // Push exact matches to top
         if (queryTrimmedNumber <= 500) {
           mockResults.push({
@@ -314,9 +359,9 @@ export function SearchBar() {
     setSearchQuery("")
 
     if (result.type === "profile") {
-      router.push(`/profile/${result.address}`)
+      router.push(`/profile/${result.id}`)
     } else if (result.type === "nft") {
-      router.push(`/collections/${result.collection?.toLowerCase()}/${result.id}`)
+      router.push(`/collections/${result.id}`)
     }
   }
 
@@ -425,14 +470,8 @@ export function SearchBar() {
                                 className="flex items-center space-x-3 p-2 hover:bg-gray-800/50 rounded-lg cursor-pointer"
                                 onClick={() => handleResultClick(result)}
                               >
-                                <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-800 flex-shrink-0">
-                                  <NextImage
-                                    src={result.image || "/placeholder.svg"}
-                                    alt={result.name}
-                                    width={40}
-                                    height={40}
-                                    className="object-cover"
-                                  />
+                                <div className="w-10 h-10 rounded-lg bg-gray-800 flex items-center justify-center flex-shrink-0 group-hover:bg-gray-700 transition-colors">
+                                  <User className="w-6 h-6" />
                                 </div>
                                 <div>
                                   <div className="text-white font-medium">{result.name}</div>
