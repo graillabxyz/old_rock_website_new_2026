@@ -198,7 +198,6 @@ export default function ProfilePage() {
         const ensData = await ensResponse.json()
         if (ensData.name) {
           const avatarResponse = await fetch(`https://metadata.ens.domains/mainnet/avatar/${ensData.name}`)
-          console.dir(avatarResponse)
           if (avatarResponse.ok) {
             const avatarUrl = avatarResponse.url
             if (avatarUrl && !avatarUrl.includes("404")) {
@@ -207,7 +206,7 @@ export default function ProfilePage() {
           }
         }
       }
-      return `https://effigy.im/a/${address}.png`
+      return "/images/rock-logo.png"
     } catch (error) {
       console.error("Error fetching ENS avatar:", error)
       return "/images/rock-logo.png"
