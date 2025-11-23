@@ -305,7 +305,8 @@ export function SearchBar() {
             type: "nft",
             name: `Old Rock #${queryTrimmedNumber}`,
             image: "/placeholder.svg?height=100&width=100",
-            collection: "Old Rock",
+            collection: "View on OpenSea",
+            url: `https://opensea.io/item/ethereum/0x5c83df384971ef5ba252336f78ad97d26a0ec7df/${queryTrimmedNumber}`
           });
         }
 
@@ -315,7 +316,8 @@ export function SearchBar() {
             type: "nft",
             name: `Goliath #${queryTrimmedNumber}`,
             image: "/placeholder.svg?height=100&width=100",
-            collection: "Goliath",
+            collection: "View on OpenSea",
+            url: `https://opensea.io/item/ethereum/0x05ab5a50f77b9957b51145b259f05e805d84e92e/${queryTrimmedNumber}`
           });
         }
 
@@ -330,7 +332,8 @@ export function SearchBar() {
               type: "nft",
               name: `Old Rock #${match}`,
               image: "/placeholder.svg?height=100&width=100",
-              collection: "Old Rock",
+              collection: "View on OpenSea",
+              url: `https://opensea.io/item/ethereum/0x5c83df384971ef5ba252336f78ad97d26a0ec7df/${queryTrimmedNumber}`
             });
           });
 
@@ -340,7 +343,8 @@ export function SearchBar() {
               type: "nft",
               name: `Goliath #${match}`,
               image: "/placeholder.svg?height=100&width=100",
-              collection: "Goliath",
+              collection: "View on OpenSea",
+              url: `https://opensea.io/item/ethereum/0x05ab5a50f77b9957b51145b259f05e805d84e92e/${queryTrimmedNumber}`
             });
           });
         }
@@ -360,8 +364,8 @@ export function SearchBar() {
 
     if (result.type === "profile") {
       router.push(`/profile/${result.id}`)
-    } else if (result.type === "nft") {
-      router.push(`/collections/${result.id}`)
+    } else if (result.type === "nft" && result.url) {
+      window.open(result.url, '_blank')
     }
   }
 
