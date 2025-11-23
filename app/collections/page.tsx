@@ -344,7 +344,7 @@ export default function CollectionsPage() {
                   </div>
                   <div className="mt-4 pt-4 border-t border-gray-700">
                     <div className="text-xs text-gray-400 mb-2">TYPE DISTRIBUTION</div>
-                    <div className="grid grid-cols-2 gap-1 text-xs font-pt-mono">
+                    <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-xs font-pt-mono">
                       <div className="flex justify-between">
                         <span className="text-gray-300">Common:</span>
                         <span className="text-white font-bold">{rockDistribution.COMMON || 0}</span>
@@ -431,7 +431,7 @@ export default function CollectionsPage() {
                   </div>
                   <div className="mt-4 pt-4 border-t border-gray-700">
                     <div className="text-xs text-gray-400 mb-2">GOLIATH DISTRIBUTION</div>
-                    <div className="grid grid-cols-3 gap-2 text-xs font-pt-mono">
+                    <div className="grid grid-cols-3 gap-x-6 gap-y-4 text-xs font-pt-mono mt-8">
                       <div className="text-center">
                         <div className="text-gray-500 font-bold">Uninfected</div>
                         <div className="text-white">{goliathDistribution.UNINFECTED || 0}</div>
