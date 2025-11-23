@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useSearchParams } from "next/navigation"
+import { useParams } from "next/navigation";
 import Image from "next/image"
 import { motion, AnimatePresence } from "framer-motion"
 import { Edit2, X, Plus, Trash2 } from "lucide-react"
@@ -31,9 +31,7 @@ interface UserStats {
 }
 
 export default function ProfilePage() {
-  const searchParams = useSearchParams()
-  const walletParam = searchParams.get("wallet")
-
+  const { targetAddress } = useParams();
   const [isLoading, setIsLoading] = useState(true)
   const [walletAddress, setWalletAddress] = useState<string>("")
   const [connectedWallet, setConnectedWallet] = useState<string>("")
@@ -103,13 +101,14 @@ export default function ProfilePage() {
   }, [])
 
   useEffect(() => {
-    const targetWallet = walletParam || connectedWallet
+    const targetWallet = targetAddress || connectedWallet
+
     if (targetWallet) {
       setWalletAddress(targetWallet)
       setIsOwnProfile(targetWallet.toLowerCase() === connectedWallet.toLowerCase())
       loadProfileData(targetWallet)
     }
-  }, [walletParam, connectedWallet])
+  }, [targetAddress, connectedWallet])
 
   const loadProfileData = async (address: string) => {
     setIsLoading(true)

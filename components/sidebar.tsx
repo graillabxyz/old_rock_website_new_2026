@@ -257,7 +257,7 @@ export function Sidebar() {
       const profileItem = {
         name: "Profile",
         icon: <User className="w-5 h-5" />,
-        href: "/profile",
+        href: `/profile/${userProfile?.address}`,
         hasArrow: true,
         isProfile: true,
       };
