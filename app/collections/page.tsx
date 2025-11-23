@@ -578,7 +578,7 @@ export default function CollectionsPage() {
                           </div>
                         ) : nftData?.image ? (
                           <Image
-                            src={nftData.image || "/placeholder.svg"}
+                            src={nftData.image.replace('.webp', '-300.webp') || "/placeholder.svg"}
                             alt={`${rock.name} Rock NFT`}
                             fill
                             className="object-cover group-hover:scale-105 transition-transform duration-300"
@@ -671,7 +671,7 @@ export default function CollectionsPage() {
                           </div>
                         ) : nftData?.image ? (
                           <Image
-                            src={nftData.image || "/placeholder.svg"}
+                            src={nftData.image.replace('.webp', '-600.webp') || "/placeholder.svg"}
                             alt={`${character.name} NFT`}
                             fill
                             className="object-cover group-hover:scale-105 transition-transform duration-300"

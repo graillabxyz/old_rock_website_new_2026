@@ -1,6 +1,6 @@
-export async function fetchGoliathNFTs() {
+export async function fetchRandomGoliathNFTs() {
   try {
-    const response = await fetch("/api/nfts?action=goliath", {
+    const response = await fetch("/api/nfts?action=goliath-random", {
       method: "GET",
       cache: "no-store",
     })
@@ -22,9 +22,34 @@ export async function fetchGoliathNFTs() {
   }
 }
 
+export async function fetchRandomOldRockNFTs() {
+  try {
+    const response = await fetch("/api/nfts?action=oldrock-random", {
+      method: "GET",
+      cache: "no-store",
+    })
+
+    if (!response.ok) {
+      console.error(`❌ API error: ${response.status} ${response.statusText}`)
+      return { success: false, nfts: {}, counts: {}, error: `API Error: ${response.status}` }
+    }
+
+    const data = await response.json()
+    return data
+  } catch (error) {
+    console.error("💥 Error fetching Old Rock NFTs:", error)
+    return {
+      success: false,
+      nfts: {},
+      counts: {},
+      error: error instanceof Error ? error.message : "Unknown error occurred",
+    }
+  }
+}
+
 export async function fetchOldRockNFTs() {
   try {
-    const response = await fetch("/api/nfts?action=oldrock", {
+    const response = await fetch("/api/nfts?action=oldrock-collection", {
       method: "GET",
       cache: "no-store",
     })
@@ -73,7 +98,7 @@ export async function fetchCollectionStats() {
 
 export async function fetchGoliathNFTsByDensity() {
   try {
-    const response = await fetch("/api/nfts?action=goliath-density", {
+    const response = await fetch("/api/nfts?action=goliath-collection-density", {
       method: "GET",
       cache: "no-store",
     })

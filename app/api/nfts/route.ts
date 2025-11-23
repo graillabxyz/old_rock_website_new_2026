@@ -16,11 +16,13 @@ export async function GET(request: NextRequest) {
     }
 
     switch (action) {
-      case "goliath":
+      case "goliath-random":
         return await fetchRandomNFTs('goliath')
-      case "oldrock":
+      case "oldrock-random":
         return await fetchRandomNFTs('oldrock')
-      case "goliath-density":
+      case "oldrock-collection":
+        return await fetchOldRockNFTs(ALCHEMY_API_KEY)
+      case "goliath-collection-density":
         return await fetchGoliathNFTsByDensity(ALCHEMY_API_KEY)
       case "collection-stats":
         return await fetchCollectionStats(ALCHEMY_API_KEY)

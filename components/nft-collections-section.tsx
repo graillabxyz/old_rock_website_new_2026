@@ -4,7 +4,7 @@ import { motion } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import Image from "next/image"
 import { useState, useEffect } from "react"
-import { fetchGoliathNFTs, fetchOldRockNFTs } from "@/app/actions/fetch-nfts"
+import { fetchRandomGoliathNFTs, fetchRandomOldRockNFTs } from "@/app/actions/fetch-nfts"
 
 export function NFTCollectionsSection() {
   // Create array for 4x4 grid
@@ -22,7 +22,7 @@ export function NFTCollectionsSection() {
       setLoadErrors({})
       try {
         const result =
-          activeCollection === "GOLIATH" ? await fetchGoliathNFTs() : await fetchOldRockNFTs()
+          activeCollection === "GOLIATH" ? await fetchRandomGoliathNFTs() : await fetchRandomOldRockNFTs()
         if (result.success) {
           const images = result.images as string[]
           while (images.length < 16) {
