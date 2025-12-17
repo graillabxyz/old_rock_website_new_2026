@@ -571,6 +571,7 @@ export default function ProfilePage() {
                 >
                   <div className="relative aspect-square" style={{ backgroundColor: nft.backgroundColor }}>
                     <Image src={nft.image || "/placeholder.svg"} alt={nft.name} fill className="object-cover" />
+                    {/*}
                     {isOwnProfile && featuredNFTs.length < 3 && (
                       <button
                         onClick={() => handleAddFeaturedNFT(nft)}
@@ -579,6 +580,14 @@ export default function ProfilePage() {
                         <Plus className="w-4 h-4" />
                       </button>
                     )}
+                    {*/}
+                    <button
+                      onClick={() => window.open(nft.image?.replace('.webp', '.gif'), '_blank')}
+                      className="absolute top-2 right-2 bg-purple-600 hover:bg-purple-700 text-white p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity text-xs"
+                      title="View GIF asset for sharing on social"
+                    >
+                      GIF
+                    </button>
                   </div>
                   <div className="p-3">
                     <h3 className="text-sm font-semibold text-white truncate">{nft.name}</h3>
