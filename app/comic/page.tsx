@@ -36,11 +36,11 @@ const chapters: Chapter[] = [
   },
   {
     id: 3,
-    title: "Coming Soon",
+    title: "The Awakening",
     cover: "/images/comic/chapter3-cover.avif",
-    pages: 0,
-    readTime: "TBA",
-    description: "The saga continues...",
+    pages: 6,
+    readTime: "12 min",
+    description: "The next chapter unfolds as new powers emerge and the world adapts to the Goliath transformation.",
   },
 ]
 

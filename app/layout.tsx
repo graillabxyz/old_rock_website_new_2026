@@ -39,8 +39,8 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en">
-      <body>
+    <html lang="en" style={{ overscrollBehavior: 'none' }}>
+      <body style={{ overscrollBehavior: 'none' }}>
         <StructuredData data={organizationSchema} />
         <StructuredData data={websiteSchema} />
         <ClientLayout>{children}</ClientLayout>

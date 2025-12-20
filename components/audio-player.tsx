@@ -2,9 +2,10 @@
 
 import type React from "react"
 
-import { useState, useRef, useEffect } from "react"
+import { useState, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { Play, Pause, Volume2, VolumeX, Music, ChevronDown } from "lucide-react"
+import { useAudio } from "@/contexts/audio-context"
 
 interface AudioPlayerProps {
   tracks?: {
@@ -16,137 +17,29 @@ interface AudioPlayerProps {
 }
 
 export function AudioPlayer({ tracks = [], inSidebar = false, sidebarExpanded = false }: AudioPlayerProps) {
-  const [isPlaying, setIsPlaying] = useState(false)
-  const [volume, setVolume] = useState(0.5)
-  const [isMuted, setIsMuted] = useState(false)
-  const [currentTrackIndex, setCurrentTrackIndex] = useState(0)
   const [isExpanded, setIsExpanded] = useState(false)
-  const [progress, setProgress] = useState(0)
-  const audioRef = useRef<HTMLAudioElement>(null)
-  const previousVolume = useRef(volume)
+  const {
+    isPlaying,
+    volume,
+    isMuted,
+    currentTrackIndex,
+    progress,
+    tracks: contextTracks,
+    togglePlay,
+    setVolume,
+    toggleMute,
+    changeTrack,
+    audioRef,
+  } = useAudio()
 
-  // Default tracks if none provided
-  const defaultTracks = [
-    {
-      title: "I Remember Shadows",
-      src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/I%20Remember%20Shadows-cF7MxC9ixplUa3YGUiKiOWJfCUDQKC.mp3",
-    },
-    {
-      title: "Cyberpunk Ambient",
-      src: "https://cdn.pixabay.com/download/audio/2022/11/22/audio_febc508520.mp3?filename=cyberpunk-2099-172285.mp3",
-    },
-    {
-      title: "Neon Nights",
-      src: "https://cdn.pixabay.com/download/audio/2022/10/25/audio_946b0939c9.mp3?filename=futuristic-beat-146661.mp3",
-    },
-  ]
-
-  const actualTracks = tracks.length > 0 ? tracks : defaultTracks
+  const actualTracks = tracks.length > 0 ? tracks : contextTracks
   const currentTrack = actualTracks[currentTrackIndex]
-
-  // Handle play/pause
-  const togglePlay = () => {
-    if (audioRef.current) {
-      if (isPlaying) {
-        audioRef.current.pause()
-      } else {
-        audioRef.current.play().catch((error) => {
-          console.error("Error playing audio:", error)
-        })
-      }
-      setIsPlaying(!isPlaying)
-    }
-  }
 
   // Handle volume change
   const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newVolume = Number.parseFloat(e.target.value)
     setVolume(newVolume)
-    if (audioRef.current) {
-      audioRef.current.volume = newVolume
-    }
-    if (newVolume > 0 && isMuted) {
-      setIsMuted(false)
-    }
   }
-
-  // Handle mute toggle
-  const toggleMute = () => {
-    if (audioRef.current) {
-      if (isMuted) {
-        audioRef.current.volume = previousVolume.current
-        setVolume(previousVolume.current)
-      } else {
-        previousVolume.current = volume
-        audioRef.current.volume = 0
-        setVolume(0)
-      }
-      setIsMuted(!isMuted)
-    }
-  }
-
-  // Handle track change
-  const changeTrack = (direction: "next" | "prev") => {
-    let newIndex = currentTrackIndex
-    if (direction === "next") {
-      newIndex = (currentTrackIndex + 1) % actualTracks.length
-    } else {
-      newIndex = (currentTrackIndex - 1 + actualTracks.length) % actualTracks.length
-    }
-    setCurrentTrackIndex(newIndex)
-    setProgress(0)
-
-    // If already playing, play the new track
-    if (isPlaying && audioRef.current) {
-      // We need to set a small timeout to allow the src to update
-      setTimeout(() => {
-        if (audioRef.current) {
-          audioRef.current.play().catch((error) => {
-            console.error("Error playing next track:", error)
-          })
-        }
-      }, 100)
-    }
-  }
-
-  // Update progress
-  useEffect(() => {
-    const audio = audioRef.current
-    if (!audio) return
-
-    const updateProgress = () => {
-      if (audio.duration) {
-        setProgress((audio.currentTime / audio.duration) * 100)
-      }
-    }
-
-    audio.addEventListener("timeupdate", updateProgress)
-    return () => {
-      audio.removeEventListener("timeupdate", updateProgress)
-    }
-  }, [currentTrackIndex])
-
-  // Handle track ended
-  useEffect(() => {
-    const audio = audioRef.current
-    if (!audio) return
-
-    const handleEnded = () => {
-      changeTrack("next")
-    }
-
-    audio.addEventListener("ended", handleEnded)
-    return () => {
-      audio.removeEventListener("ended", handleEnded)
-    }
-  }, [currentTrackIndex])
-
-  // Set initial volume
-  useEffect(() => {
-    if (audioRef.current) {
-      audioRef.current.volume = volume
-    }
-  }, [])
 
   // Auto-expand when sidebar opens
   useEffect(() => {
@@ -162,13 +55,6 @@ export function AudioPlayer({ tracks = [], inSidebar = false, sidebarExpanded = 
       {inSidebar ? (
         // Sidebar version
         <div className="w-full">
-          <audio
-            ref={audioRef}
-            src={currentTrack.src}
-            preload="metadata"
-            onPlay={() => setIsPlaying(true)}
-            onPause={() => setIsPlaying(false)}
-          />
 
           {/* Minimized Player */}
           {!isExpanded && (
@@ -184,10 +70,10 @@ export function AudioPlayer({ tracks = [], inSidebar = false, sidebarExpanded = 
 
           {/* Expanded Player */}
           {isExpanded && (
-            <div className="border-t border-white/10 py-3 px-2">
+            <div className="border-t border-white/10 py-3 px-2 w-full">
               {/* Track Info */}
               <div className="mb-2 px-2">
-                <p className="text-white font-pt-mono text-xs truncate">{currentTrack.title}</p>
+                <p className="text-white font-pt-mono text-xs truncate">{currentTrack?.title || "No track"}</p>
               </div>
 
               {/* Progress Bar */}
@@ -196,12 +82,13 @@ export function AudioPlayer({ tracks = [], inSidebar = false, sidebarExpanded = 
               </div>
 
               {/* Controls */}
-              <div className="flex items-center justify-between px-2">
+              <div className="flex items-center justify-between px-2 w-full">
                 {/* Play/Pause */}
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-2 flex-shrink-0">
                   <button
                     onClick={() => changeTrack("prev")}
-                    className="text-gray-400 hover:text-white transition-colors"
+                    className="text-white hover:text-cyan-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={false}
                   >
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                       <path d="M19 20L9 12L19 4V20Z" fill="currentColor" />
@@ -211,7 +98,8 @@ export function AudioPlayer({ tracks = [], inSidebar = false, sidebarExpanded = 
 
                   <button
                     onClick={togglePlay}
-                    className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors"
+                    className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={false}
                   >
                     {isPlaying ? (
                       <Pause className="w-4 h-4 text-white" />
@@ -222,7 +110,8 @@ export function AudioPlayer({ tracks = [], inSidebar = false, sidebarExpanded = 
 
                   <button
                     onClick={() => changeTrack("next")}
-                    className="text-gray-400 hover:text-white transition-colors"
+                    className="text-white hover:text-cyan-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={false}
                   >
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                       <path d="M5 4L15 12L5 20V4Z" fill="currentColor" />
@@ -232,8 +121,12 @@ export function AudioPlayer({ tracks = [], inSidebar = false, sidebarExpanded = 
                 </div>
 
                 {/* Volume */}
-                <div className="flex items-center space-x-1">
-                  <button onClick={toggleMute} className="text-gray-400 hover:text-white transition-colors">
+                <div className="flex items-center space-x-1 flex-shrink-0">
+                  <button 
+                    onClick={toggleMute} 
+                    className="text-white hover:text-cyan-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={false}
+                  >
                     {isMuted || volume === 0 ? <VolumeX className="w-3 h-3" /> : <Volume2 className="w-3 h-3" />}
                   </button>
                   <input
@@ -243,7 +136,8 @@ export function AudioPlayer({ tracks = [], inSidebar = false, sidebarExpanded = 
                     step="0.01"
                     value={volume}
                     onChange={handleVolumeChange}
-                    className="w-12 h-1 bg-gray-700 rounded-full appearance-none [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:h-2 [&::-webkit-slider-thumb]:w-2 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white"
+                    className="w-12 h-1 bg-gray-700 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:h-2 [&::-webkit-slider-thumb]:w-2 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={false}
                   />
                 </div>
               </div>
@@ -253,13 +147,6 @@ export function AudioPlayer({ tracks = [], inSidebar = false, sidebarExpanded = 
       ) : (
         // Floating version
         <div className="fixed bottom-6 right-6 z-50">
-          <audio
-            ref={audioRef}
-            src={currentTrack.src}
-            preload="metadata"
-            onPlay={() => setIsPlaying(true)}
-            onPause={() => setIsPlaying(false)}
-          />
 
           {/* Minimized Player */}
           {!isExpanded && (
@@ -299,7 +186,7 @@ export function AudioPlayer({ tracks = [], inSidebar = false, sidebarExpanded = 
 
                 {/* Track Info */}
                 <div className="mb-3">
-                  <p className="text-white font-pt-mono text-xs truncate">{currentTrack.title}</p>
+                  <p className="text-white font-pt-mono text-xs truncate">{currentTrack?.title || "No track"}</p>
                 </div>
 
                 {/* Progress Bar */}

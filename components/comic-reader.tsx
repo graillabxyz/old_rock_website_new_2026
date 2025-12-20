@@ -78,7 +78,7 @@ const comicChapters: ComicChapter[] = [
   },
   {
     id: 3,
-    title: "Coming Soon",
+    title: "The Awakening",
     cover: "/images/comic/chapter3-cover.avif",
     pages: [
       "/images/comic/chapter3-page1.jpeg",
@@ -88,7 +88,7 @@ const comicChapters: ComicChapter[] = [
       "/images/comic/chapter3-page5.jpeg",
       "/images/comic/chapter3-page6.jpeg",
     ],
-    readTime: "TBA",
+    readTime: "12 min",
   },
 ]
 
