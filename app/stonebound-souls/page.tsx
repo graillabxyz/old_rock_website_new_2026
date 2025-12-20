@@ -17,6 +17,7 @@ import {
   Shield,
   Target,
 } from "lucide-react"
+import Image from "next/image"
 import { Sidebar } from "@/components/sidebar"
 import { Header } from "@/components/header"
 import { CyberpunkBackground } from "@/components/cyberpunk-background"
@@ -253,12 +254,310 @@ const augmentationCorruption = {
 
 const levelingData = [
   { level: 0, xp: "0–999", title: "Beginner", reward: "+ Focus Ability" },
-  { level: 1, xp: "1,000–2,999", title: "Novice", reward: "+ Class Ability" },
-  { level: 2, xp: "3,000–5,999", title: "Intermediate", reward: "+ Class Ability" },
-  { level: 3, xp: "6,000–14,999", title: "Advanced", reward: "+1 Ability Score" },
-  { level: 4, xp: "15,000–34,999", title: "Expert", reward: "+ Class Ability" },
-  { level: 5, xp: "35,000+", title: "Master", reward: "+3 Ability Score, +2 Upgrades" },
+  { level: 1, xp: "1,000–2,999", title: "Novice", reward: "+ Class Ability, +1 Feat" },
+  { level: 2, xp: "3,000–5,999", title: "Apprentice", reward: "+ Class Ability" },
+  { level: 3, xp: "6,000–9,999", title: "Advanced", reward: "+ Class Ability, +1 Feat" },
+  { level: 4, xp: "10,000–14,999", title: "Expert", reward: "+1 Ability Score, + Class Ability" },
+  { level: 5, xp: "15,000–22,999", title: "Veteran", reward: "+ Class Ability, +1 Feat" },
+  { level: 6, xp: "23,000–34,999", title: "Adept", reward: "+ Class Ability" },
+  { level: 7, xp: "35,000–50,999", title: "Skilled", reward: "+ Class Ability, +1 Feat" },
+  { level: 8, xp: "51,000–74,999", title: "Master", reward: "+1 Ability Score, + Class Ability" },
+  { level: 9, xp: "75,000–104,999", title: "Elite", reward: "+ Class Ability, +1 Feat" },
+  { level: 10, xp: "105,000–154,999", title: "Paragon", reward: "+ Class Ability" },
+  { level: 11, xp: "155,000–219,999", title: "Champion", reward: "+ Class Ability, +1 Feat" },
+  { level: 12, xp: "220,000–314,999", title: "Hero", reward: "+1 Ability Score, + Class Ability" },
+  { level: 13, xp: "315,000–444,999", title: "Legendary", reward: "+ Class Ability, +1 Feat" },
+  { level: 14, xp: "445,000–634,999", title: "Mythic", reward: "+ Class Ability" },
+  { level: 15, xp: "635,000–889,999", title: "Epic", reward: "+ Class Ability, +1 Feat" },
+  { level: 16, xp: "890,000–1,299,999", title: "Transcendent", reward: "+1 Ability Score, + Class Ability" },
+  { level: 17, xp: "1,300,000–1,799,999", title: "Divine", reward: "+ Class Ability, +1 Feat" },
+  { level: 18, xp: "1,800,000–2,599,999", title: "Immortal", reward: "+ Class Ability" },
+  { level: 19, xp: "2,600,000–3,599,999", title: "Ascendant", reward: "+ Class Ability, +1 Feat" },
+  { level: 20, xp: "3,600,000+", title: "Godbound", reward: "+1 Ability Score, + Class Ability, + Epic Feat" },
 ]
+
+// Helper function to extract mechanical details from text with context
+const extractMechanics = (text: string, level: 'Low' | 'Medium' | 'High' = 'Low') => {
+  const mechanics: {
+    damage?: Array<{ value: string; context: string; requirement?: string }>
+    saves?: Array<{ value: string; context: string; requirement?: string }>
+    durations?: Array<{ value: string; context: string; requirement?: string }>
+    ranges?: Array<{ value: string; context: string; requirement?: string }>
+    modifiers?: Array<{ value: string; context: string; requirement?: string }>
+    percentages?: Array<{ value: string; context: string; requirement?: string }>
+    actions?: Array<{ value: string; context: string; requirement?: string }>
+    other?: Array<{ value: string; context: string; requirement?: string }>
+  } = {}
+
+  // The requirement is the augmentation level needed
+  const requirement = `${level} Level Augmentation`
+
+  // Extract damage dice with context (look for surrounding text)
+  const damageRegex = /([^.]{0,150})(\d+d\d+)\s+(fire|cold|poison|plasma|electrical|wind|damage|piercing|slashing|bludgeoning)([^.]{0,150})/gi
+  let match
+  const damageItems: Array<{ value: string; context: string; requirement?: string }> = []
+  while ((match = damageRegex.exec(text)) !== null) {
+    const fullContext = (match[1] + match[2] + ' ' + match[3] + match[4]).trim().replace(/\s+/g, ' ')
+    // Extract a meaningful context window around the mechanic
+    const startIdx = Math.max(0, fullContext.indexOf(match[2]) - 60)
+    const endIdx = Math.min(fullContext.length, fullContext.indexOf(match[2]) + match[2].length + match[3].length + 60)
+    const context = fullContext.substring(startIdx, endIdx).trim()
+    damageItems.push({ value: `${match[2]} ${match[3]}`, context: context || fullContext, requirement })
+  }
+  if (damageItems.length > 0) {
+    mechanics.damage = damageItems
+  }
+
+  // Extract save DCs with context - make it more succinct
+  const saveRegex = /([^.]{0,200})(FORT|WILL|DEX|STR|INT|CHA|WIS|Constitution|Fortitude)\s+save\s+DC\s+(\d+\s*\+\s*your\s+level|\d+)([^.]{0,200})/gi
+  const saveItems: Array<{ value: string; context: string; requirement?: string }> = []
+  while ((match = saveRegex.exec(text)) !== null) {
+    const beforeText = match[1].trim()
+    const afterText = match[4].trim()
+    
+    // Extract who/what must make the save - look for complete phrases
+    let trigger = ''
+    const triggerPatterns = [
+      /(?:any|all|each|every)\s+(?:living\s+)?(?:creature|enemy|target|character|ally|player|person|being|individual|one|someone|anyone|those|they)\s+(?:that|who|which)\s+(?:comes|enters|touches|breathes|is|are|within|near)\s+([^.]{0,60})/i,
+      /(?:creature|enemy|target|character|ally|player|enemies|targets|creatures|those|they|who|that)\s+(?:that|who|which|within|near|comes|enters|touches|breathes)\s+([^.]{0,60})/i,
+    ]
+    
+    for (const pattern of triggerPatterns) {
+      const triggerMatch = beforeText.match(pattern)
+      if (triggerMatch && triggerMatch[1]) {
+        trigger = triggerMatch[1].trim()
+        // Clean up - remove trailing words that don't make sense
+        trigger = trigger.replace(/\s+(must|make|or|to|and|the|a|an)\s*$/i, '').trim()
+        if (trigger.length > 5 && trigger.length < 80) break
+      }
+    }
+    
+    // Extract consequence - look for complete phrases after "or"
+    let consequence = ''
+    const consequenceMatch = afterText.match(/(?:or|to)\s+(?:become|suffer|take|be|gain|lose|are|is)\s+([^.]{0,100})/i)
+    if (consequenceMatch && consequenceMatch[1]) {
+      consequence = consequenceMatch[1].trim()
+      // Stop at sentence boundaries, commas with conjunctions, or incomplete words
+      const sentenceEnd = consequence.search(/[.!?]\s|,\s+(?:and|or|but|then|after|when|while|as|until|The|You|Your|their|they)/i)
+      if (sentenceEnd > 10) {
+        consequence = consequence.substring(0, sentenceEnd).trim()
+      }
+      // Remove incomplete words at the end (1-2 character words)
+      consequence = consequence.replace(/\s+\w{1,2}$/, '').trim()
+      // Limit length
+      if (consequence.length > 80) {
+        consequence = consequence.substring(0, 77).trim() + '...'
+      }
+    }
+    
+    // Clean up trigger - remove "must make" if already present
+    if (trigger) {
+      trigger = trigger.replace(/\s+(must\s+make|make)\s*$/i, '').trim()
+      // Remove "make a" or "make" at the end
+      trigger = trigger.replace(/\s+(make\s+a|make)\s*$/i, '').trim()
+    }
+    
+    // Build clean, succinct context - ensure complete sentences
+    let context = ''
+    if (trigger && consequence) {
+      // Ensure complete sentence
+      if (!consequence.endsWith('.') && !consequence.endsWith('!') && !consequence.endsWith('?')) {
+        consequence = consequence + '.'
+      }
+      context = `${trigger} must make ${match[2]} save DC ${match[3]} or ${consequence}`
+    } else if (trigger) {
+      context = `${trigger} must make ${match[2]} save DC ${match[3]}.`
+    } else if (consequence) {
+      if (!consequence.endsWith('.') && !consequence.endsWith('!') && !consequence.endsWith('?')) {
+        consequence = consequence + '.'
+      }
+      context = `Targets must make ${match[2]} save DC ${match[3]} or ${consequence}`
+    } else {
+      // Fallback - use a clean, simple description
+      context = `Requires ${match[2]} save DC ${match[3]}.`
+    }
+    
+    // Clean up any double spaces or awkward phrases
+    context = context.replace(/\s+/g, ' ')
+      .replace(/\b(make\s+a\s+must\s+make|must\s+make\s+must\s+make|make\s+a\s+make)\b/gi, 'must make')
+      .replace(/\b(make\s+a|make)\s+must\s+make\b/gi, 'must make')
+      .replace(/\s+([.,!?])/g, '$1')
+      .trim()
+    
+    // Remove incomplete words at the end (words with 1-2 characters)
+    context = context.replace(/\s+\w{1,2}\s*$/, '').trim()
+    
+    saveItems.push({ value: `${match[2]} save DC ${match[3]}`, context, requirement })
+  }
+  if (saveItems.length > 0) {
+    mechanics.saves = saveItems
+  }
+
+  // Extract durations with context - make it more succinct and clean
+  const durationRegex = /([^.]{0,200})(\d+)\s+(rounds?|turns?|minutes?|hours?|seconds?)([^.]{0,200})/gi
+  const durationItems: Array<{ value: string; context: string; requirement?: string }> = []
+  while ((match = durationRegex.exec(text)) !== null) {
+    const beforeText = match[1].trim()
+    const afterText = match[4].trim()
+    const durationValue = `${match[2]} ${match[3]}`
+    
+    // Look for what the duration applies to - look for ability/effect names before "for" or "lasts"
+    let abilityName = ''
+    const abilityPatterns = [
+      /(?:gaseous\s+form|transformation|state|ability|effect|power|duplicate|shadow|mimic|form|aura|field|cloud|gas)\s+(?:lasts?|for|duration|extends?|increases?|to)\s+(?:up\s+to\s+)?\d+/i,
+      /(?:for|up\s+to|lasts?|duration|extends?|increases?|to)\s+(?:up\s+to\s+)?\d+/i,
+    ]
+    
+    for (const pattern of abilityPatterns) {
+      const abilityMatch = beforeText.match(pattern)
+      if (abilityMatch) {
+        // Extract the ability name before the match
+        const matchIndex = abilityMatch.index || 0
+        const beforeMatch = beforeText.substring(Math.max(0, matchIndex - 50), matchIndex).trim()
+        // Look for the actual ability name
+        const nameMatch = beforeMatch.match(/(?:gaseous\s+form|transformation|state|ability|effect|power|duplicate|shadow|mimic|form|aura|field|cloud|gas|ability|power)\s*$/i)
+        if (nameMatch) {
+          abilityName = nameMatch[0].trim()
+          break
+        } else if (beforeMatch.length > 10) {
+          // Use the last meaningful phrase
+          const words = beforeMatch.split(/\s+/)
+          if (words.length >= 2) {
+            abilityName = words.slice(-2).join(' ')
+            break
+          }
+        }
+      }
+    }
+    
+    // Look for what happens during/after duration - but only complete phrases
+    let effect = ''
+    const effectMatch = afterText.match(/(?:\.|,|and|or|while|during|when|as|until|then|after)\s+([^.]{0,80})/i)
+    if (effectMatch && effectMatch[1]) {
+      effect = effectMatch[1].trim()
+      // Clean up - remove trailing incomplete words
+      effect = effect.replace(/\s+\w{1,2}$/, '').trim()
+      // Stop at sentence endings or common conjunctions
+      const sentenceEnd = effect.search(/[.!?]\s|,\s+(?:and|or|but|then|after|when|while|as|until|The|You|Your)/i)
+      if (sentenceEnd > 15) {
+        effect = effect.substring(0, sentenceEnd).trim()
+      }
+      // Limit length
+      if (effect.length > 100) {
+        effect = effect.substring(0, 100).trim()
+      }
+    }
+    
+    // Build clean, succinct context - ensure complete sentences
+    let context = ''
+    if (abilityName && effect) {
+      // Clean up ability name
+      abilityName = abilityName.replace(/^(the|a|an|your|this|that)\s+/i, '').trim()
+      // Ensure effect ends with punctuation
+      if (!effect.endsWith('.') && !effect.endsWith('!') && !effect.endsWith('?')) {
+        effect = effect + '.'
+      }
+      context = `${abilityName} lasts ${durationValue}. ${effect}`
+    } else if (abilityName) {
+      abilityName = abilityName.replace(/^(the|a|an|your|this|that)\s+/i, '').trim()
+      context = `${abilityName} lasts ${durationValue}.`
+    } else if (effect) {
+      if (!effect.endsWith('.') && !effect.endsWith('!') && !effect.endsWith('?')) {
+        effect = effect + '.'
+      }
+      context = `Effect lasts ${durationValue}. ${effect}`
+    } else {
+      // Fallback - use a simple description
+      context = `Duration: ${durationValue}.`
+    }
+    
+    // Final cleanup
+    context = context.replace(/\s+/g, ' ')
+      .replace(/\s+([.,!?])/g, '$1')
+      .trim()
+    
+    // Remove incomplete words at the end (words with 1-2 characters)
+    context = context.replace(/\s+\w{1,2}\s*$/, '').trim()
+    
+    durationItems.push({ value: durationValue, context, requirement })
+  }
+  if (durationItems.length > 0) {
+    mechanics.durations = durationItems
+  }
+
+  // Extract ranges with context
+  const rangeRegex = /([^.]{0,150})(\d+)\s+feet|within\s+(\d+)\s+feet|(\d+)\s+foot\s+radius|(\d+)\s+foot\s+area([^.]{0,150})/gi
+  const rangeItems: Array<{ value: string; context: string; requirement?: string }> = []
+  while ((match = rangeRegex.exec(text)) !== null) {
+    const range = match[2] || match[3] || match[4] || match[5]
+    const fullContext = (match[1] + range + ' feet' + (match[6] || '')).trim().replace(/\s+/g, ' ')
+    const startIdx = Math.max(0, fullContext.indexOf(range) - 60)
+    const endIdx = Math.min(fullContext.length, fullContext.indexOf(range) + range.length + 10 + 60)
+    const context = fullContext.substring(startIdx, endIdx).trim()
+    rangeItems.push({ value: `${range} feet`, context: context || fullContext, requirement })
+  }
+  if (rangeItems.length > 0) {
+    mechanics.ranges = rangeItems
+  }
+
+  // Extract modifiers with context
+  const modifierRegex = /([^.]{0,150})([+-]\d+)\s+(to|damage|AC|rolls?|stealth|initiative|tactics|HP|hit\s+points|movement|speed|attack|defense)([^.]{0,150})/gi
+  const modifierItems: Array<{ value: string; context: string; requirement?: string }> = []
+  while ((match = modifierRegex.exec(text)) !== null) {
+    const fullContext = (match[1] + match[2] + ' ' + match[3] + match[4]).trim().replace(/\s+/g, ' ')
+    const startIdx = Math.max(0, fullContext.indexOf(match[2]) - 60)
+    const endIdx = Math.min(fullContext.length, fullContext.indexOf(match[2] + ' ' + match[3]) + match[2].length + match[3].length + 60)
+    const context = fullContext.substring(startIdx, endIdx).trim()
+    modifierItems.push({ value: `${match[2]} ${match[3]}`, context: context || fullContext, requirement })
+  }
+  if (modifierItems.length > 0) {
+    mechanics.modifiers = modifierItems
+  }
+
+  // Extract percentages with context
+  const percentageRegex = /([^.]{0,150})(\d+%)([^.]{0,150})/gi
+  const percentageItems: Array<{ value: string; context: string; requirement?: string }> = []
+  while ((match = percentageRegex.exec(text)) !== null) {
+    const fullContext = (match[1] + match[2] + match[3]).trim().replace(/\s+/g, ' ')
+    const startIdx = Math.max(0, fullContext.indexOf(match[2]) - 60)
+    const endIdx = Math.min(fullContext.length, fullContext.indexOf(match[2]) + match[2].length + 60)
+    const context = fullContext.substring(startIdx, endIdx).trim()
+    percentageItems.push({ value: match[2], context: context || fullContext, requirement })
+  }
+  if (percentageItems.length > 0) {
+    mechanics.percentages = percentageItems
+  }
+
+  // Extract action types with context
+  const actionRegex = /([^.]{0,150})(once\s+per\s+combat|free\s+action|per\s+turn|per\s+round|once\s+per\s+day|once\s+per\s+encounter)([^.]{0,150})/gi
+  const actionItems: Array<{ value: string; context: string; requirement?: string }> = []
+  while ((match = actionRegex.exec(text)) !== null) {
+    const fullContext = (match[1] + match[2] + match[3]).trim().replace(/\s+/g, ' ')
+    const startIdx = Math.max(0, fullContext.indexOf(match[2]) - 60)
+    const endIdx = Math.min(fullContext.length, fullContext.indexOf(match[2]) + match[2].length + 60)
+    const context = fullContext.substring(startIdx, endIdx).trim()
+    actionItems.push({ value: match[2], context: context || fullContext, requirement })
+  }
+  if (actionItems.length > 0) {
+    mechanics.actions = actionItems
+  }
+
+  // Extract other key mechanics with context
+  const otherRegex = /([^.]{0,150})(immune\s+to|resistance|resistant\s+to|proficiency|proficient|immunity|vulnerable|vulnerability)([^.]{0,150})/gi
+  const otherItems: Array<{ value: string; context: string; requirement?: string }> = []
+  while ((match = otherRegex.exec(text)) !== null) {
+    const fullContext = (match[1] + match[2] + match[3]).trim().replace(/\s+/g, ' ')
+    const startIdx = Math.max(0, fullContext.indexOf(match[2]) - 60)
+    const endIdx = Math.min(fullContext.length, fullContext.indexOf(match[2]) + match[2].length + 60)
+    const context = fullContext.substring(startIdx, endIdx).trim()
+    otherItems.push({ value: match[2], context: context || fullContext, requirement })
+  }
+  if (otherItems.length > 0) {
+    mechanics.other = otherItems
+  }
+
+  return mechanics
+}
 
 export default function StoneboundSoulsPage() {
   const [activeSection, setActiveSection] = useState("overview")
@@ -268,6 +567,1220 @@ export default function StoneboundSoulsPage() {
   const [activeRulesTab, setActiveRulesTab] = useState("core")
   const [mainTab, setMainTab] = useState<"basic" | "augmentation">("basic")
   const [augmentationTab, setAugmentationTab] = useState<"abilities" | "corruption">("abilities")
+  const [selectedProgressionIndex, setSelectedProgressionIndex] = useState<number | null>(null)
+
+  // Get detailed mechanics for a progression ability
+  const getProgressionMechanics = (
+    subclassId: string,
+    abilityIndex: number,
+    abilityName: string,
+    augmentationId?: string
+  ) => {
+    const level = abilityIndex + 1
+    const baseDC = 10 + level
+    const baseDamage = Math.floor(level / 2) + 1
+    
+    // Base mechanics structure
+    const mechanics: {
+      type: string
+      action: string
+      range?: string
+      duration?: string
+      save?: string
+      damage?: string
+      effects: string[]
+      augmentationBonus?: string
+    } = {
+      type: "Active",
+      action: "Standard Action",
+      effects: [],
+    }
+
+    // Contextual mechanics based on subclass and augmentation
+    if (subclassId === "berserker") {
+      if (abilityName.includes("Rage") || abilityName.includes("Fury")) {
+        mechanics.type = "Rage Ability"
+        mechanics.action = "Free Action (once per combat)"
+        mechanics.duration = `${2 + Math.floor(level / 3)} rounds`
+        mechanics.effects.push(`+${Math.floor(level / 2) + 1} damage to all attacks`)
+        mechanics.effects.push("Resistance to fear effects")
+        if (augmentationId === "red") {
+          mechanics.augmentationBonus = "Fire damage added to all attacks while raging"
+          mechanics.effects.push("+1d4 fire damage per attack")
+        } else if (augmentationId === "yellow") {
+          mechanics.augmentationBonus = "Can enter gaseous form while raging"
+          mechanics.effects.push("Gaseous form duration extended by rage duration")
+        } else if (augmentationId === "blue") {
+          mechanics.augmentationBonus = "Cold rage slows enemies on contact"
+          mechanics.effects.push("Enemies must make FORT save DC " + baseDC + " or be slowed")
+        } else if (augmentationId === "black") {
+          mechanics.augmentationBonus = "Shadow rage creates dark matter aura"
+          mechanics.effects.push("50% miss chance from ranged attacks")
+        } else if (augmentationId === "white") {
+          mechanics.augmentationBonus = "Plasma rage adds fire damage"
+          mechanics.effects.push("+1d4 plasma damage to all attacks")
+        }
+      } else if (abilityName.includes("Intimidat")) {
+        mechanics.type = "Intimidation"
+        mechanics.action = "Standard Action"
+        mechanics.range = "30 feet"
+        mechanics.save = `WILL DC ${baseDC}`
+        mechanics.effects.push("Targets become frightened on failed save")
+        mechanics.effects.push(`Affects up to ${Math.floor(level / 3) + 1} targets`)
+      } else if (abilityName.includes("Leap")) {
+        mechanics.type = "Movement Attack"
+        mechanics.action = "Move Action"
+        mechanics.range = "30 feet"
+        mechanics.damage = `${baseDamage}d6 + STR modifier`
+        mechanics.effects.push("Can move through enemy spaces")
+        mechanics.effects.push("Targets must make DEX save DC " + baseDC + " or be knocked prone")
+      }
+    } else if (subclassId === "guardian") {
+      if (abilityName.includes("Aegis") || abilityName.includes("Protocol")) {
+        mechanics.type = "Protective Ability"
+        mechanics.action = "Standard Action"
+        mechanics.range = "30 feet"
+        mechanics.duration = `${3 + Math.floor(level / 2)} rounds`
+        mechanics.effects.push(`Grant +${Math.floor(level / 3) + 2} shield bonus to AC to all allies within range`)
+        mechanics.effects.push(`Allies gain damage reduction ${Math.floor(level / 4) + 1}/- (reduces all damage by this amount)`)
+        mechanics.effects.push("Allies gain +" + Math.floor(level / 5) + 1 + " to all saves")
+        if (augmentationId === "blue") {
+          mechanics.augmentationBonus = "Ice barriers provide additional protection"
+          mechanics.effects.push("+2 AC from ice barriers (deflection bonus)")
+          mechanics.effects.push("Enemies that attack protected allies take 1d4 cold damage")
+        } else if (augmentationId === "turquoise") {
+          mechanics.augmentationBonus = "Electrical field deflects projectiles"
+          mechanics.effects.push("Ranged attacks against protected allies have 25% miss chance (concealment)")
+          mechanics.effects.push("Ranged attackers take 1d4 electrical damage")
+        } else if (augmentationId === "white") {
+          mechanics.augmentationBonus = "Plasma barriers provide additional protection"
+          mechanics.effects.push("+1 AC from plasma shields")
+          mechanics.effects.push("Enemies within 5 feet of protected allies take 1d4 plasma damage per round")
+        } else if (augmentationId === "black") {
+          mechanics.augmentationBonus = "Shadow barriers absorb attacks"
+          mechanics.effects.push("Damage reduction +1")
+          mechanics.effects.push("Protected allies gain 20% concealment")
+        }
+      } else if (abilityName.includes("Shield") || abilityName.includes("Wall")) {
+        mechanics.type = "Area Protection"
+        mechanics.action = "Standard Action"
+        mechanics.range = "30 feet"
+        mechanics.duration = `${2 + Math.floor(level / 3)} rounds`
+        mechanics.effects.push(`Create protective barrier covering ${5 + level * 2} square feet`)
+        mechanics.effects.push("Barrier has AC " + (15 + level) + " and " + (level * 5) + " HP")
+        mechanics.effects.push("Allies behind barrier gain +" + (Math.floor(level / 2) + 2) + " cover bonus to AC")
+        mechanics.effects.push("Barrier blocks line of sight for enemies")
+      } else if (abilityName.includes("Resolve") || abilityName.includes("Guardian's Resolve")) {
+        mechanics.type = "Passive Ability"
+        mechanics.action = "Passive"
+        mechanics.effects.push("Immunity to fear effects and shaken condition")
+        mechanics.effects.push(`+${Math.floor(level / 3) + 1} morale bonus to all saves`)
+        mechanics.effects.push("Cannot be intimidated or demoralized")
+      } else if (abilityName.includes("Augmented Defense")) {
+        mechanics.type = "Augmentation Synergy"
+        mechanics.action = "Free Action (while protecting)"
+        mechanics.duration = "While protecting"
+        mechanics.effects.push("All augmentation abilities gain +1 to DCs when used defensively")
+        mechanics.effects.push("Augmentation durations extended by 1 round when protecting")
+        mechanics.effects.push("Can use augmentation abilities as immediate actions to protect allies")
+      } else if (abilityName.includes("Aura") || abilityName.includes("Protective Aura")) {
+        mechanics.type = "Aura Ability"
+        mechanics.action = "Free Action"
+        mechanics.range = "10 feet radius"
+        mechanics.duration = `${2 + Math.floor(level / 2)} rounds`
+        mechanics.effects.push(`Allies within 10 feet gain damage resistance ${Math.floor(level / 3) + 1}`)
+        mechanics.effects.push("Allies gain +" + Math.floor(level / 4) + 1 + " to all saves")
+        mechanics.effects.push("Aura moves with you")
+      } else if (abilityName.includes("Stalwart") || abilityName.includes("Intercept")) {
+        mechanics.type = "Reactive Ability"
+        mechanics.action = "Immediate Action"
+        mechanics.range = "10 feet"
+        mechanics.effects.push("Intercept one attack meant for an ally within range")
+        mechanics.effects.push("Take damage instead of ally")
+        mechanics.effects.push("Reduce damage taken by " + Math.floor(level / 2))
+        mechanics.effects.push("Can be used " + (1 + Math.floor(level / 5)) + " times per round")
+      } else if (abilityName.includes("Sacrifice") || abilityName.includes("Guardian's Sacrifice")) {
+        mechanics.type = "Reactive Ability"
+        mechanics.action = "Immediate Action"
+        mechanics.range = "15 feet"
+        mechanics.effects.push("Intercept attack meant for ally within range")
+        mechanics.effects.push("Take all damage instead of ally")
+        mechanics.effects.push("Reduce damage taken by " + Math.floor(level / 2))
+        mechanics.effects.push("If damage would reduce you to 0 HP, make FORT save DC 15 or be staggered for 1 round")
+      } else if (abilityName.includes("Fortress") || abilityName.includes("Stance")) {
+        mechanics.type = "Defensive Stance"
+        mechanics.action = "Move Action"
+        mechanics.duration = `${1 + Math.floor(level / 3)} rounds`
+        mechanics.effects.push("Cannot move from your space")
+        mechanics.effects.push("Double all protection bonuses granted to allies")
+        mechanics.effects.push("+" + Math.floor(level / 2) + 2 + " to your own AC")
+        mechanics.effects.push("Allies within 30 feet gain +" + Math.floor(level / 3) + 2 + " to AC")
+      } else if (abilityName.includes("Shield Master") || abilityName.includes("Reflect")) {
+        mechanics.type = "Reactive Ability"
+        mechanics.action = "Immediate Action"
+        mechanics.range = "Melee"
+        mechanics.effects.push("When an enemy attacks you or an adjacent ally, make attack roll")
+        mechanics.effects.push("If your attack roll exceeds enemy's AC, reflect attack back at them")
+        mechanics.effects.push("Reflected attack deals " + baseDamage + "d6 damage")
+        mechanics.effects.push("Can be used " + (1 + Math.floor(level / 5)) + " times per round")
+      } else if (abilityName.includes("Ultimate") || abilityName.includes("Entire Party")) {
+        mechanics.type = "Mass Protection"
+        mechanics.action = "Standard Action"
+        mechanics.range = "60 feet"
+        mechanics.duration = `${2 + Math.floor(level / 2)} rounds`
+        mechanics.effects.push("Protect all allies within range simultaneously")
+        mechanics.effects.push(`Each ally gains +${Math.floor(level / 3) + 3} AC`)
+        mechanics.effects.push(`Each ally gains damage reduction ${Math.floor(level / 4) + 2}/-`)
+        mechanics.effects.push("Can be used once per combat")
+      } else if (abilityName.includes("Legendary") || abilityName.includes("Area Effect")) {
+        mechanics.type = "Area Protection"
+        mechanics.action = "Standard Action"
+        mechanics.range = "30 feet radius"
+        mechanics.duration = `${2 + Math.floor(level / 2)} rounds`
+        mechanics.effects.push("Create protective field covering 30-foot radius")
+        mechanics.effects.push("All allies in field gain +" + (Math.floor(level / 3) + 3) + " AC")
+        mechanics.effects.push("All allies in field gain damage reduction " + (Math.floor(level / 4) + 2) + "/-")
+      } else if (abilityName.includes("Angel") || abilityName.includes("Teleport")) {
+        mechanics.type = "Teleportation"
+        mechanics.action = "Immediate Action"
+        mechanics.range = "100 feet"
+        mechanics.effects.push("Instantly teleport to any ally within range")
+        mechanics.effects.push("Intercept attack meant for that ally")
+        mechanics.effects.push("Can be used " + (1 + Math.floor(level / 5)) + " times per combat")
+      } else if (abilityName.includes("Field") || abilityName.includes("Dome")) {
+        mechanics.type = "Area Protection"
+        mechanics.action = "Full Round Action"
+        mechanics.range = "50 feet radius"
+        mechanics.duration = `${3 + Math.floor(level / 2)} rounds`
+        mechanics.effects.push("Create dome of protection covering 50-foot radius")
+        mechanics.effects.push("Dome has AC " + (20 + level) + " and " + (level * 10) + " HP")
+        mechanics.effects.push("All allies inside gain +" + (Math.floor(level / 2) + 3) + " AC")
+        mechanics.effects.push("Enemies cannot enter dome (STR save DC " + (baseDC + 5) + " to break through)")
+      }
+    } else if (subclassId === "weaponmaster") {
+      if (abilityName.includes("Arsenal") || abilityName.includes("Mastery")) {
+        mechanics.type = "Combat Ability"
+        mechanics.action = "Passive"
+        mechanics.effects.push("Proficiency with all weapons (simple, martial, and exotic)")
+        mechanics.effects.push(`+${Math.floor(level / 3) + 1} competence bonus to attack rolls with all weapons`)
+        mechanics.effects.push(`+${Math.floor(level / 2) + 1} competence bonus to damage with all weapons`)
+        mechanics.effects.push("Can use any weapon as if you had Weapon Focus with it")
+        if (augmentationId === "red") {
+          mechanics.augmentationBonus = "All weapons deal additional fire damage"
+          mechanics.effects.push("All weapon attacks deal +1d4 fire damage")
+        } else if (augmentationId === "turquoise") {
+          mechanics.augmentationBonus = "All weapons conduct electrical energy"
+          mechanics.effects.push("All weapon attacks deal +1d4 electrical damage")
+          mechanics.effects.push("Targets must make FORT save DC " + baseDC + " or be stunned 1 round")
+        } else if (augmentationId === "blue") {
+          mechanics.augmentationBonus = "All weapons freeze on impact"
+          mechanics.effects.push("All weapon attacks deal +1d4 cold damage")
+          mechanics.effects.push("Targets must make FORT save DC " + baseDC + " or be slowed (half speed, -1 attack/AC) for 1 round")
+        } else if (augmentationId === "silver") {
+          mechanics.augmentationBonus = "All weapons transform into living blades"
+          mechanics.effects.push("All weapons gain +1d4 damage from morphic properties")
+          mechanics.effects.push("Weapons can change shape as free action")
+        } else if (augmentationId === "white") {
+          mechanics.augmentationBonus = "All weapons generate plasma energy"
+          mechanics.effects.push("All weapon attacks deal +1d4 plasma damage")
+        }
+      } else if (abilityName.includes("Bond") || abilityName.includes("Weapon Bond")) {
+        mechanics.type = "Weapon Bond"
+        mechanics.action = "1 hour ritual"
+        mechanics.duration = "Permanent"
+        mechanics.effects.push("Choose one weapon to bond with permanently")
+        mechanics.effects.push("Bonded weapon becomes +" + Math.floor(level / 5) + 1 + " magical weapon")
+        mechanics.effects.push("Bonded weapon returns to your hand if thrown (free action)")
+        mechanics.effects.push("Bonded weapon cannot be disarmed")
+        mechanics.effects.push("+2 bonus to attack and damage with bonded weapon")
+        if (augmentationId === "silver") {
+          mechanics.effects.push("Bonded weapon can transform into any weapon type")
+        }
+      } else if (abilityName.includes("Expertise") || abilityName.includes("Combat Expertise")) {
+        mechanics.type = "Combat Ability"
+        mechanics.action = "Standard Action"
+        mechanics.effects.push("Make one additional attack at highest attack bonus")
+        mechanics.effects.push(`+${Math.floor(level / 3) + 1} bonus to attack roll`)
+        mechanics.effects.push(`+${Math.floor(level / 2) + 1} bonus to damage`)
+        mechanics.effects.push("Can be used " + (1 + Math.floor(level / 5)) + " times per round")
+      } else if (abilityName.includes("Augmented Arsenal")) {
+        mechanics.type = "Augmentation Synergy"
+        mechanics.action = "Free Action"
+        mechanics.duration = "Permanent"
+        mechanics.effects.push("All weapons you wield gain augmentation properties")
+        mechanics.effects.push("Augmentation damage applies to all weapon attacks")
+        mechanics.effects.push("Augmentation DCs increased by +2 for weapon attacks")
+      } else if (abilityName.includes("Throw") || abilityName.includes("Weapon Throw")) {
+        mechanics.type = "Ranged Attack"
+        mechanics.action = "Standard Action"
+        mechanics.range = "30 feet"
+        mechanics.damage = `${baseDamage + 1}d6 + STR modifier`
+        mechanics.effects.push("Throw any weapon as ranged attack")
+        mechanics.effects.push("Weapon automatically returns to your hand after attack")
+        mechanics.effects.push("Weapon deals damage as if melee attack")
+        mechanics.effects.push("Can make multiple throws as full attack")
+      } else if (abilityName.includes("Precision") || abilityName.includes("Master's Precision")) {
+        mechanics.type = "Critical Hit Ability"
+        mechanics.action = "Passive"
+        mechanics.effects.push("Critical threat range increases by 1 (19-20 becomes 18-20, etc.)")
+        mechanics.effects.push("Critical multiplier increases by 1 (x2 becomes x3, etc.)")
+        mechanics.effects.push("+" + Math.floor(level / 2) + " bonus to confirm critical hits")
+      } else if (abilityName.includes("Dance") || abilityName.includes("Weapon Dance")) {
+        mechanics.type = "Full Attack"
+        mechanics.action = "Full Round Action"
+        mechanics.effects.push("Make attacks with multiple weapons in sequence")
+        mechanics.effects.push("Gain +" + Math.floor(level / 3) + 1 + " attacks with off-hand weapon")
+        mechanics.effects.push("No penalty for two-weapon fighting")
+        mechanics.effects.push("All attacks gain +" + Math.floor(level / 4) + 1 + " to damage")
+      } else if (abilityName.includes("Lord") || abilityName.includes("Summon")) {
+        mechanics.type = "Weapon Summoning"
+        mechanics.action = "Standard Action"
+        mechanics.range = "30 feet"
+        mechanics.effects.push("Summon any weapon you've mastered to your hand")
+        mechanics.effects.push("Weapon appears in your hand instantly")
+        mechanics.effects.push("Can summon " + (1 + Math.floor(level / 5)) + " weapons per round")
+        mechanics.effects.push("Summoned weapons last until dismissed")
+      } else if (abilityName.includes("Strike") || abilityName.includes("Perfect Strike")) {
+        mechanics.type = "Special Attack"
+        mechanics.action = "Standard Action"
+        mechanics.range = "Melee"
+        mechanics.damage = `${baseDamage + 2}d8 + STR modifier`
+        mechanics.effects.push("Ignore target's armor and natural armor bonuses to AC")
+        mechanics.effects.push("Deal damage directly to target's hit points")
+        mechanics.effects.push("Can be used " + (1 + Math.floor(level / 5)) + " times per combat")
+      } else if (abilityName.includes("Legendary") || abilityName.includes("Magical")) {
+        mechanics.type = "Weapon Enhancement"
+        mechanics.action = "Passive"
+        mechanics.effects.push("All weapons you wield become +" + Math.floor(level / 5) + 1 + " magical weapons")
+        mechanics.effects.push("All weapons bypass damage reduction")
+        mechanics.effects.push("All weapons deal +" + Math.floor(level / 3) + 1 + "d6 damage")
+      } else if (abilityName.includes("Storm") || abilityName.includes("Weapon Storm")) {
+        mechanics.type = "Area Attack"
+        mechanics.action = "Full Round Action"
+        mechanics.range = "All enemies within reach"
+        mechanics.damage = `${baseDamage}d6 + STR modifier`
+        mechanics.effects.push("Attack all enemies within your reach simultaneously")
+        mechanics.effects.push("Make one attack roll against each enemy")
+        mechanics.effects.push("Each enemy takes full damage if hit")
+        mechanics.effects.push("Can be used once per combat")
+      } else if (abilityName.includes("Master of Arms") || abilityName.includes("Multiple")) {
+        mechanics.type = "Multi-Weapon Fighting"
+        mechanics.action = "Full Round Action"
+        mechanics.effects.push("Wield any number of weapons simultaneously")
+        mechanics.effects.push("Make attacks with all weapons in one full attack")
+        mechanics.effects.push("No penalty for multiple weapons")
+        mechanics.effects.push("Gain +" + Math.floor(level / 3) + 1 + " attacks per additional weapon")
+      } else if (abilityName.includes("Incarnate") || abilityName.includes("Living Weapon")) {
+        mechanics.type = "Transformation"
+        mechanics.action = "Standard Action"
+        mechanics.duration = `${2 + Math.floor(level / 2)} rounds`
+        mechanics.effects.push("Your body becomes a collection of weapons")
+        mechanics.effects.push("Gain +" + (Math.floor(level / 3) + 2) + " natural armor")
+        mechanics.effects.push("All unarmed attacks deal " + baseDamage + "d6 damage")
+        mechanics.effects.push("Can sprout weapons from any part of your body")
+      } else if (abilityName.includes("Eternal") || abilityName.includes("Never Break")) {
+        mechanics.type = "Passive Ability"
+        mechanics.action = "Passive"
+        mechanics.effects.push("All weapons you wield are indestructible")
+        mechanics.effects.push("Weapons never dull or break")
+        mechanics.effects.push("Weapons automatically repair themselves")
+      } else if (abilityName.includes("Perfect Arsenal") || abilityName.includes("Legendary Status")) {
+        mechanics.type = "Weapon Mastery"
+        mechanics.action = "Passive"
+        mechanics.effects.push("All weapons you wield become legendary (+5 equivalent)")
+        mechanics.effects.push("All weapons gain special properties (flaming, shocking, etc.)")
+        mechanics.effects.push("All weapons deal +" + Math.floor(level / 2) + 1 + "d6 damage")
+      } else if (abilityName.includes("God") || abilityName.includes("Create")) {
+        mechanics.type = "Divine Ability"
+        mechanics.action = "Standard Action"
+        mechanics.range = "Touch"
+        mechanics.duration = "Permanent"
+        mechanics.effects.push("Create new weapon types through will")
+        mechanics.effects.push("Created weapons are +" + Math.floor(level / 3) + 1 + " magical")
+        mechanics.effects.push("Created weapons have unique properties you design")
+      }
+    } else if (subclassId === "tactician") {
+      if (abilityName.includes("Analysis") || abilityName.includes("Combat Analysis")) {
+        mechanics.type = "Tactical Ability"
+        mechanics.action = "Standard Action"
+        mechanics.range = "60 feet"
+        mechanics.duration = `${3 + Math.floor(level / 2)} rounds`
+        mechanics.effects.push(`Gain +${Math.floor(level / 3) + 2} insight bonus to initiative`)
+        mechanics.effects.push(`All allies within range gain +${Math.floor(level / 4) + 1} insight bonus to attack rolls`)
+        mechanics.effects.push("Learn enemy AC, HP, and current conditions")
+        mechanics.effects.push("Can identify enemy weaknesses and resistances")
+        if (augmentationId === "black") {
+          mechanics.augmentationBonus = "Shadow duplicates provide tactical advantage"
+          mechanics.effects.push("Create shadow duplicate for flanking (grants +2 to attack)")
+        } else if (augmentationId === "aquamarine") {
+          mechanics.augmentationBonus = "Temporal analysis predicts enemy actions"
+          mechanics.effects.push("+2 to initiative and reaction speed")
+          mechanics.effects.push("Can act in surprise round even if surprised")
+        } else if (augmentationId === "purple") {
+          mechanics.augmentationBonus = "Mental link coordinates allies"
+          mechanics.effects.push("Allies gain +1 insight bonus to all rolls")
+          mechanics.effects.push("Allies can communicate telepathically")
+        }
+      } else if (abilityName.includes("Strategic") || abilityName.includes("Strategic Mind")) {
+        mechanics.type = "Tactical Ability"
+        mechanics.action = "Standard Action"
+        mechanics.range = "60 feet"
+        mechanics.duration = `${2 + Math.floor(level / 2)} rounds`
+        mechanics.effects.push("Grant allies bonus actions through planning")
+        mechanics.effects.push("Each ally can take one additional move action per round")
+        mechanics.effects.push("Allies gain +" + Math.floor(level / 4) + 1 + " to attack rolls when following your plan")
+        mechanics.effects.push("Can issue tactical commands as free action")
+      } else if (abilityName.includes("Coordination") || abilityName.includes("Battle Coordination")) {
+        mechanics.type = "Tactical Ability"
+        mechanics.action = "Standard Action"
+        mechanics.range = "60 feet"
+        mechanics.duration = `${2 + Math.floor(level / 2)} rounds`
+        mechanics.effects.push(`Allies gain +${Math.floor(level / 4) + 1} competence bonus to attack rolls when following your plan`)
+        mechanics.effects.push("Allies gain +" + Math.floor(level / 5) + 1 + " to damage when coordinating attacks")
+        mechanics.effects.push("Allies can share movement actions")
+      } else if (abilityName.includes("Augmented Tactics")) {
+        mechanics.type = "Augmentation Synergy"
+        mechanics.action = "Free Action"
+        mechanics.duration = "While using tactical abilities"
+        mechanics.effects.push("All augmentation abilities gain +1 to DCs when used tactically")
+        mechanics.effects.push("Augmentation durations extended by 1 round when coordinated")
+        mechanics.effects.push("Can use augmentation abilities to enhance tactical plans")
+      } else if (abilityName.includes("Advantage") || abilityName.includes("Tactical Advantage")) {
+        mechanics.type = "Movement Ability"
+        mechanics.action = "Free Action"
+        mechanics.range = "30 feet"
+        mechanics.effects.push("Reposition one ally within range as free action")
+        mechanics.effects.push("Ally can move up to " + (10 + level * 5) + " feet")
+        mechanics.effects.push("Ally does not provoke attacks of opportunity")
+        mechanics.effects.push("Can be used " + (1 + Math.floor(level / 3)) + " times per round")
+      } else if (abilityName.includes("Strategist") || abilityName.includes("Master Strategist")) {
+        mechanics.type = "Predictive Ability"
+        mechanics.action = "Standard Action"
+        mechanics.range = "60 feet"
+        mechanics.duration = `${1 + Math.floor(level / 3)} rounds`
+        mechanics.effects.push("Predict enemy actions for next round")
+        mechanics.effects.push("Automatically counter predicted enemy actions")
+        mechanics.effects.push("Gain +" + (Math.floor(level / 2) + 2) + " to AC against predicted attacks")
+        mechanics.effects.push("Gain +" + (Math.floor(level / 2) + 2) + " to attack rolls against predicted targets")
+      } else if (abilityName.includes("Commander") || abilityName.includes("Battle Commander")) {
+        mechanics.type = "Command Ability"
+        mechanics.action = "Standard Action"
+        mechanics.range = "60 feet"
+        mechanics.save = `WILL DC ${baseDC} (harmless for allies)`
+        mechanics.duration = `${1 + Math.floor(level / 3)} rounds`
+        mechanics.effects.push("Issue commands that allies must follow")
+        mechanics.effects.push("Allies gain +" + (Math.floor(level / 3) + 2) + " to attack and damage when following commands")
+        mechanics.effects.push("Allies can act out of turn to follow commands")
+        mechanics.effects.push("Can issue " + (1 + Math.floor(level / 5)) + " commands per round")
+      } else if (abilityName.includes("Supremacy") || abilityName.includes("Tactical Supremacy")) {
+        mechanics.type = "Battlefield Control"
+        mechanics.action = "Full Round Action"
+        mechanics.range = "60 feet radius"
+        mechanics.duration = `${2 + Math.floor(level / 2)} rounds`
+        mechanics.effects.push("Control battlefield positioning completely")
+        mechanics.effects.push("Allies can move as free action within range")
+        mechanics.effects.push("Enemies must make DEX save DC " + baseDC + " or be repositioned")
+        mechanics.effects.push("Allies gain +" + (Math.floor(level / 3) + 2) + " to AC from positioning")
+      } else if (abilityName.includes("Genius") || abilityName.includes("Strategic Genius")) {
+        mechanics.type = "Planning Ability"
+        mechanics.action = "Full Round Action"
+        mechanics.range = "Self"
+        mechanics.duration = `${1 + Math.floor(level / 2)} rounds`
+        mechanics.effects.push("Plan multiple contingencies simultaneously")
+        mechanics.effects.push("Can activate " + (1 + Math.floor(level / 3)) + " contingency plans per round")
+        mechanics.effects.push("Each contingency grants +" + (Math.floor(level / 4) + 1) + " to specific actions")
+        mechanics.effects.push("Contingencies can be: attack bonus, AC bonus, save bonus, or movement bonus")
+      } else if (abilityName.includes("Legendary") || abilityName.includes("Battlefield Law")) {
+        mechanics.type = "Area Effect"
+        mechanics.action = "Standard Action"
+        mechanics.range = "100 feet radius"
+        mechanics.duration = `${2 + Math.floor(level / 2)} rounds`
+        mechanics.effects.push("Your strategies become battlefield law")
+        mechanics.effects.push("All allies within range gain +" + (Math.floor(level / 3) + 3) + " to all rolls")
+        mechanics.effects.push("Enemies must make WILL save DC " + (baseDC + 2) + " or suffer -" + (Math.floor(level / 4) + 1) + " to all rolls")
+      } else if (abilityName.includes("Omniscience") || abilityName.includes("Tactical Omniscience")) {
+        mechanics.type = "Divination"
+        mechanics.action = "Standard Action"
+        mechanics.range = "100 feet"
+        mechanics.duration = `${1 + Math.floor(level / 2)} rounds`
+        mechanics.effects.push("See all possible battle outcomes")
+        mechanics.effects.push("Know enemy actions before they happen")
+        mechanics.effects.push("Gain +" + (Math.floor(level / 2) + 5) + " to initiative")
+        mechanics.effects.push("Can act in surprise round and interrupt enemy actions")
+      } else if (abilityName.includes("Master Commander") || abilityName.includes("Multiple Battlefields")) {
+        mechanics.type = "Multi-Battlefield Control"
+        mechanics.action = "Standard Action"
+        mechanics.range = "Unlimited"
+        mechanics.duration = `${2 + Math.floor(level / 2)} rounds`
+        mechanics.effects.push("Control multiple battlefields at once")
+        mechanics.effects.push("Can coordinate allies across any distance")
+        mechanics.effects.push("All allies gain +" + (Math.floor(level / 3) + 2) + " to all rolls")
+        mechanics.effects.push("Can issue commands to " + (level * 2) + " allies simultaneously")
+      } else if (abilityName.includes("Incarnate") || abilityName.includes("Strategy Incarnate")) {
+        mechanics.type = "Transformation"
+        mechanics.action = "Standard Action"
+        mechanics.duration = `${2 + Math.floor(level / 2)} rounds`
+        mechanics.effects.push("Become living embodiment of tactics")
+        mechanics.effects.push("All tactical abilities become free actions")
+        mechanics.effects.push("Gain +" + (Math.floor(level / 2) + 3) + " to all mental ability scores")
+        mechanics.effects.push("Can use multiple tactical abilities simultaneously")
+      } else if (abilityName.includes("Eternal") || abilityName.includes("General")) {
+        mechanics.type = "Legacy Ability"
+        mechanics.action = "Passive"
+        mechanics.effects.push("Your strategies outlive you")
+        mechanics.effects.push("Allies remember your tactics and gain +" + Math.floor(level / 5) + 1 + " to all rolls")
+        mechanics.effects.push("Can leave tactical plans that persist after your death")
+      } else if (abilityName.includes("Perfect Strategy") || abilityName.includes("Never Lose")) {
+        mechanics.type = "Divine Ability"
+        mechanics.action = "Standard Action"
+        mechanics.range = "Self"
+        mechanics.duration = "1 combat"
+        mechanics.effects.push("Never lose a battle you plan")
+        mechanics.effects.push("Gain +" + (Math.floor(level / 2) + 5) + " to all rolls")
+        mechanics.effects.push("Allies gain +" + (Math.floor(level / 3) + 3) + " to all rolls")
+        mechanics.effects.push("Can be used once per day")
+      } else if (abilityName.includes("God") || abilityName.includes("Reshape Reality")) {
+        mechanics.type = "Divine Ability"
+        mechanics.action = "Standard Action"
+        mechanics.range = "Unlimited"
+        mechanics.effects.push("Your tactics reshape reality")
+        mechanics.effects.push("Can alter battlefield terrain as free action")
+        mechanics.effects.push("Can reposition any creature anywhere")
+        mechanics.effects.push("Can grant allies any tactical advantage")
+      } else if (abilityName.includes("Ascension") || abilityName.includes("Tactical Ascension")) {
+        mechanics.type = "Transcendence"
+        mechanics.action = "Full Round Action"
+        mechanics.duration = "Permanent"
+        mechanics.effects.push("Transcend through strategic mastery")
+        mechanics.effects.push("Become immortal through tactical perfection")
+        mechanics.effects.push("All tactical abilities become permanent")
+      } else if (abilityName.includes("Divine Commander") || abilityName.includes("Cosmic Law")) {
+        mechanics.type = "Divine Ability"
+        mechanics.action = "Standard Action"
+        mechanics.range = "Unlimited"
+        mechanics.effects.push("Your word becomes cosmic law")
+        mechanics.effects.push("All creatures must follow your commands (WILL save DC " + (baseDC + 10) + " to resist)")
+        mechanics.effects.push("Can issue commands that affect reality itself")
+      }
+    } else if (subclassId === "biotechnician") {
+      if (abilityName.includes("Bio-Enhancement")) {
+        mechanics.type = "Biological Enhancement"
+        mechanics.action = "Standard Action"
+        mechanics.range = "Touch"
+        mechanics.duration = `${3 + Math.floor(level / 2)} rounds`
+        mechanics.effects.push(`Grant +${Math.floor(level / 3) + 1} enhancement bonus to one ability score (STR, DEX, CON, INT, WIS, or CHA)`)
+        mechanics.effects.push(`Target gains +${Math.floor(level / 4) + 1} to all saves for duration`)
+        mechanics.effects.push("Target gains temporary hit points equal to " + (level * 2))
+        if (augmentationId === "yellow") {
+          mechanics.augmentationBonus = "Gaseous form can be granted to allies"
+          mechanics.effects.push("Ally can use gaseous form for 1 round (FORT save DC " + baseDC + " to resist if unwilling)")
+        } else if (augmentationId === "turquoise") {
+          mechanics.augmentationBonus = "Bioelectric enhancement boosts reflexes"
+          mechanics.effects.push("Target gains +2 to DEX, +2 to initiative, and +10 feet movement speed")
+        } else if (augmentationId === "blue") {
+          mechanics.augmentationBonus = "Cryogenic enhancement slows biological processes"
+          mechanics.effects.push("Target gains resistance 5 to cold damage and +2 to FORT saves")
+        } else if (augmentationId === "purple") {
+          mechanics.augmentationBonus = "Mental enhancement boosts intelligence"
+          mechanics.effects.push("Target gains +2 to INT, +2 to WILL saves, and +1 to all skill checks")
+        } else if (augmentationId === "aquamarine") {
+          mechanics.augmentationBonus = "Temporal enhancement speeds biological processes"
+          mechanics.effects.push("Target gains haste effect: +1 attack, +1 AC, +30 feet movement, +1 to Reflex saves")
+        } else if (augmentationId === "red") {
+          mechanics.augmentationBonus = "Thermal enhancement boosts metabolism"
+          mechanics.effects.push("Target gains +2 to CON, +1 HP per level, and fast healing 1")
+        }
+      } else if (abilityName.includes("Genetic") || abilityName.includes("Analysis")) {
+        mechanics.type = "Genetic Analysis"
+        mechanics.action = "Full Round Action"
+        mechanics.range = "Touch"
+        mechanics.duration = "Instant"
+        mechanics.effects.push("Learn target's exact HP, ability scores, and current conditions")
+        mechanics.effects.push("Identify all diseases, poisons, and curses affecting target")
+        mechanics.effects.push("Determine target's weaknesses and resistances")
+        mechanics.effects.push("Gain +" + Math.floor(level / 2) + " bonus to next attack or ability used against this target")
+      } else if (abilityName.includes("Biological") || abilityName.includes("Adaptation")) {
+        mechanics.type = "Biological Adaptation"
+        mechanics.action = "Standard Action"
+        mechanics.range = "Touch"
+        mechanics.duration = `${2 + Math.floor(level / 3)} rounds`
+        mechanics.save = `FORT DC ${baseDC} (harmless)`
+        mechanics.effects.push(`Grant damage resistance ${Math.floor(level / 3) + 1} to one damage type`)
+        mechanics.effects.push("Target gains immunity to one disease or poison")
+        if (augmentationId === "blue") {
+          mechanics.effects.push("Grant resistance 10 to cold damage")
+        } else if (augmentationId === "red") {
+          mechanics.effects.push("Grant resistance 10 to fire damage")
+        }
+      } else if (abilityName.includes("Evolutionary") || abilityName.includes("Leap")) {
+        mechanics.type = "Permanent Enhancement"
+        mechanics.action = "1 hour (ritual)"
+        mechanics.range = "Touch"
+        mechanics.duration = "Permanent"
+        mechanics.effects.push(`Permanently increase target's one ability score by +${Math.floor(level / 5) + 1}`)
+        mechanics.effects.push("Target gains one permanent special ability (chosen from available list)")
+        mechanics.effects.push("Can only be used once per target per level")
+      } else if (abilityName.includes("Mastery") || abilityName.includes("Control")) {
+        mechanics.type = "Biological Control"
+        mechanics.action = "Standard Action"
+        mechanics.range = "30 feet"
+        mechanics.save = `FORT DC ${baseDC}`
+        mechanics.duration = `${1 + Math.floor(level / 3)} rounds`
+        mechanics.effects.push("Control target's biological functions remotely")
+        mechanics.effects.push("Can cause target to be slowed, sickened, or nauseated")
+        mechanics.effects.push("Can grant target temporary bonuses to physical abilities")
+      } else if (abilityName.includes("Engineering") || abilityName.includes("Create")) {
+        mechanics.type = "Biological Creation"
+        mechanics.action = "Full Round Action"
+        mechanics.range = "Touch"
+        mechanics.duration = `${Math.floor(level / 2) + 2} rounds`
+        mechanics.effects.push("Create temporary biological ability in target")
+        mechanics.effects.push("Examples: temporary wings (fly speed 30), gills (breathe underwater), enhanced senses (+5 Perception)")
+        mechanics.effects.push("Target gains one special ability from augmentation list for duration")
+      } else if (abilityName.includes("Weapon") || abilityName.includes("Bio-Weapon")) {
+        mechanics.type = "Biological Weapon"
+        mechanics.action = "Standard Action"
+        mechanics.range = "30 feet"
+        mechanics.damage = `${baseDamage}d6 + CON modifier`
+        mechanics.save = `FORT DC ${baseDC}`
+        mechanics.effects.push("Create biological weapon that deals " + baseDamage + "d6 damage")
+        mechanics.effects.push("Target must make FORT save or be poisoned (1d4 CON damage)")
+        if (augmentationId === "yellow") {
+          mechanics.effects.push("Weapon releases toxic gas (5-foot radius, FORT save DC " + baseDC + " or be nauseated)")
+        }
+      }
+    } else if (subclassId === "nanotechnician") {
+      if (abilityName.includes("Nano") || abilityName.includes("Swarm") || abilityName.includes("Deploy")) {
+        mechanics.type = "Nanobot Deployment"
+        mechanics.action = "Standard Action"
+        mechanics.range = "60 feet"
+        mechanics.duration = `${2 + Math.floor(level / 2)} rounds`
+        mechanics.save = `FORT DC ${baseDC}`
+        mechanics.effects.push("Deploy nanobot swarm to target creature")
+        mechanics.effects.push(`Target takes ${baseDamage}d4 damage per round (automatic, no save)`)
+        mechanics.effects.push("Target must make FORT save DC " + baseDC + " each round or be sickened (-2 to all rolls)")
+        mechanics.effects.push("Nanobots can be removed with remove disease or similar effect")
+        if (augmentationId === "turquoise") {
+          mechanics.augmentationBonus = "Nanobots conduct electrical energy"
+          mechanics.effects.push("+1d4 electrical damage per round")
+          mechanics.effects.push("Target must make FORT save DC " + baseDC + " or be stunned 1 round")
+        } else if (augmentationId === "red") {
+          mechanics.augmentationBonus = "Nanobots generate heat"
+          mechanics.effects.push("+1d4 fire damage per round")
+          mechanics.effects.push("Target's equipment may be damaged (1% chance per round)")
+        } else if (augmentationId === "blue") {
+          mechanics.augmentationBonus = "Nanobots freeze targets from within"
+          mechanics.effects.push("+1d4 cold damage per round")
+          mechanics.effects.push("Target must make FORT save DC " + baseDC + " or be slowed (half speed)")
+        } else if (augmentationId === "white") {
+          mechanics.augmentationBonus = "Nanobots generate plasma"
+          mechanics.effects.push("+1d4 plasma damage per round")
+          mechanics.effects.push("Target's armor may be damaged (2% chance per round)")
+        } else if (augmentationId === "black") {
+          mechanics.augmentationBonus = "Nanobots create void pockets"
+          mechanics.effects.push("Target has 25% miss chance (concealment)")
+          mechanics.effects.push("Target's attacks have 25% chance to fail")
+        }
+      } else if (abilityName.includes("Repair") || abilityName.includes("Enhance")) {
+        mechanics.type = "Nanobot Enhancement"
+        mechanics.action = "Standard Action"
+        mechanics.range = "Touch"
+        mechanics.duration = `${3 + Math.floor(level / 2)} rounds`
+        mechanics.effects.push("Deploy nanobots to enhance target's equipment")
+        mechanics.effects.push("Target's weapon gains +" + Math.floor(level / 3) + 1 + " enhancement bonus")
+        mechanics.effects.push("Target's armor gains +" + Math.floor(level / 4) + 1 + " enhancement bonus")
+        mechanics.effects.push("Target gains fast healing " + Math.floor(level / 5) + 1)
+      } else if (abilityName.includes("Control") || abilityName.includes("Hack")) {
+        mechanics.type = "Nanobot Control"
+        mechanics.action = "Standard Action"
+        mechanics.range = "60 feet"
+        mechanics.save = `WILL DC ${baseDC}`
+        mechanics.duration = `${1 + Math.floor(level / 3)} rounds`
+        mechanics.effects.push("Deploy nanobots to control target's cybernetic implants")
+        mechanics.effects.push("Target must make WILL save DC " + baseDC + " or lose control of cybernetics")
+        mechanics.effects.push("Can force target to use cybernetics against themselves")
+        mechanics.effects.push("Can disable target's cybernetic abilities")
+      } else if (abilityName.includes("Cloud") || abilityName.includes("Area")) {
+        mechanics.type = "Area Nanobot Deployment"
+        mechanics.action = "Standard Action"
+        mechanics.range = "30 feet radius"
+        mechanics.save = `FORT DC ${baseDC}`
+        mechanics.duration = `${2 + Math.floor(level / 2)} rounds`
+        mechanics.effects.push("Deploy nanobot cloud covering 30-foot radius")
+        mechanics.effects.push("All creatures in area take " + baseDamage + "d4 damage per round")
+        mechanics.effects.push("Creatures must make FORT save DC " + baseDC + " each round or be sickened")
+        mechanics.effects.push("Cloud moves 10 feet per round in direction you choose")
+      } else if (abilityName.includes("Master") || abilityName.includes("Advanced")) {
+        mechanics.type = "Advanced Nanobots"
+        mechanics.action = "Standard Action"
+        mechanics.range = "100 feet"
+        mechanics.duration = `${3 + Math.floor(level / 2)} rounds`
+        mechanics.effects.push("Deploy advanced nanobots with enhanced capabilities")
+        mechanics.effects.push("Nanobots deal " + (baseDamage + 1) + "d4 damage per round")
+        mechanics.effects.push("Nanobots can repair your equipment automatically")
+        mechanics.effects.push("Nanobots can create temporary equipment")
+      }
+    } else if (subclassId === "spheremaster") {
+      if (abilityName.includes("Sphere") || abilityName.includes("Control")) {
+        mechanics.type = "Sphere Control"
+        mechanics.action = "Standard Action"
+        mechanics.range = "60 feet"
+        mechanics.duration = "Concentration (up to " + (Math.floor(level / 2) + 3) + " rounds)"
+        mechanics.damage = `${baseDamage}d6`
+        mechanics.save = `DEX DC ${baseDC} for half`
+        mechanics.effects.push("Create and control " + (Math.floor(level / 3) + 1) + " spheres")
+        mechanics.effects.push("Each sphere can move 30 feet per round as move action")
+        mechanics.effects.push("Each sphere can attack one target per round (standard action)")
+        mechanics.effects.push("Spheres can change properties as free action")
+        mechanics.effects.push("Spheres have AC " + (10 + level) + " and " + (level * 2) + " HP")
+        if (augmentationId === "blue") {
+          mechanics.augmentationBonus = "Spheres can become ice or water"
+          mechanics.effects.push("Spheres deal cold damage")
+          mechanics.effects.push("Spheres can freeze targets (FORT save DC " + baseDC + " or be slowed)")
+        } else if (augmentationId === "red") {
+          mechanics.augmentationBonus = "Spheres can become fire or plasma"
+          mechanics.effects.push("Spheres deal fire damage")
+          mechanics.effects.push("Spheres can ignite targets (1d4 fire damage per round)")
+        } else if (augmentationId === "white") {
+          mechanics.augmentationBonus = "Spheres can become pure plasma"
+          mechanics.effects.push("Spheres deal plasma damage")
+          mechanics.effects.push("Spheres can stun targets (FORT save DC " + baseDC + " or be stunned)")
+        } else if (augmentationId === "turquoise") {
+          mechanics.augmentationBonus = "Spheres can conduct electricity"
+          mechanics.effects.push("Spheres deal electrical damage")
+          mechanics.effects.push("Spheres can chain to nearby targets (within 10 feet)")
+        } else if (augmentationId === "black") {
+          mechanics.augmentationBonus = "Spheres can become void matter"
+          mechanics.effects.push("Spheres create shadow duplicates when destroyed")
+          mechanics.effects.push("Shadow duplicates last 1 round and attack enemies")
+        }
+      } else if (abilityName.includes("Master") || abilityName.includes("Advanced")) {
+        mechanics.type = "Advanced Sphere Control"
+        mechanics.action = "Standard Action"
+        mechanics.range = "100 feet"
+        mechanics.duration = "Concentration (up to " + (Math.floor(level / 2) + 4) + " rounds)"
+        mechanics.effects.push("Control " + (Math.floor(level / 2) + 2) + " spheres")
+        mechanics.effects.push("Spheres can combine into larger spheres (2x damage)")
+        mechanics.effects.push("Spheres can split into smaller spheres (more attacks)")
+        mechanics.effects.push("Spheres gain +" + Math.floor(level / 3) + 1 + " to attack and damage")
+      } else if (abilityName.includes("Storm") || abilityName.includes("Multiple")) {
+        mechanics.type = "Sphere Storm"
+        mechanics.action = "Full Round Action"
+        mechanics.range = "60 feet radius"
+        mechanics.damage = `${baseDamage + 1}d6`
+        mechanics.save = `DEX DC ${baseDC} for half`
+        mechanics.effects.push("Create sphere storm covering 60-foot radius")
+        mechanics.effects.push("All creatures in area take " + (baseDamage + 1) + "d6 damage")
+        mechanics.effects.push("Spheres continue to attack for " + (1 + Math.floor(level / 3)) + " rounds")
+        mechanics.effects.push("Can be used once per combat")
+      }
+    } else if (subclassId === "dronecommander") {
+      if (abilityName.includes("Drone") || abilityName.includes("Swarm") || abilityName.includes("Deploy")) {
+        mechanics.type = "Drone Command"
+        mechanics.action = "Standard Action"
+        mechanics.range = "100 feet"
+        mechanics.duration = "Permanent (until destroyed or dismissed)"
+        mechanics.effects.push("Deploy and command " + (Math.floor(level / 2) + 2) + " combat drones")
+        mechanics.effects.push("Each drone has AC " + (12 + level) + ", " + (level * 3) + " HP, and fly speed 40")
+        mechanics.effects.push(`Each drone can attack once per round, dealing ${Math.floor(baseDamage / 2) + 1}d4 damage`)
+        mechanics.effects.push("Drones act on your turn and follow your commands")
+        mechanics.effects.push("Drones can be commanded as free action")
+        mechanics.effects.push("Drones can be dismissed and redeployed as standard action")
+        if (augmentationId === "turquoise") {
+          mechanics.augmentationBonus = "Drones can discharge electrical energy"
+          mechanics.effects.push("Drones deal +1d4 electrical damage")
+          mechanics.effects.push("Drones can stun targets (FORT save DC " + baseDC + " or be stunned 1 round)")
+        } else if (augmentationId === "blue") {
+          mechanics.augmentationBonus = "Drones can freeze targets"
+          mechanics.effects.push("Drones deal +1d4 cold damage")
+          mechanics.effects.push("Drones can slow targets (FORT save DC " + baseDC + " or be slowed)")
+        } else if (augmentationId === "red") {
+          mechanics.augmentationBonus = "Drones can generate heat"
+          mechanics.effects.push("Drones deal +1d4 fire damage")
+          mechanics.effects.push("Drones can ignite targets (1d4 fire damage per round)")
+        } else if (augmentationId === "white") {
+          mechanics.augmentationBonus = "Drones can generate plasma"
+          mechanics.effects.push("Drones deal +1d4 plasma damage")
+          mechanics.effects.push("Drones can stun targets (FORT save DC " + baseDC + " or be stunned)")
+        } else if (augmentationId === "black") {
+          mechanics.augmentationBonus = "Drones can create void fields"
+          mechanics.effects.push("Drones grant 20% concealment to nearby allies")
+        }
+      } else if (abilityName.includes("Network") || abilityName.includes("Swarm Intelligence")) {
+        mechanics.type = "Drone Network"
+        mechanics.action = "Standard Action"
+        mechanics.range = "Unlimited"
+        mechanics.duration = "Permanent"
+        mechanics.effects.push("All drones share information and coordinate attacks")
+        mechanics.effects.push("Drones gain +" + Math.floor(level / 3) + 1 + " to attack and damage when coordinating")
+        mechanics.effects.push("Drones can share damage (distribute damage among all drones)")
+        mechanics.effects.push("Can command drones across any distance")
+      } else if (abilityName.includes("Master") || abilityName.includes("Advanced")) {
+        mechanics.type = "Advanced Drones"
+        mechanics.action = "Standard Action"
+        mechanics.range = "100 feet"
+        mechanics.effects.push("Deploy " + (Math.floor(level / 2) + 3) + " advanced drones")
+        mechanics.effects.push("Advanced drones have AC " + (14 + level) + " and " + (level * 4) + " HP")
+        mechanics.effects.push("Advanced drones deal " + (Math.floor(baseDamage / 2) + 2) + "d4 damage")
+        mechanics.effects.push("Advanced drones can use special abilities (heal, shield, etc.)")
+      } else if (abilityName.includes("Army") || abilityName.includes("Legion")) {
+        mechanics.type = "Drone Army"
+        mechanics.action = "Full Round Action"
+        mechanics.range = "100 feet"
+        mechanics.duration = "Permanent"
+        mechanics.effects.push("Deploy " + (level * 2) + " drones")
+        mechanics.effects.push("Drones form coordinated attack patterns")
+        mechanics.effects.push("All drones gain +" + Math.floor(level / 3) + 1 + " to attack and damage")
+        mechanics.effects.push("Can be used once per day")
+      }
+    } else if (subclassId === "armortech") {
+      if (abilityName.includes("Armor") || abilityName.includes("Enhancement") || abilityName.includes("Upgrade")) {
+        mechanics.type = "Armor Enhancement"
+        mechanics.action = "Free Action"
+        mechanics.duration = "Permanent (until dismissed)"
+        mechanics.effects.push(`Gain +${Math.floor(level / 3) + 2} enhancement bonus to AC`)
+        mechanics.effects.push(`Gain damage reduction ${Math.floor(level / 4) + 1}/-`)
+        mechanics.effects.push("Armor cannot be removed against your will")
+        mechanics.effects.push("Armor repairs itself at rate of " + Math.floor(level / 5) + 1 + " HP per round")
+        if (augmentationId === "blue") {
+          mechanics.augmentationBonus = "Armor generates ice barriers"
+          mechanics.effects.push("+1 deflection bonus to AC from ice barriers")
+          mechanics.effects.push("Resistance 5 to cold damage")
+          mechanics.effects.push("Enemies that hit you with melee attacks take 1d4 cold damage")
+        } else if (augmentationId === "red") {
+          mechanics.augmentationBonus = "Armor generates heat shields"
+          mechanics.effects.push("Resistance 10 to fire damage")
+          mechanics.effects.push("Enemies within 5 feet take 1d4 fire damage per round")
+        } else if (augmentationId === "white") {
+          mechanics.augmentationBonus = "Armor generates plasma barriers"
+          mechanics.effects.push("Resistance 10 to energy damage (fire, cold, electrical, plasma)")
+          mechanics.effects.push("+1 deflection bonus to AC from plasma barriers")
+        } else if (augmentationId === "black") {
+          mechanics.augmentationBonus = "Armor creates shadow barriers"
+          mechanics.effects.push("25% concealment (miss chance) from all attacks")
+          mechanics.effects.push("Enemies have 25% chance to miss you")
+        } else if (augmentationId === "turquoise") {
+          mechanics.augmentationBonus = "Armor generates electrical fields"
+          mechanics.effects.push("Melee attackers take 1d4 electrical damage")
+          mechanics.effects.push("Ranged attacks have 25% miss chance (electrical interference)")
+        } else if (augmentationId === "yellow") {
+          mechanics.augmentationBonus = "Armor can become gaseous"
+          mechanics.effects.push("Can enter gaseous form while wearing armor")
+          mechanics.effects.push("Armor becomes part of gaseous form")
+        }
+      } else if (abilityName.includes("Master") || abilityName.includes("Advanced")) {
+        mechanics.type = "Advanced Armor"
+        mechanics.action = "Free Action"
+        mechanics.duration = "Permanent"
+        mechanics.effects.push("Armor gains +" + (Math.floor(level / 3) + 3) + " enhancement bonus to AC")
+        mechanics.effects.push("Armor gains damage reduction " + (Math.floor(level / 4) + 2) + "/-")
+        mechanics.effects.push("Armor grants fast healing " + Math.floor(level / 5) + 1)
+        mechanics.effects.push("Armor can generate temporary weapons")
+      } else if (abilityName.includes("Adaptive") || abilityName.includes("Reactive")) {
+        mechanics.type = "Reactive Armor"
+        mechanics.action = "Immediate Action"
+        mechanics.effects.push("Armor automatically adapts to incoming attacks")
+        mechanics.effects.push("Gain resistance 10 to last damage type that hit you")
+        mechanics.effects.push("Resistance lasts for " + (1 + Math.floor(level / 3)) + " rounds")
+        mechanics.effects.push("Can be used " + (1 + Math.floor(level / 5)) + " times per combat")
+      } else if (abilityName.includes("Living") || abilityName.includes("Organic")) {
+        mechanics.type = "Living Armor"
+        mechanics.action = "Standard Action"
+        mechanics.duration = `${2 + Math.floor(level / 2)} rounds`
+        mechanics.effects.push("Armor becomes living and can regenerate")
+        mechanics.effects.push("Gain fast healing " + (Math.floor(level / 3) + 2))
+        mechanics.effects.push("Armor can grow additional protective layers")
+        mechanics.effects.push("+2 additional AC from living armor")
+      }
+    } else if (subclassId === "medic") {
+      if (abilityName.includes("Heal") || abilityName.includes("Medical") || abilityName.includes("Treatment")) {
+        mechanics.type = "Healing Ability"
+        mechanics.action = "Standard Action"
+        mechanics.range = "Touch"
+        mechanics.effects.push(`Heal ${baseDamage * 2}d4 + ${level} HP`)
+        mechanics.effects.push("Cure all diseases and poisons")
+        mechanics.effects.push("Remove one condition (sickened, nauseated, etc.)")
+        if (level >= 5) {
+          mechanics.effects.push("Can revive recently deceased (within 1 round of death)")
+        }
+        if (level >= 10) {
+          mechanics.effects.push("Can restore lost limbs and organs")
+        }
+        if (augmentationId === "turquoise") {
+          mechanics.augmentationBonus = "Bioelectric healing accelerates recovery"
+          mechanics.effects.push("+1d4 additional healing")
+          mechanics.effects.push("Target gains +2 to initiative for " + (1 + Math.floor(level / 3)) + " rounds")
+        } else if (augmentationId === "yellow") {
+          mechanics.augmentationBonus = "Gaseous form allows healing through barriers"
+          mechanics.effects.push("Can heal through walls and obstacles (range increases to 30 feet)")
+        } else if (augmentationId === "blue") {
+          mechanics.augmentationBonus = "Cryogenic healing preserves life"
+          mechanics.effects.push("Target gains resistance 5 to cold damage")
+          mechanics.effects.push("Target cannot die from massive damage for " + (1 + Math.floor(level / 3)) + " rounds")
+        }
+      } else if (abilityName.includes("Emergency") || abilityName.includes("Response")) {
+        mechanics.type = "Reactive Healing"
+        mechanics.action = "Immediate Action"
+        mechanics.range = "30 feet"
+        mechanics.effects.push(`Instant heal ${baseDamage * 2}d4 HP`)
+        mechanics.effects.push("Stabilize dying allies automatically (no save needed)")
+        mechanics.effects.push("Can be used " + (1 + Math.floor(level / 3)) + " times per round")
+        mechanics.effects.push("Target gains temporary hit points equal to " + level)
+      } else if (abilityName.includes("Field") || abilityName.includes("Medicine")) {
+        mechanics.type = "Field Medicine"
+        mechanics.action = "Standard Action"
+        mechanics.range = "Touch"
+        mechanics.duration = `${1 + Math.floor(level / 2)} rounds`
+        mechanics.effects.push("Heal during combat without penalty")
+        mechanics.effects.push("Heal " + (baseDamage * 2) + "d4 HP per round")
+        mechanics.effects.push("Can move and heal simultaneously")
+        mechanics.effects.push("No attacks of opportunity for healing")
+      } else if (abilityName.includes("Expertise") || abilityName.includes("Medical Expertise")) {
+        mechanics.type = "Medical Analysis"
+        mechanics.action = "Standard Action"
+        mechanics.range = "Touch"
+        mechanics.duration = "Instant"
+        mechanics.effects.push("Diagnose all conditions affecting target")
+        mechanics.effects.push("Identify all diseases, poisons, and curses")
+        mechanics.effects.push("Learn target's exact HP and ability scores")
+        mechanics.effects.push("Gain +" + (Math.floor(level / 2) + 2) + " to next healing check on this target")
+      } else if (abilityName.includes("Augmented") || abilityName.includes("Augmented Healing")) {
+        mechanics.type = "Augmentation Synergy"
+        mechanics.action = "Free Action"
+        mechanics.duration = "While healing"
+        mechanics.effects.push("All augmentation abilities enhance healing")
+        mechanics.effects.push("Healing gains +1d4 HP per augmentation level")
+        mechanics.effects.push("Can use augmentation abilities to heal")
+      } else if (abilityName.includes("Combat") || abilityName.includes("Combat Medic")) {
+        mechanics.type = "Combat Healing"
+        mechanics.action = "Full Round Action"
+        mechanics.range = "Touch"
+        mechanics.effects.push("Heal and fight simultaneously")
+        mechanics.effects.push("Make one attack and heal " + (baseDamage * 2) + "d4 HP")
+        mechanics.effects.push("No penalty to attack or healing")
+        mechanics.effects.push("Can be used " + (1 + Math.floor(level / 5)) + " times per round")
+      } else if (abilityName.includes("Advanced") || abilityName.includes("Advanced Treatment")) {
+        mechanics.type = "Advanced Healing"
+        mechanics.action = "Standard Action"
+        mechanics.range = "Touch"
+        mechanics.effects.push("Cure poisons, diseases, and curses")
+        mechanics.effects.push("Restore ability score damage")
+        mechanics.effects.push("Remove negative levels")
+        mechanics.effects.push("Heal " + (baseDamage * 3) + "d4 + " + (level * 2) + " HP")
+      } else if (abilityName.includes("Miracle") || abilityName.includes("Medical Miracle")) {
+        mechanics.type = "Resurrection"
+        mechanics.action = "Full Round Action"
+        mechanics.range = "Touch"
+        mechanics.effects.push("Bring back recently deceased (within " + (1 + Math.floor(level / 3)) + " rounds)")
+        mechanics.effects.push("Target returns with full HP and no negative levels")
+        mechanics.effects.push("Can be used once per day")
+        mechanics.effects.push("Requires material components worth " + (level * 100) + " credits")
+      } else if (abilityName.includes("Surgeon") || abilityName.includes("Battlefield Surgeon")) {
+        mechanics.type = "Surgical Healing"
+        mechanics.action = "Full Round Action"
+        mechanics.range = "Touch"
+        mechanics.effects.push("Perform surgery during combat")
+        mechanics.effects.push("Heal " + (baseDamage * 4) + "d4 + " + (level * 2) + " HP")
+        mechanics.effects.push("Restore lost limbs and organs")
+        mechanics.effects.push("Remove all conditions and negative effects")
+        mechanics.effects.push("Can be used once per combat")
+      }
+    }
+    
+    // Additional mechanics for movement/positioning abilities
+    if (abilityName.includes("Leap") || abilityName.includes("Jump") || abilityName.includes("Move")) {
+      if (!mechanics.range) mechanics.range = `${10 + level * 2} feet`
+      mechanics.effects.push("Can move through difficult terrain")
+      if (level >= 5) {
+        mechanics.effects.push("Can move through enemy spaces")
+      }
+    }
+    
+    // Additional mechanics for area effects
+    if (abilityName.includes("Area") || abilityName.includes("Storm") || abilityName.includes("Field") || abilityName.includes("Aura")) {
+      if (!mechanics.range) mechanics.range = `${5 + Math.floor(level / 2) * 5} feet radius`
+      mechanics.effects.push("Affects all targets in area")
+      if (level >= 10) {
+        mechanics.effects.push("Can exclude allies from effect")
+      }
+    }
+    
+    // Additional mechanics for multi-target abilities
+    if (abilityName.includes("Multiple") || abilityName.includes("All") || abilityName.includes("Swarm") || abilityName.includes("Network")) {
+      mechanics.effects.push(`Affects up to ${Math.floor(level / 2) + 2} targets`)
+      if (level >= 10) {
+        mechanics.effects.push("Can affect unlimited targets")
+      }
+    }
+    
+    // Additional mechanics for defensive abilities
+    if (abilityName.includes("Resist") || abilityName.includes("Immune") || abilityName.includes("Defense") || abilityName.includes("Resilience")) {
+      mechanics.type = "Defensive Ability"
+      mechanics.action = "Free Action"
+      if (!mechanics.duration) mechanics.duration = `${Math.floor(level / 2) + 2} rounds`
+      mechanics.effects.push(`Damage resistance ${Math.floor(level / 3) + 1}`)
+      if (level >= 10) {
+        mechanics.effects.push("Immunity to specific damage types")
+      }
+    }
+    
+    // Additional mechanics for offensive abilities
+    if (abilityName.includes("Strike") || abilityName.includes("Attack") || abilityName.includes("Damage") || abilityName.includes("Weapon")) {
+      if (!mechanics.damage) {
+        mechanics.damage = `${baseDamage}d6 + STR modifier`
+      }
+      if (level >= 5) {
+        mechanics.effects.push("Can make additional attacks")
+      }
+    }
+
+    // Additional mechanics for specific abilities
+    if (abilityName.includes("Master") || abilityName.includes("Legendary") || abilityName.includes("Ultimate")) {
+      mechanics.effects.push("All previous abilities in this path are enhanced")
+      mechanics.effects.push("Can use multiple abilities simultaneously")
+    }
+    
+    if (abilityName.includes("God") || abilityName.includes("Divine") || abilityName.includes("Ascension")) {
+      mechanics.type = "Divine Ability"
+      mechanics.effects.push("Transcends normal limitations")
+      mechanics.effects.push("Effects become permanent or near-permanent")
+    }
+
+    // Add mechanics for remaining subclasses
+    if (subclassId === "spiritualist") {
+      if (abilityName.includes("Spirit") || abilityName.includes("Channel") || abilityName.includes("Channeling")) {
+        mechanics.type = "Spiritual Ability"
+        mechanics.action = "Standard Action"
+        mechanics.range = "60 feet"
+        mechanics.duration = `${2 + Math.floor(level / 2)} rounds`
+        mechanics.effects.push("Commune with spirits for guidance and power")
+        mechanics.effects.push("Gain +" + (Math.floor(level / 3) + 2) + " insight bonus to all rolls")
+        mechanics.effects.push("Spirits provide information about enemies (AC, HP, weaknesses)")
+        if (augmentationId === "black") {
+          mechanics.augmentationBonus = "Shadow spirits enhance abilities"
+          mechanics.effects.push("Spirits can create shadow duplicates")
+        } else if (augmentationId === "purple") {
+          mechanics.augmentationBonus = "Mental spirits enhance communication"
+          mechanics.effects.push("Can communicate with spirits telepathically")
+        }
+      } else if (abilityName.includes("Healing") || abilityName.includes("Spiritual Healing")) {
+        mechanics.type = "Spiritual Healing"
+        mechanics.action = "Standard Action"
+        mechanics.range = "Touch"
+        mechanics.effects.push("Channel spirit energy to heal " + (baseDamage * 2) + "d4 + " + level + " HP")
+        mechanics.effects.push("Cure diseases and remove curses")
+        mechanics.effects.push("Restore ability score damage")
+      } else if (abilityName.includes("Guide") || abilityName.includes("Spirit Guide")) {
+        mechanics.type = "Spirit Companion"
+        mechanics.action = "1 hour ritual"
+        mechanics.duration = "Permanent"
+        mechanics.effects.push("Gain permanent spirit companion")
+        mechanics.effects.push("Spirit provides +" + Math.floor(level / 3) + 1 + " to all rolls")
+        mechanics.effects.push("Spirit can scout and provide information")
+        mechanics.effects.push("Spirit has " + (level * 5) + " HP and AC " + (10 + level))
+      } else if (abilityName.includes("Army") || abilityName.includes("Spirit Army")) {
+        mechanics.type = "Spirit Summoning"
+        mechanics.action = "Full Round Action"
+        mechanics.range = "60 feet"
+        mechanics.duration = `${2 + Math.floor(level / 2)} rounds`
+        mechanics.effects.push("Summon " + (Math.floor(level / 2) + 2) + " spirits to aid you")
+        mechanics.effects.push("Each spirit can attack (1d6 damage) or provide bonuses")
+        mechanics.effects.push("Spirits have AC " + (12 + level) + " and " + (level * 3) + " HP")
+      } else if (abilityName.includes("Transcendence") || abilityName.includes("Spiritual Transcendence")) {
+        mechanics.type = "Transformation"
+        mechanics.action = "Standard Action"
+        mechanics.duration = `${2 + Math.floor(level / 2)} rounds`
+        mechanics.effects.push("Partially exist in spirit realm")
+        mechanics.effects.push("Gain 50% incorporeal (half damage from physical attacks)")
+        mechanics.effects.push("Can move through walls and obstacles")
+      } else if (abilityName.includes("Mastery") || abilityName.includes("Spirit Mastery")) {
+        mechanics.type = "Spirit Control"
+        mechanics.action = "Standard Action"
+        mechanics.range = "60 feet"
+        mechanics.save = `WILL DC ${baseDC}`
+        mechanics.effects.push("Command spirits instead of just communing")
+        mechanics.effects.push("Spirits must follow your commands (WILL save to resist)")
+        mechanics.effects.push("Can control " + (Math.floor(level / 3) + 1) + " spirits simultaneously")
+      } else if (abilityName.includes("Fusion") || abilityName.includes("Spiritual Fusion")) {
+        mechanics.type = "Spirit Merge"
+        mechanics.action = "Full Round Action"
+        mechanics.duration = `${3 + Math.floor(level / 2)} rounds`
+        mechanics.effects.push("Merge with spirits for increased power")
+        mechanics.effects.push("Gain +" + (Math.floor(level / 2) + 3) + " to all ability scores")
+        mechanics.effects.push("Gain spirit abilities and resistances")
+      }
+    } else if (subclassId === "lifeguard") {
+      if (abilityName.includes("Life") || abilityName.includes("Preservation")) {
+        mechanics.type = "Life Protection"
+        mechanics.action = "Immediate Action"
+        mechanics.range = "30 feet"
+        mechanics.effects.push("Prevent death for one ally within range")
+        mechanics.effects.push("Ally cannot be reduced below 1 HP for " + (1 + Math.floor(level / 3)) + " rounds")
+        mechanics.effects.push("Can be used " + (1 + Math.floor(level / 5)) + " times per combat")
+        if (augmentationId === "turquoise") {
+          mechanics.augmentationBonus = "Bioelectric preservation enhances life force"
+          mechanics.effects.push("Ally gains fast healing 1")
+        }
+      } else if (abilityName.includes("Shield") || abilityName.includes("Life Shield")) {
+        mechanics.type = "Protective Barrier"
+        mechanics.action = "Standard Action"
+        mechanics.range = "Touch"
+        mechanics.duration = `${2 + Math.floor(level / 2)} rounds`
+        mechanics.effects.push("Create barrier that absorbs lethal damage")
+        mechanics.effects.push("Barrier has " + (level * 10) + " HP")
+        mechanics.effects.push("Barrier prevents death while active")
+      } else if (abilityName.includes("Sanctuary") || abilityName.includes("Life Sanctuary")) {
+        mechanics.type = "Area Protection"
+        mechanics.action = "Full Round Action"
+        mechanics.range = "30 feet radius"
+        mechanics.duration = `${3 + Math.floor(level / 2)} rounds`
+        mechanics.effects.push("Create zone where death cannot occur")
+        mechanics.effects.push("All allies in zone cannot be reduced below 1 HP")
+        mechanics.effects.push("Allies gain fast healing " + Math.floor(level / 3) + 1)
+      } else if (abilityName.includes("Instinct") || abilityName.includes("Protective Instinct")) {
+        mechanics.type = "Threat Detection"
+        mechanics.action = "Passive"
+        mechanics.effects.push("Sense threats to allies instantly")
+        mechanics.effects.push("Gain +" + (Math.floor(level / 2) + 5) + " to Perception checks")
+        mechanics.effects.push("Can detect threats before they occur")
+      } else if (abilityName.includes("Mastery") || abilityName.includes("Life Force Mastery")) {
+        mechanics.type = "Life Manipulation"
+        mechanics.action = "Standard Action"
+        mechanics.range = "Touch"
+        mechanics.effects.push("Manipulate life energy directly")
+        mechanics.effects.push("Can transfer HP between allies")
+        mechanics.effects.push("Can extend life force (prevent aging, disease)")
+      } else if (abilityName.includes("Immortal") || abilityName.includes("Immortal Guardian")) {
+        mechanics.type = "Defensive Ability"
+        mechanics.action = "Passive"
+        mechanics.effects.push("Cannot be killed while protecting others")
+        mechanics.effects.push("Gain damage reduction " + (Math.floor(level / 3) + 2) + "/-")
+        mechanics.effects.push("If reduced to 0 HP while protecting, make FORT save DC 15 or be staggered")
+      }
+    } else if (subclassId === "assassin") {
+      if (abilityName.includes("Mark") || abilityName.includes("Death Mark")) {
+        mechanics.type = "Target Marking"
+        mechanics.action = "Standard Action"
+        mechanics.range = "60 feet"
+        mechanics.duration = "Permanent (until target dies)"
+        mechanics.effects.push("Mark target for assassination")
+        mechanics.effects.push("Track marked target anywhere (no range limit)")
+        mechanics.effects.push("Gain +" + (Math.floor(level / 2) + 2) + " to attack and damage against marked target")
+        mechanics.effects.push("Can mark " + (1 + Math.floor(level / 5)) + " targets simultaneously")
+      } else if (abilityName.includes("Strike") || abilityName.includes("Silent Strike")) {
+        mechanics.type = "Stealth Attack"
+        mechanics.action = "Standard Action"
+        mechanics.range = "Melee"
+        mechanics.damage = `${baseDamage + 2}d6 + DEX modifier`
+        mechanics.effects.push("Attack from stealth deals massive damage")
+        mechanics.effects.push("If target is unaware, deal " + (baseDamage + 2) + "x damage")
+        mechanics.effects.push("Target must make FORT save DC " + baseDC + " or be stunned 1 round")
+      } else if (abilityName.includes("Step") || abilityName.includes("Shadow Step")) {
+        mechanics.type = "Teleportation"
+        mechanics.action = "Move Action"
+        mechanics.range = "Unlimited (to marked targets)"
+        mechanics.effects.push("Teleport to any marked target instantly")
+        mechanics.effects.push("Can make attack immediately after teleporting")
+        mechanics.effects.push("Can be used " + (1 + Math.floor(level / 3)) + " times per combat")
+      } else if (abilityName.includes("Touch") || abilityName.includes("Death's Touch")) {
+        mechanics.type = "Instant Kill"
+        mechanics.action = "Standard Action"
+        mechanics.range = "Touch"
+        mechanics.save = `FORT DC ${baseDC + 5}`
+        mechanics.effects.push("If target is below 50% HP, kill instantly on failed save")
+        mechanics.effects.push("If target is above 50% HP, deal " + (level * 2) + "d6 damage")
+        mechanics.effects.push("Can be used once per combat")
+      } else if (abilityName.includes("Techniques") || abilityName.includes("Assassination Techniques")) {
+        mechanics.type = "Critical Hit Ability"
+        mechanics.action = "Passive"
+        mechanics.effects.push("Instant kill on critical hits against marked targets")
+        mechanics.effects.push("Critical threat range increases by 1")
+        mechanics.effects.push("Critical multiplier increases by 1")
+      } else if (abilityName.includes("Inevitable") || abilityName.includes("Inevitable Death")) {
+        mechanics.type = "Fate Ability"
+        mechanics.action = "Standard Action"
+        mechanics.range = "Unlimited"
+        mechanics.effects.push("Marked targets cannot escape fate")
+        mechanics.effects.push("Targets automatically fail saves against your attacks")
+        mechanics.effects.push("Targets cannot be healed above 50% HP")
+      }
+    } else if (subclassId === "infiltrator") {
+      if (abilityName.includes("Stealth") || abilityName.includes("Infiltrate")) {
+        mechanics.type = "Stealth Ability"
+        mechanics.action = "Standard Action"
+        mechanics.duration = `${2 + Math.floor(level / 2)} rounds`
+        mechanics.effects.push("Become invisible (as per invisibility spell)")
+        mechanics.effects.push("Gain +" + (Math.floor(level / 2) + 5) + " to Stealth checks")
+        mechanics.effects.push("Can move through security systems undetected")
+        if (augmentationId === "black") {
+          mechanics.augmentationBonus = "Shadow form enhances stealth"
+          mechanics.effects.push("Gain 50% concealment even when visible")
+        } else if (augmentationId === "yellow") {
+          mechanics.augmentationBonus = "Gaseous form allows infiltration anywhere"
+          mechanics.effects.push("Can pass through any opening")
+        }
+      } else if (abilityName.includes("Hack") || abilityName.includes("System")) {
+        mechanics.type = "Hacking Ability"
+        mechanics.action = "Standard Action"
+        mechanics.range = "Touch or 30 feet (wireless)"
+        mechanics.effects.push("Hack into any computer or security system")
+        mechanics.effects.push("Gain +" + (Math.floor(level / 2) + 5) + " to hacking checks")
+        mechanics.effects.push("Can disable security systems, unlock doors, etc.")
+      }
+    } else if (subclassId === "hacker") {
+      if (abilityName.includes("Hack") || abilityName.includes("System") || abilityName.includes("Code")) {
+        mechanics.type = "Hacking Ability"
+        mechanics.action = "Standard Action"
+        mechanics.range = "Touch or 60 feet (wireless)"
+        mechanics.effects.push("Hack into any computer or security system")
+        mechanics.effects.push("Gain +" + (Math.floor(level / 2) + 5) + " to hacking checks")
+        mechanics.effects.push("Can disable security, unlock systems, access data")
+        if (augmentationId === "turquoise") {
+          mechanics.augmentationBonus = "Electrical augmentation enhances hacking"
+          mechanics.effects.push("Can hack wirelessly through electrical interference")
+        }
+      } else if (abilityName.includes("Virus") || abilityName.includes("Malware")) {
+        mechanics.type = "Digital Attack"
+        mechanics.action = "Standard Action"
+        mechanics.range = "60 feet"
+        mechanics.save = `WILL DC ${baseDC}`
+        mechanics.damage = `${baseDamage}d4`
+        mechanics.effects.push("Deploy digital virus to target's cybernetics")
+        mechanics.effects.push("Deal " + baseDamage + "d4 damage to cybernetic systems")
+        mechanics.effects.push("Target must make WILL save or lose control of cybernetics")
+      }
+    }
+
+    // Default fallback if no specific mechanics found
+    if (mechanics.effects.length === 0) {
+      // Provide meaningful default mechanics based on ability name patterns
+      if (!mechanics.action) mechanics.action = "Standard Action"
+      if (!mechanics.range) mechanics.range = `${10 + level * 5} feet`
+      if (!mechanics.duration) mechanics.duration = `${1 + Math.floor(level / 2)} rounds`
+      
+      mechanics.effects.push(`Ability effect scales with level (Level ${level})`)
+      mechanics.effects.push(`DC: ${baseDC} (10 + level)`)
+      mechanics.effects.push("Effect improves as you gain levels")
+      
+      if (level >= 5) {
+        mechanics.effects.push("Can be used multiple times per combat")
+      }
+      if (level >= 10) {
+        mechanics.effects.push("Effect duration and range increase significantly")
+      }
+      if (level >= 15) {
+        mechanics.effects.push("Ability becomes more powerful and versatile")
+      }
+      
+      // Add augmentation bonus if available
+      if (augmentationId) {
+        mechanics.augmentationBonus = "Augmentation enhances this ability's effectiveness"
+        mechanics.effects.push("Gain +1 to DCs and +1d4 to damage/effects from augmentation")
+      }
+    }
+
+    return mechanics
+  }
 
   // Subclass progression data
   const getSubclassProgression = (subclassId: string): string[] => {
@@ -636,15 +2149,18 @@ export default function StoneboundSoulsPage() {
     setSelectedClass(classData)
     setSelectedSubclass(null)
     setSelectedAugmentation(null)
+    setSelectedProgressionIndex(null)
   }
 
   const handleSubclassSelect = (subclass: Subclass) => {
     setSelectedSubclass(subclass)
     setSelectedAugmentation(null)
+    setSelectedProgressionIndex(null)
   }
 
   const handleAugmentationSelect = (augmentation: Augmentation) => {
     setSelectedAugmentation(augmentation)
+    setSelectedProgressionIndex(null)
   }
 
   const resetSelection = () => {
@@ -661,8 +2177,8 @@ export default function StoneboundSoulsPage() {
       if (selectedAugmentation && selectedSubclass) {
         // Show augmentation details
         return (
-          <div className="max-w-6xl mx-auto w-full h-full overflow-y-auto">
-            <div className="flex items-center justify-between mb-6">
+          <div className="max-w-6xl mx-auto w-full h-full flex flex-col">
+            <div className="flex items-center justify-between mb-6 flex-shrink-0">
               <div>
                 <h2 className="text-4xl font-bold text-white font-['Montserrat']">
                   {selectedSubclass.name} - {selectedAugmentation.name}
@@ -678,12 +2194,15 @@ export default function StoneboundSoulsPage() {
             </div>
 
             {/* Main Tabs */}
-            <div className="flex space-x-4 mb-6">
+            <div className="flex space-x-4 mb-6 flex-shrink-0">
               <button
                 className={`px-4 py-2 rounded-md ${
                   mainTab === "basic" ? "bg-cyan-500 text-white" : "bg-gray-800 hover:bg-gray-700 text-gray-300"
                 } font-['Montserrat']`}
-                onClick={() => setMainTab("basic")}
+                onClick={() => {
+                  setMainTab("basic")
+                  setSelectedProgressionIndex(null)
+                }}
               >
                 Basic Information
               </button>
@@ -691,14 +2210,17 @@ export default function StoneboundSoulsPage() {
                 className={`px-4 py-2 rounded-md ${
                   mainTab === "augmentation" ? "bg-cyan-500 text-white" : "bg-gray-800 hover:bg-gray-700 text-gray-300"
                 } font-['Montserrat']`}
-                onClick={() => setMainTab("augmentation")}
+                onClick={() => {
+                  setMainTab("augmentation")
+                  setSelectedProgressionIndex(null)
+                }}
               >
                 Augmentation Details
               </button>
             </div>
 
             {/* Content based on active tab */}
-            <div className="space-y-6">
+            <div className="flex-1 overflow-y-auto space-y-6 pb-4">
               {mainTab === "basic" && (
                 <div className="grid gap-6">
                   {/* Subclass Focus Ability Card */}
@@ -721,33 +2243,53 @@ export default function StoneboundSoulsPage() {
 
                   {/* Subclass Progression Grid */}
                   <div className="bg-black/60 backdrop-blur-sm p-6 rounded-xl border border-white/20">
-                    <h3 className="text-2xl font-bold text-white font-['Montserrat'] mb-4 flex items-center space-x-2">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-2xl font-bold text-white font-['Montserrat'] flex items-center space-x-2">
                       <Trophy className="w-6 h-6 text-yellow-400" />
                       <span>Progression Path</span>
                     </h3>
+                      {selectedProgressionIndex !== null && (
+                        <button
+                          onClick={() => setSelectedProgressionIndex(null)}
+                          className="text-cyan-400 hover:text-cyan-300 text-sm font-['Montserrat'] flex items-center space-x-1 transition-colors"
+                        >
+                          <span>← Back to List</span>
+                        </button>
+                      )}
+                    </div>
+                    
+                    {selectedProgressionIndex === null ? (
+                      <>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-96 overflow-y-auto">
                       {getSubclassProgression(selectedSubclass.id)
                         .slice(0, 12)
-                        .map((progression, index) => (
-                          <div
+                            .map((progression, index) => {
+                              const abilityName = progression.split(":")[0]
+                              const abilityDescription = progression.split(":").slice(1).join(":").trim()
+                              return (
+                                <motion.div
                             key={index}
-                            className="bg-gradient-to-br from-gray-800/80 to-gray-900/80 p-4 rounded-lg border border-gray-600/50 hover:border-cyan-400/50 transition-colors"
+                                  className="bg-gradient-to-br from-gray-800/80 to-gray-900/80 p-4 rounded-lg border border-gray-600/50 hover:border-cyan-400/50 transition-all cursor-pointer"
+                                  onClick={() => setSelectedProgressionIndex(index)}
+                                  whileHover={{ scale: 1.02 }}
+                                  whileTap={{ scale: 0.98 }}
                           >
                             <div className="flex items-center space-x-3 mb-2">
-                              <div className="w-8 h-8 bg-cyan-500 rounded-full flex items-center justify-center text-white font-bold text-sm">
+                                    <div className="w-8 h-8 bg-cyan-500 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
                                 {index + 1}
                               </div>
-                              <div className="flex-1">
+                                    <div className="flex-1 min-w-0">
                                 <h4 className="text-cyan-400 font-bold text-sm font-['Montserrat']">
-                                  {progression.split(":")[0]}
+                                        {abilityName}
                                 </h4>
                               </div>
                             </div>
                             <p className="text-gray-300 text-xs leading-relaxed font-['PT_Mono']">
-                              {progression.split(":").slice(1).join(":").trim()}
+                                    {abilityDescription}
                             </p>
-                          </div>
-                        ))}
+                                </motion.div>
+                              )
+                            })}
                     </div>
                     {getSubclassProgression(selectedSubclass.id).length > 12 && (
                       <div className="mt-4 text-center">
@@ -757,13 +2299,387 @@ export default function StoneboundSoulsPage() {
                         </p>
                       </div>
                     )}
+                      </>
+                    ) : (
+                      <AnimatePresence mode="wait">
+                        <motion.div
+                          key={selectedProgressionIndex}
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -20 }}
+                          transition={{ duration: 0.3 }}
+                          className="bg-gradient-to-br from-gray-800/90 to-gray-900/90 p-6 rounded-lg border-2 border-cyan-400/50"
+                        >
+                          {(() => {
+                            const progression = getSubclassProgression(selectedSubclass.id)[selectedProgressionIndex]
+                            const abilityName = progression.split(":")[0]
+                            const abilityDescription = progression.split(":").slice(1).join(":").trim()
+                            const mechanics = getProgressionMechanics(
+                              selectedSubclass.id,
+                              selectedProgressionIndex,
+                              abilityName,
+                              selectedAugmentation?.id
+                            )
+                            return (
+                              <>
+                                <div className="flex items-center space-x-4 mb-4">
+                                  <div className="w-12 h-12 bg-cyan-500 rounded-full flex items-center justify-center text-white font-bold text-lg flex-shrink-0">
+                                    {selectedProgressionIndex + 1}
+                  </div>
+                                  <div className="flex-1">
+                                    <h4 className="text-cyan-400 font-bold text-xl font-['Montserrat'] mb-1">
+                                      {abilityName}
+                                    </h4>
+                                    <p className="text-gray-400 text-sm font-['PT_Mono']">
+                                      Level {selectedProgressionIndex + 1} Ability • {mechanics.type}
+                                    </p>
+                                  </div>
+                                </div>
+                                
+                                <div className="border-t border-gray-600/50 pt-4 mb-4">
+                                  <h5 className="text-white font-bold text-sm font-['Montserrat'] mb-2">Description</h5>
+                                  <p className="text-gray-300 text-sm leading-relaxed font-['PT_Mono']">
+                                    {abilityDescription}
+                                  </p>
+                                </div>
+
+                                {/* Game Mechanics Section */}
+                                <div className="border-t border-gray-600/50 pt-4 mb-4">
+                                  <h5 className="text-white font-bold text-sm font-['Montserrat'] mb-3 flex items-center space-x-2">
+                                    <Target className="w-4 h-4 text-cyan-400" />
+                                    <span>Game Mechanics</span>
+                                  </h5>
+                                  <div className="bg-black/40 p-4 rounded-lg border border-cyan-400/20 space-y-3">
+                                    <div className="grid grid-cols-2 gap-3">
+                                      <div>
+                                        <p className="text-cyan-400 text-xs font-bold font-['Montserrat'] mb-1">Action Type</p>
+                                        <p className="text-gray-300 text-xs font-['PT_Mono']">{mechanics.action}</p>
+                                      </div>
+                                      {mechanics.range && (
+                                        <div>
+                                          <p className="text-cyan-400 text-xs font-bold font-['Montserrat'] mb-1">Range</p>
+                                          <p className="text-gray-300 text-xs font-['PT_Mono']">{mechanics.range}</p>
+                                        </div>
+                                      )}
+                                      {mechanics.duration && (
+                                        <div>
+                                          <p className="text-cyan-400 text-xs font-bold font-['Montserrat'] mb-1">Duration</p>
+                                          <p className="text-gray-300 text-xs font-['PT_Mono']">{mechanics.duration}</p>
+                                        </div>
+                                      )}
+                                      {mechanics.save && (
+                                        <div>
+                                          <p className="text-cyan-400 text-xs font-bold font-['Montserrat'] mb-1">Saving Throw</p>
+                                          <p className="text-gray-300 text-xs font-['PT_Mono']">{mechanics.save}</p>
+                                        </div>
+                                      )}
+                                      {mechanics.damage && (
+                                        <div>
+                                          <p className="text-cyan-400 text-xs font-bold font-['Montserrat'] mb-1">Damage</p>
+                                          <p className="text-gray-300 text-xs font-['PT_Mono']">{mechanics.damage}</p>
+                                        </div>
+                                      )}
+                                    </div>
+                                    
+                                    <div className="mt-3 pt-3 border-t border-gray-600/30">
+                                      <p className="text-cyan-400 text-xs font-bold font-['Montserrat'] mb-2">Effects</p>
+                                      <ul className="space-y-1">
+                                        {mechanics.effects.map((effect, idx) => (
+                                          <li key={idx} className="flex items-start space-x-2">
+                                            <span className="text-cyan-400/50 mt-1">•</span>
+                                            <p className="text-gray-300 text-xs font-['PT_Mono'] leading-relaxed flex-1">
+                                              {effect}
+                                            </p>
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    </div>
+
+                                    {mechanics.augmentationBonus && selectedAugmentation && (
+                                      <div className="mt-3 pt-3 border-t border-gray-600/30">
+                                        <p className="text-yellow-400 text-xs font-bold font-['Montserrat'] mb-2">
+                                          {selectedAugmentation.name} Augmentation Bonus
+                                        </p>
+                                        <p className="text-yellow-300/80 text-xs font-['PT_Mono'] leading-relaxed">
+                                          {mechanics.augmentationBonus}
+                                        </p>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+
+                                {/* Navigation */}
+                                {(selectedProgressionIndex > 0 || selectedProgressionIndex < getSubclassProgression(selectedSubclass.id).length - 1) && (
+                                  <div className="border-t border-gray-600/50 pt-4">
+                                    <div className="flex justify-between items-center">
+                                      {selectedProgressionIndex > 0 && (
+                                        <button
+                                          onClick={() => setSelectedProgressionIndex(selectedProgressionIndex - 1)}
+                                          className="text-cyan-400 hover:text-cyan-300 text-xs font-['Montserrat'] flex items-center space-x-1 transition-colors"
+                                        >
+                                          <span>←</span>
+                                          <span>{getSubclassProgression(selectedSubclass.id)[selectedProgressionIndex - 1].split(":")[0]}</span>
+                                        </button>
+                                      )}
+                                      {selectedProgressionIndex < getSubclassProgression(selectedSubclass.id).length - 1 && (
+                                        <button
+                                          onClick={() => setSelectedProgressionIndex(selectedProgressionIndex + 1)}
+                                          className="text-cyan-400 hover:text-cyan-300 text-xs font-['Montserrat'] flex items-center space-x-1 transition-colors ml-auto"
+                                        >
+                                          <span>{getSubclassProgression(selectedSubclass.id)[selectedProgressionIndex + 1].split(":")[0]}</span>
+                                          <span>→</span>
+                                        </button>
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
+                              </>
+                            )
+                          })()}
+                        </motion.div>
+                      </AnimatePresence>
+                    )}
                   </div>
                 </div>
               )}
 
               {mainTab === "augmentation" && (
                 <div className="space-y-6">
-                  {/* Augmentation Overview Card */}
+                  {/* Game Mechanics Summary - Most Important */}
+                  <div className="bg-gradient-to-r from-cyan-500/30 to-blue-500/30 backdrop-blur-sm p-6 rounded-xl border-2 border-cyan-400/50">
+                    <div className="flex items-center space-x-3 mb-6">
+                      <Target className="w-8 h-8 text-cyan-400" />
+                      <h3 className="text-3xl font-bold text-white font-['Montserrat']">Game Mechanics</h3>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {(() => {
+                        const lowMech = extractMechanics(selectedAugmentation.abilities.low, 'Low')
+                        const mediumMech = extractMechanics(selectedAugmentation.abilities.medium, 'Medium')
+                        const highMech = extractMechanics(selectedAugmentation.abilities.high, 'High')
+                        const allMechanics = {
+                          damage: [...(lowMech.damage || []), ...(mediumMech.damage || []), ...(highMech.damage || [])],
+                          saves: [...(lowMech.saves || []), ...(mediumMech.saves || []), ...(highMech.saves || [])],
+                          durations: [...(lowMech.durations || []), ...(mediumMech.durations || []), ...(highMech.durations || [])],
+                          ranges: [...(lowMech.ranges || []), ...(mediumMech.ranges || []), ...(highMech.ranges || [])],
+                          modifiers: [...(lowMech.modifiers || []), ...(mediumMech.modifiers || []), ...(highMech.modifiers || [])],
+                          percentages: [...(lowMech.percentages || []), ...(mediumMech.percentages || []), ...(highMech.percentages || [])],
+                          actions: [...(lowMech.actions || []), ...(mediumMech.actions || []), ...(highMech.actions || [])],
+                          other: [...(lowMech.other || []), ...(mediumMech.other || []), ...(highMech.other || [])],
+                        }
+                        
+                        // Helper to deduplicate by value while keeping unique contexts and requirements
+                        // Also merges similar contexts to avoid repetition
+                        const deduplicateMechanics = (items: Array<{ value: string; context: string; requirement?: string }>) => {
+                          const seen = new Map<string, { contexts: string[]; requirements: string[] }>()
+                          items.forEach(item => {
+                            if (!seen.has(item.value)) {
+                              seen.set(item.value, { contexts: [], requirements: [] })
+                            }
+                            const data = seen.get(item.value)!
+                            
+                            // Check if context is similar to existing ones (avoid repetition)
+                            const isSimilar = data.contexts.some(existing => {
+                              const similarity = existing.toLowerCase().includes(item.context.toLowerCase().substring(0, 20)) ||
+                                                item.context.toLowerCase().includes(existing.toLowerCase().substring(0, 20))
+                              return similarity
+                            })
+                            
+                            if (!isSimilar && item.context.trim().length > 0) {
+                              data.contexts.push(item.context)
+                            }
+                            
+                            if (item.requirement && !data.requirements.includes(item.requirement)) {
+                              data.requirements.push(item.requirement)
+                            }
+                          })
+                          
+                          // Return with only the most complete/clear context for each value
+                          return Array.from(seen.entries()).map(([value, data]) => {
+                            // If multiple contexts, prefer the longest complete one
+                            const bestContext = data.contexts.length > 0 
+                              ? data.contexts.reduce((best, current) => 
+                                  current.length > best.length && current.endsWith('.') ? current : best,
+                                  data.contexts[0]
+                                )
+                              : data.contexts[0] || ''
+                            
+                            return { 
+                              value, 
+                              contexts: bestContext ? [bestContext] : [], 
+                              requirements: data.requirements 
+                            }
+                          })
+                        }
+
+                        return (
+                          <>
+                            {allMechanics.damage && allMechanics.damage.length > 0 && (
+                              <div className="bg-black/40 p-4 rounded-lg border border-cyan-400/30">
+                                <h4 className="text-cyan-400 font-bold text-sm font-['Montserrat'] mb-3">Damage</h4>
+                                <div className="space-y-3">
+                                  {deduplicateMechanics(allMechanics.damage).map((item, idx) => (
+                                    <div key={idx} className="border-l-2 border-cyan-400/30 pl-3">
+                                      <p className="text-cyan-300 font-bold text-sm font-['Montserrat'] mb-1">{item.value}</p>
+                                      {item.requirements.length > 0 && (
+                                        <div className="mb-2">
+                                          <p className="text-yellow-400 text-xs font-bold font-['Montserrat'] mb-1">Requirement:</p>
+                                          {item.requirements.map((req, reqIdx) => (
+                                            <p key={reqIdx} className="text-yellow-300/80 text-xs font-['PT_Mono'] leading-relaxed">
+                                              {req}
+                                            </p>
+                                          ))}
+                                        </div>
+                                      )}
+                                      {item.contexts.map((ctx, ctxIdx) => (
+                                        <p key={ctxIdx} className="text-gray-300 text-xs font-['PT_Mono'] leading-relaxed italic">
+                                          {ctx}
+                                        </p>
+                                      ))}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                            {allMechanics.saves && allMechanics.saves.length > 0 && (
+                              <div className="bg-black/40 p-4 rounded-lg border border-cyan-400/30">
+                                <h4 className="text-cyan-400 font-bold text-sm font-['Montserrat'] mb-3">Saving Throws</h4>
+                                <div className="space-y-3">
+                                  {deduplicateMechanics(allMechanics.saves).map((item, idx) => (
+                                    <div key={idx} className="border-l-2 border-cyan-400/30 pl-3">
+                                      <p className="text-cyan-300 font-bold text-sm font-['Montserrat'] mb-1">{item.value}</p>
+                                      {item.requirements.length > 0 && (
+                                        <div className="mb-2">
+                                          <p className="text-yellow-400 text-xs font-bold font-['Montserrat'] mb-1">Requirement:</p>
+                                          {item.requirements.map((req, reqIdx) => (
+                                            <p key={reqIdx} className="text-yellow-300/80 text-xs font-['PT_Mono'] leading-relaxed">
+                                              {req}
+                                            </p>
+                                          ))}
+                                        </div>
+                                      )}
+                                      {item.contexts.map((ctx, ctxIdx) => (
+                                        <p key={ctxIdx} className="text-gray-300 text-xs font-['PT_Mono'] leading-relaxed italic">
+                                          {ctx}
+                                        </p>
+                                      ))}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                            {allMechanics.durations && allMechanics.durations.length > 0 && (
+                              <div className="bg-black/40 p-4 rounded-lg border border-cyan-400/30">
+                                <h4 className="text-cyan-400 font-bold text-sm font-['Montserrat'] mb-3">Duration</h4>
+                                <div className="space-y-3">
+                                  {deduplicateMechanics(allMechanics.durations).map((item, idx) => (
+                                    <div key={idx} className="border-l-2 border-cyan-400/30 pl-3">
+                                      <p className="text-cyan-300 font-bold text-sm font-['Montserrat'] mb-1">{item.value}</p>
+                                      {item.requirements.length > 0 && (
+                                        <div className="mb-2">
+                                          <p className="text-yellow-400 text-xs font-bold font-['Montserrat'] mb-1">Requirement:</p>
+                                          {item.requirements.map((req, reqIdx) => (
+                                            <p key={reqIdx} className="text-yellow-300/80 text-xs font-['PT_Mono'] leading-relaxed">
+                                              {req}
+                                            </p>
+                                          ))}
+                                        </div>
+                                      )}
+                                      {item.contexts.map((ctx, ctxIdx) => (
+                                        <p key={ctxIdx} className="text-gray-300 text-xs font-['PT_Mono'] leading-relaxed italic">
+                                          {ctx}
+                                        </p>
+                                      ))}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                            {allMechanics.percentages && allMechanics.percentages.length > 0 && (
+                              <div className="bg-black/40 p-4 rounded-lg border border-cyan-400/30">
+                                <h4 className="text-cyan-400 font-bold text-sm font-['PT_Mono'] mb-3">Chance/Percentage</h4>
+                                <div className="space-y-3">
+                                  {deduplicateMechanics(allMechanics.percentages).map((item, idx) => (
+                                    <div key={idx} className="border-l-2 border-cyan-400/30 pl-3">
+                                      <p className="text-cyan-300 font-bold text-sm font-['Montserrat'] mb-1">{item.value}</p>
+                                      {item.requirements.length > 0 && (
+                                        <div className="mb-2">
+                                          <p className="text-yellow-400 text-xs font-bold font-['Montserrat'] mb-1">Requirement:</p>
+                                          {item.requirements.map((req, reqIdx) => (
+                                            <p key={reqIdx} className="text-yellow-300/80 text-xs font-['PT_Mono'] leading-relaxed">
+                                              {req}
+                                            </p>
+                                          ))}
+                                        </div>
+                                      )}
+                                      {item.contexts.map((ctx, ctxIdx) => (
+                                        <p key={ctxIdx} className="text-gray-300 text-xs font-['PT_Mono'] leading-relaxed italic">
+                                          {ctx}
+                                        </p>
+                                      ))}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                            {allMechanics.actions && allMechanics.actions.length > 0 && (
+                              <div className="bg-black/40 p-4 rounded-lg border border-cyan-400/30">
+                                <h4 className="text-cyan-400 font-bold text-sm font-['Montserrat'] mb-3">Action Type</h4>
+                                <div className="space-y-3">
+                                  {deduplicateMechanics(allMechanics.actions).map((item, idx) => (
+                                    <div key={idx} className="border-l-2 border-cyan-400/30 pl-3">
+                                      <p className="text-cyan-300 font-bold text-sm font-['Montserrat'] mb-1">{item.value}</p>
+                                      {item.requirements.length > 0 && (
+                                        <div className="mb-2">
+                                          <p className="text-yellow-400 text-xs font-bold font-['Montserrat'] mb-1">Requirement:</p>
+                                          {item.requirements.map((req, reqIdx) => (
+                                            <p key={reqIdx} className="text-yellow-300/80 text-xs font-['PT_Mono'] leading-relaxed">
+                                              {req}
+                                            </p>
+                                          ))}
+                                        </div>
+                                      )}
+                                      {item.contexts.map((ctx, ctxIdx) => (
+                                        <p key={ctxIdx} className="text-gray-300 text-xs font-['PT_Mono'] leading-relaxed italic">
+                                          {ctx}
+                                        </p>
+                                      ))}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                            {allMechanics.other && allMechanics.other.length > 0 && (
+                              <div className="bg-black/40 p-4 rounded-lg border border-cyan-400/30">
+                                <h4 className="text-cyan-400 font-bold text-sm font-['Montserrat'] mb-3">Special Effects</h4>
+                                <div className="space-y-3">
+                                  {deduplicateMechanics(allMechanics.other).map((item, idx) => (
+                                    <div key={idx} className="border-l-2 border-cyan-400/30 pl-3">
+                                      <p className="text-cyan-300 font-bold text-sm font-['Montserrat'] mb-1">{item.value}</p>
+                                      {item.requirements.length > 0 && (
+                                        <div className="mb-2">
+                                          <p className="text-yellow-400 text-xs font-bold font-['Montserrat'] mb-1">Requirement:</p>
+                                          {item.requirements.map((req, reqIdx) => (
+                                            <p key={reqIdx} className="text-yellow-300/80 text-xs font-['PT_Mono'] leading-relaxed">
+                                              {req}
+                                            </p>
+                                          ))}
+                                        </div>
+                                      )}
+                                      {item.contexts.map((ctx, ctxIdx) => (
+                                        <p key={ctxIdx} className="text-gray-300 text-xs font-['PT_Mono'] leading-relaxed italic">
+                                          {ctx}
+                                        </p>
+                                      ))}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </>
+                        )
+                      })()}
+                    </div>
+                  </div>
 
                   {/* Augmentation Tabs */}
                   <div className="flex space-x-4 mb-4">
@@ -796,46 +2712,124 @@ export default function StoneboundSoulsPage() {
                     <div className="grid gap-6">
                       {/* Low Level Ability */}
                       <div className="bg-gradient-to-r from-green-500/20 to-green-600/20 backdrop-blur-sm p-6 rounded-xl border border-green-500/30">
-                        <div className="flex items-center space-x-3 mb-4">
-                          <div className="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center">
-                            <span className="text-white font-bold">1</span>
+                        <div className="flex items-center space-x-3 mb-6">
+                          <div className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center">
+                            <span className="text-white font-bold text-lg">1</span>
                           </div>
+                          <div>
                           <h4 className="text-2xl font-bold text-green-400 font-['Montserrat']">Low Level</h4>
+                            <p className="text-green-300/70 text-sm font-['PT_Mono']">Basic augmentation power</p>
                         </div>
-                        <div className="bg-black/40 p-4 rounded-lg border border-green-500/20">
-                          <p className="text-gray-200 font-['PT_Mono'] leading-relaxed">
-                            {selectedAugmentation.abilities.low}
+                        </div>
+                        <div className="bg-black/40 p-6 rounded-lg border border-green-500/20">
+                          <div className="space-y-4">
+                            {(() => {
+                              const text = selectedAugmentation.abilities.low;
+                              const abilityName = text.match(/^([^:]+):/)?.[1] || '';
+                              const description = text.replace(/^[^:]+:\s*/, '');
+                              return (
+                                <>
+                                  {abilityName && (
+                                    <div className="pb-3 border-b border-green-500/20">
+                                      <h5 className="text-green-400 font-bold text-base font-['Montserrat'] mb-2">{abilityName}</h5>
+                                    </div>
+                                  )}
+                                  <div className="space-y-3">
+                                    {description.split(/(?<=[.:])\s+(?=[A-Z])/).map((sentence, idx) => (
+                                      <div key={idx} className="flex items-start space-x-2">
+                                        <span className="text-green-400/50 mt-1.5">•</span>
+                                        <p className="text-gray-200 font-['PT_Mono'] text-sm leading-relaxed flex-1">
+                                          {sentence.trim()}
                           </p>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </>
+                              );
+                            })()}
+                          </div>
                         </div>
                       </div>
 
                       {/* Medium Level Ability */}
                       <div className="bg-gradient-to-r from-yellow-500/20 to-orange-500/20 backdrop-blur-sm p-6 rounded-xl border border-yellow-500/30">
-                        <div className="flex items-center space-x-3 mb-4">
-                          <div className="w-10 h-10 bg-yellow-500 rounded-full flex items-center justify-center">
-                            <span className="text-white font-bold">2</span>
+                        <div className="flex items-center space-x-3 mb-6">
+                          <div className="w-12 h-12 bg-yellow-500 rounded-full flex items-center justify-center">
+                            <span className="text-white font-bold text-lg">2</span>
                           </div>
+                          <div>
                           <h4 className="text-2xl font-bold text-yellow-400 font-['Montserrat']">Medium Level</h4>
+                            <p className="text-yellow-300/70 text-sm font-['PT_Mono']">Enhanced augmentation power</p>
                         </div>
-                        <div className="bg-black/40 p-4 rounded-lg border border-yellow-500/20">
-                          <p className="text-gray-200 font-['PT_Mono'] leading-relaxed">
-                            {selectedAugmentation.abilities.medium}
+                        </div>
+                        <div className="bg-black/40 p-6 rounded-lg border border-yellow-500/20">
+                          <div className="space-y-4">
+                            {(() => {
+                              const text = selectedAugmentation.abilities.medium;
+                              const abilityName = text.match(/^([^:]+):/)?.[1] || '';
+                              const description = text.replace(/^[^:]+:\s*/, '');
+                              return (
+                                <>
+                                  {abilityName && (
+                                    <div className="pb-3 border-b border-yellow-500/20">
+                                      <h5 className="text-yellow-400 font-bold text-base font-['Montserrat'] mb-2">{abilityName}</h5>
+                                    </div>
+                                  )}
+                                  <div className="space-y-3">
+                                    {description.split(/(?<=[.:])\s+(?=[A-Z])/).map((sentence, idx) => (
+                                      <div key={idx} className="flex items-start space-x-2">
+                                        <span className="text-yellow-400/50 mt-1.5">•</span>
+                                        <p className="text-gray-200 font-['PT_Mono'] text-sm leading-relaxed flex-1">
+                                          {sentence.trim()}
                           </p>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </>
+                              );
+                            })()}
+                          </div>
                         </div>
                       </div>
 
                       {/* High Level Ability */}
                       <div className="bg-gradient-to-r from-red-500/20 to-red-600/20 backdrop-blur-sm p-6 rounded-xl border border-red-500/30">
-                        <div className="flex items-center space-x-3 mb-4">
-                          <div className="w-10 h-10 bg-red-500 rounded-full flex items-center justify-center">
-                            <span className="text-white font-bold">3</span>
+                        <div className="flex items-center space-x-3 mb-6">
+                          <div className="w-12 h-12 bg-red-500 rounded-full flex items-center justify-center">
+                            <span className="text-white font-bold text-lg">3</span>
                           </div>
+                          <div>
                           <h4 className="text-2xl font-bold text-red-400 font-['Montserrat']">High Level</h4>
+                            <p className="text-red-300/70 text-sm font-['PT_Mono']">Master-level augmentation power</p>
                         </div>
-                        <div className="bg-black/40 p-4 rounded-lg border border-red-500/20">
-                          <p className="text-gray-200 font-['PT_Mono'] leading-relaxed">
-                            {selectedAugmentation.abilities.high}
+                        </div>
+                        <div className="bg-black/40 p-6 rounded-lg border border-red-500/20">
+                          <div className="space-y-4">
+                            {(() => {
+                              const text = selectedAugmentation.abilities.high;
+                              const abilityName = text.match(/^([^:]+):/)?.[1] || '';
+                              const description = text.replace(/^[^:]+:\s*/, '');
+                              return (
+                                <>
+                                  {abilityName && (
+                                    <div className="pb-3 border-b border-red-500/20">
+                                      <h5 className="text-red-400 font-bold text-base font-['Montserrat'] mb-2">{abilityName}</h5>
+                                    </div>
+                                  )}
+                                  <div className="space-y-3">
+                                    {description.split(/(?<=[.:])\s+(?=[A-Z])/).map((sentence, idx) => (
+                                      <div key={idx} className="flex items-start space-x-2">
+                                        <span className="text-red-400/50 mt-1.5">•</span>
+                                        <p className="text-gray-200 font-['PT_Mono'] text-sm leading-relaxed flex-1">
+                                          {sentence.trim()}
                           </p>
+                        </div>
+                                    ))}
+                                  </div>
+                                </>
+                              );
+                            })()}
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -844,67 +2838,97 @@ export default function StoneboundSoulsPage() {
                   {/* Corruption Content */}
                   {augmentationTab === "corruption" && (
                     <div className="grid gap-6">
-                      {augmentationCorruption[selectedAugmentation.id] && (
+                      {selectedAugmentation && augmentationCorruption[selectedAugmentation.id as keyof typeof augmentationCorruption] && (
                         <>
                           {/* Low Corruption */}
                           <div className="bg-gradient-to-r from-purple-500/20 to-purple-600/20 backdrop-blur-sm p-6 rounded-xl border border-purple-500/30">
-                            <div className="flex items-center space-x-3 mb-4">
-                              <div className="w-10 h-10 bg-purple-500 rounded-full flex items-center justify-center">
-                                <Skull className="w-5 h-5 text-white" />
+                            <div className="flex items-center justify-between mb-6">
+                              <div className="flex items-center space-x-3">
+                                <div className="w-12 h-12 bg-purple-500 rounded-full flex items-center justify-center">
+                                  <Skull className="w-6 h-6 text-white" />
                               </div>
+                                <div>
                               <h4 className="text-2xl font-bold text-purple-400 font-['Montserrat']">Low Corruption</h4>
-                              <div className="flex-1 flex justify-end">
-                                <span className="bg-purple-500/20 text-purple-300 px-3 py-1 rounded-full text-sm font-['PT_Mono']">
-                                  25% Corruption
-                                </span>
+                                  <p className="text-purple-300/70 text-sm font-['PT_Mono']">Early warning signs</p>
                               </div>
                             </div>
-                            <div className="bg-black/40 p-4 rounded-lg border border-purple-500/20">
-                              <p className="text-gray-200 font-['PT_Mono'] leading-relaxed">
-                                {augmentationCorruption[selectedAugmentation.id].low}
-                              </p>
+                              <span className="bg-purple-500/20 text-purple-300 px-4 py-2 rounded-full text-sm font-bold font-['PT_Mono']">
+                                25%
+                              </span>
+                            </div>
+                            <div className="bg-black/40 p-6 rounded-lg border border-purple-500/20">
+                              <div className="space-y-3">
+                                {augmentationCorruption[selectedAugmentation.id as keyof typeof augmentationCorruption].low.split(/(?<=[.:])\s+(?=[A-Z])/).map((sentence: string, idx: number) => (
+                                  <div key={idx} className="flex items-start space-x-2">
+                                    <span className="text-purple-400/50 mt-1.5">•</span>
+                                    <p className="text-gray-200 font-['PT_Mono'] text-sm leading-relaxed flex-1">
+                                      {sentence.trim()}
+                                    </p>
+                                  </div>
+                                ))}
+                              </div>
                             </div>
                           </div>
 
                           {/* Medium Corruption */}
                           <div className="bg-gradient-to-r from-orange-500/20 to-red-500/20 backdrop-blur-sm p-6 rounded-xl border border-orange-500/30">
-                            <div className="flex items-center space-x-3 mb-4">
-                              <div className="w-10 h-10 bg-orange-500 rounded-full flex items-center justify-center">
-                                <Skull className="w-5 h-5 text-white" />
+                            <div className="flex items-center justify-between mb-6">
+                              <div className="flex items-center space-x-3">
+                                <div className="w-12 h-12 bg-orange-500 rounded-full flex items-center justify-center">
+                                  <Skull className="w-6 h-6 text-white" />
                               </div>
+                                <div>
                               <h4 className="text-2xl font-bold text-orange-400 font-['Montserrat']">
                                 Medium Corruption
                               </h4>
-                              <div className="flex-1 flex justify-end">
-                                <span className="bg-orange-500/20 text-orange-300 px-3 py-1 rounded-full text-sm font-['PT_Mono']">
-                                  50% Corruption
-                                </span>
+                                  <p className="text-orange-300/70 text-sm font-['PT_Mono']">Significant side effects</p>
                               </div>
                             </div>
-                            <div className="bg-black/40 p-4 rounded-lg border border-orange-500/20">
-                              <p className="text-gray-200 font-['PT_Mono'] leading-relaxed">
-                                {augmentationCorruption[selectedAugmentation.id].medium}
-                              </p>
+                              <span className="bg-orange-500/20 text-orange-300 px-4 py-2 rounded-full text-sm font-bold font-['PT_Mono']">
+                                50%
+                              </span>
+                            </div>
+                            <div className="bg-black/40 p-6 rounded-lg border border-orange-500/20">
+                              <div className="space-y-3">
+                                {augmentationCorruption[selectedAugmentation.id as keyof typeof augmentationCorruption].medium.split(/(?<=[.:])\s+(?=[A-Z])/).map((sentence: string, idx: number) => (
+                                  <div key={idx} className="flex items-start space-x-2">
+                                    <span className="text-orange-400/50 mt-1.5">•</span>
+                                    <p className="text-gray-200 font-['PT_Mono'] text-sm leading-relaxed flex-1">
+                                      {sentence.trim()}
+                                    </p>
+                                  </div>
+                                ))}
+                              </div>
                             </div>
                           </div>
 
                           {/* High Corruption */}
                           <div className="bg-gradient-to-r from-red-500/20 to-red-800/20 backdrop-blur-sm p-6 rounded-xl border border-red-500/30">
-                            <div className="flex items-center space-x-3 mb-4">
-                              <div className="w-10 h-10 bg-red-500 rounded-full flex items-center justify-center">
-                                <Skull className="w-5 h-5 text-white" />
+                            <div className="flex items-center justify-between mb-6">
+                              <div className="flex items-center space-x-3">
+                                <div className="w-12 h-12 bg-red-500 rounded-full flex items-center justify-center">
+                                  <Skull className="w-6 h-6 text-white" />
                               </div>
+                                <div>
                               <h4 className="text-2xl font-bold text-red-400 font-['Montserrat']">High Corruption</h4>
-                              <div className="flex-1 flex justify-end">
-                                <span className="bg-red-500/20 text-red-300 px-3 py-1 rounded-full text-sm font-['PT_Mono']">
-                                  75%+ Corruption
-                                </span>
+                                  <p className="text-red-300/70 text-sm font-['PT_Mono']">Severe consequences</p>
                               </div>
                             </div>
-                            <div className="bg-black/40 p-4 rounded-lg border border-red-500/20">
-                              <p className="text-gray-200 font-['PT_Mono'] leading-relaxed">
-                                {augmentationCorruption[selectedAugmentation.id].high}
-                              </p>
+                              <span className="bg-red-500/20 text-red-300 px-4 py-2 rounded-full text-sm font-bold font-['PT_Mono']">
+                                75%+
+                              </span>
+                            </div>
+                            <div className="bg-black/40 p-6 rounded-lg border border-red-500/20">
+                              <div className="space-y-3">
+                                {augmentationCorruption[selectedAugmentation.id as keyof typeof augmentationCorruption].high.split(/(?<=[.:])\s+(?=[A-Z])/).map((sentence: string, idx: number) => (
+                                  <div key={idx} className="flex items-start space-x-2">
+                                    <span className="text-red-400/50 mt-1.5">•</span>
+                                    <p className="text-gray-200 font-['PT_Mono'] text-sm leading-relaxed flex-1">
+                                      {sentence.trim()}
+                                    </p>
+                                  </div>
+                                ))}
+                              </div>
                             </div>
                           </div>
                         </>
@@ -919,8 +2943,8 @@ export default function StoneboundSoulsPage() {
       } else if (selectedSubclass) {
         // Show augmentation selection
         return (
-          <div className="max-w-6xl mx-auto w-full h-full flex flex-col">
-            <div className="flex items-center justify-between mb-6">
+          <div className="w-full flex flex-col" style={{ height: '100%' }}>
+            <div className="max-w-6xl mx-auto w-full flex items-center justify-between mb-6 flex-shrink-0 px-6 md:px-8">
               <div>
                 <h2 className="text-4xl font-bold text-white font-['Montserrat']">
                   {selectedSubclass.name} - Choose Augmentation
@@ -937,33 +2961,30 @@ export default function StoneboundSoulsPage() {
               </button>
             </div>
 
-            <div className="grid grid-cols-5 grid-rows-2 gap-4 flex-1">
+            <div className="grid grid-cols-5 grid-rows-2 flex-1 w-full" style={{ minHeight: 0, height: '100%', gap: 0 }}>
               {selectedSubclass.augmentations.map((augmentation) => (
                 <motion.div
                   key={augmentation.id}
-                  className="relative rounded-xl border-2 border-white/20 hover:border-cyan-400/50 transition-colors duration-300 cursor-pointer flex flex-col justify-center items-center p-4 overflow-hidden"
+                  className="relative transition-all duration-300 cursor-pointer flex flex-col justify-end items-center p-4 overflow-hidden"
                   onClick={() => handleAugmentationSelect(augmentation)}
-                  whileHover={{ scale: 1.05 }}
+                  whileHover={{ scale: 1.05, zIndex: 50 }}
                   whileTap={{ scale: 0.95 }}
                   style={{
-                    background: `linear-gradient(135deg, ${augmentation.color}20, ${augmentation.color}40)`,
+                    backgroundImage: `url(/${augmentation.name.charAt(0).toUpperCase() + augmentation.name.slice(1)}_${(selectedClass?.id ?? "common") === "hacker" ? "Hacker" : "Common"}.webp)`,
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'center',
+                    backgroundRepeat: 'no-repeat',
                   }}
                 >
-                  <div
-                    className="absolute inset-0 opacity-20"
-                    style={{
-                      background: `linear-gradient(135deg, ${augmentation.color}, ${augmentation.color}80)`,
-                    }}
-                  />
-                  <div className="relative z-10 flex flex-col items-center text-center">
-                    <div
-                      className="w-16 h-16 rounded-full mb-3 border-4 border-white/50 shadow-lg"
-                      style={{ backgroundColor: augmentation.color }}
-                    />
-                    <h3 className="text-xl font-bold text-white mb-2 font-['Montserrat'] drop-shadow-lg">
+                  {/* Gradient overlay for text readability - extends to all edges */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent" style={{ top: 0, right: 0, bottom: 0, left: 0 }} />
+                  
+                  {/* Content positioned at bottom */}
+                  <div className="relative z-10 flex flex-col items-center text-center w-full">
+                    <h3 className="text-lg md:text-xl font-bold text-white mb-1 md:mb-2 font-['Montserrat'] drop-shadow-lg">
                       {augmentation.name}
                     </h3>
-                    <p className="text-white text-xs leading-relaxed font-['PT_Mono'] drop-shadow-md">
+                    <p className="text-white text-xs md:text-sm leading-relaxed font-['PT_Mono'] drop-shadow-md">
                       {augmentation.description}
                     </p>
                   </div>
@@ -975,8 +2996,8 @@ export default function StoneboundSoulsPage() {
       } else if (selectedClass) {
         // Show subclass selection
         return (
-          <div className="max-w-4xl mx-auto w-full h-full overflow-y-auto">
-            <div className="flex items-center justify-between mb-6">
+          <div className="max-w-6xl mx-auto w-full h-full flex flex-col">
+            <div className="flex items-center justify-between mb-6 flex-shrink-0">
               <div>
                 <h2 className="text-4xl font-bold text-white font-['Montserrat']">
                   {selectedClass.name} - Choose Subclass
@@ -993,23 +3014,50 @@ export default function StoneboundSoulsPage() {
               </button>
             </div>
 
-            <div className="grid md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8 flex-1" style={{ minHeight: 0 }}>
               {selectedClass.subclasses.map((subclass) => (
                 <motion.div
                   key={subclass.id}
-                  className="bg-black/60 backdrop-blur-sm p-6 rounded-xl border border-white/20 hover:border-cyan-400/50 transition-colors duration-300 cursor-pointer"
+                  className="bg-black/60 backdrop-blur-sm p-6 md:p-8 lg:p-10 xl:p-12 rounded-xl border border-white/20 hover:border-cyan-400/50 transition-all duration-300 cursor-pointer flex flex-col h-full group relative overflow-hidden"
                   onClick={() => handleSubclassSelect(subclass)}
-                  whileHover={{ scale: 1.02 }}
+                  whileHover={{ scale: 1.02, zIndex: 10 }}
                   whileTap={{ scale: 0.98 }}
                 >
-                  <div className="flex items-center space-x-3 mb-4">
+                  {/* Subtle gradient overlay on hover */}
+                  <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/0 to-cyan-500/0 group-hover:from-cyan-500/5 group-hover:to-cyan-500/10 transition-all duration-300 pointer-events-none" />
+                  
+                  {/* Header Section */}
+                  <div className="flex items-center space-x-4 md:space-x-5 mb-5 md:mb-6 relative z-10">
+                    <div className="flex-shrink-0 p-3 md:p-4 bg-white/5 rounded-lg group-hover:bg-cyan-500/20 transition-colors duration-300 flex items-center justify-center">
+                      <div className="text-cyan-400 group-hover:text-cyan-300 transition-colors">
                     {subclass.icon}
-                    <h3 className="text-2xl font-bold text-white font-['Montserrat']">{subclass.name}</h3>
                   </div>
-                  <p className="text-gray-300 text-sm leading-relaxed font-['PT_Mono'] mb-4">{subclass.description}</p>
-                  <div className="border-t border-gray-600 pt-4">
-                    <h4 className="text-cyan-400 font-bold mb-2 font-['Montserrat']">Focus Ability:</h4>
-                    <p className="text-gray-300 text-sm font-['PT_Mono']">{subclass.focusAbility}</p>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-xl md:text-2xl lg:text-2xl xl:text-3xl font-bold text-white font-['Montserrat'] leading-tight">
+                        {subclass.name}
+                      </h3>
+                    </div>
+                  </div>
+                  
+                  {/* Description Section */}
+                  <div className="flex-1 mb-5 md:mb-6 relative z-10">
+                    <p className="text-gray-300 text-sm md:text-sm lg:text-base xl:text-base leading-relaxed font-['PT_Mono']">
+                      {subclass.description}
+                    </p>
+                  </div>
+                  
+                  {/* Focus Ability Section */}
+                  <div className="border-t border-gray-600/50 group-hover:border-cyan-400/30 transition-colors duration-300 pt-5 md:pt-6 relative z-10">
+                    <div className="flex items-center space-x-2 mb-2 md:mb-3">
+                      <div className="w-1 h-5 md:h-6 bg-cyan-400 rounded-full" />
+                      <h4 className="text-cyan-400 font-bold text-sm md:text-base lg:text-lg xl:text-xl font-['Montserrat']">
+                        Focus Ability
+                      </h4>
+                    </div>
+                    <p className="text-gray-300 text-xs md:text-sm lg:text-base xl:text-base font-['PT_Mono'] leading-relaxed pl-3 md:pl-4">
+                      {subclass.focusAbility}
+                    </p>
                   </div>
                 </motion.div>
               ))}
@@ -1019,24 +3067,36 @@ export default function StoneboundSoulsPage() {
       } else {
         // Show class selection
         return (
-          <div className="max-w-6xl mx-auto w-full h-full flex flex-col">
+          <div className="max-w-6xl mx-auto w-full min-h-full flex flex-col">
             <h2 className="text-4xl font-bold text-white mb-6 font-['Montserrat']">Choose Your Class</h2>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 flex-1">
               {classesData.map((classData) => (
                 <motion.div
                   key={classData.id}
-                  className="bg-black/60 backdrop-blur-sm p-4 rounded-xl border border-white/20 hover:border-cyan-400/50 transition-colors duration-300 cursor-pointer flex flex-col h-full"
+                  className="relative rounded-xl border border-white/20 hover:border-cyan-400/50 transition-all duration-300 cursor-pointer overflow-hidden h-full min-h-[300px] md:min-h-[400px] lg:h-[calc(100vh-280px)] xl:h-[calc(100vh-300px)]"
                   onClick={() => handleClassSelect(classData)}
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                 >
+                  {/* Background Image */}
                   <img
                     src={classData.image || "/placeholder.svg"}
                     alt={classData.name}
-                    className="w-full flex-1 object-cover rounded-md mb-3"
+                    className="absolute inset-0 w-full h-full object-cover"
                   />
-                  <h3 className="text-xl font-bold text-white mb-2 font-['Montserrat']">{classData.name}</h3>
-                  <p className="text-gray-300 text-sm leading-relaxed font-['PT_Mono']">{classData.description}</p>
+                  
+                  {/* Gradient Overlay - 50% opacity at bottom to 0% at top */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/25 to-transparent" />
+                  
+                  {/* Content - Positioned at bottom */}
+                  <div className="absolute bottom-0 left-0 right-0 p-4 md:p-6 z-10">
+                    <h3 className="text-lg md:text-xl font-bold text-white mb-2 font-['Montserrat'] drop-shadow-lg">
+                      {classData.name}
+                    </h3>
+                    <p className="text-white text-xs md:text-sm leading-relaxed font-['PT_Mono'] drop-shadow-md">
+                      {classData.description}
+                    </p>
+                  </div>
                 </motion.div>
               ))}
             </div>
@@ -1574,14 +3634,14 @@ export default function StoneboundSoulsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-black text-white relative overflow-hidden">
+    <div className="min-h-screen bg-black text-white relative overflow-y-auto">
       <CyberpunkBackground />
       <Sidebar />
       <Header />
 
-      <div className="ml-0 md:ml-20 h-screen flex flex-col pt-[72px]">
+      <div className="ml-0 md:ml-20 min-h-screen flex flex-col pt-[72px]">
         {/* Main Content Area */}
-        <div className="flex-1 relative overflow-hidden">
+        <div className="flex-1 relative overflow-y-auto">
           {/* Conditional Background Image - Show for overview and requirements */}
           {(activeSection === "overview" || activeSection === "requirements") && (
             <>
@@ -1601,14 +3661,14 @@ export default function StoneboundSoulsPage() {
           )}
 
           {/* Dynamic Content Overlay */}
-          <div className="relative z-10 h-full w-full p-6 md:p-8 flex flex-col">
+          <div className="relative z-10 w-full p-6 md:p-8 flex flex-col" style={{ height: 'calc(100vh - 72px - 80px)' }}>
             <AnimatePresence mode="wait">
               <motion.div
                 key={`${activeSection}-${selectedClass?.id}-${selectedSubclass?.id}-${selectedAugmentation?.id}`}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -20 }}
-                className="flex-1 flex flex-col"
+                className="flex-1 flex flex-col h-full"
               >
                 {renderCurrentView()}
               </motion.div>
@@ -1617,7 +3677,7 @@ export default function StoneboundSoulsPage() {
         </div>
 
         {/* Bottom Navigation - Fixed to bottom of screen */}
-        <div className="bg-black/80 backdrop-blur-md p-4 md:p-6 border-t border-white/10">
+        <div className="fixed bottom-0 left-0 right-0 md:left-20 bg-black/80 backdrop-blur-md p-4 md:p-6 border-t border-white/10 z-50">
           <div className="max-w-6xl mx-auto flex items-center justify-center">
             <div className="flex items-center space-x-4">
               {sections.map((section) => (
@@ -1655,7 +3715,7 @@ const classesData: Class[] = [
   {
     id: "fighter",
     name: "Fighter",
-    description: "A versatile warrior skilled in combat and tactics.",
+    description: "A versatile warrior skilled in combat tactics and battlefield strategy.",
     image: "/images/classes/fighter_class_final.webp",
     dice: "D10",
     subclasses: [
@@ -1696,7 +3756,7 @@ const classesData: Class[] = [
   {
     id: "healer",
     name: "Healer",
-    description: "A support specialist focused on healing and protection.",
+    description: "A support specialist focused on healing allies and providing protection.",
     image: "/images/classes/healer_class_final.webp",
     dice: "D8",
     subclasses: [
@@ -1737,7 +3797,7 @@ const classesData: Class[] = [
   {
     id: "rogue",
     name: "Rogue",
-    description: "A stealthy assassin skilled in infiltration and deception.",
+    description: "A stealthy assassin skilled in infiltration and silent deception.",
     image: "/images/classes/rogue_class_final.webp",
     dice: "D6",
     subclasses: [

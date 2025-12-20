@@ -14,8 +14,18 @@ export default function DensityDeckOverview() {
       <Sidebar />
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900 relative overflow-hidden">
         {/* Background Effects */}
-        <div className="absolute inset-0 bg-[url('/images/static-bg.png')] opacity-10" />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
+        <div className="absolute inset-0 opacity-10 blur-sm">
+          <video
+            autoPlay
+            loop
+            muted
+            playsInline
+            className="absolute inset-0 w-full h-full object-cover"
+          >
+            <source src="/images/static.mp4" type="video/mp4" />
+          </video>
+        </div>
+        <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-black/30" />
 
         {/* Floating Particles */}
         <div className="absolute inset-0 z-15">

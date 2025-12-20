@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { motion, AnimatePresence } from "framer-motion"
@@ -27,6 +27,7 @@ export function Sidebar() {
   const [isExpanded, setIsExpanded] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
   const [isHovering, setIsHovering] = useState(false)
+  const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const [selectedProfileNFT, setSelectedProfileNFT] = useState<any>(null)
   const [expandedSubmenu, setExpandedSubmenu] = useState<string | null>(null)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -151,6 +152,15 @@ export function Sidebar() {
       setIsExpanded(isHovering)
     }
   }, [isHovering, isMobile])
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (hoverTimeoutRef.current) {
+        clearTimeout(hoverTimeoutRef.current)
+      }
+    }
+  }, [])
 
   const mainMenuItems: MenuItem[] = [
     {
@@ -513,7 +523,7 @@ export function Sidebar() {
 
       <motion.div
         data-sidebar
-        className={`fixed left-0 top-0 bottom-0 z-50 bg-black/95 backdrop-blur-md border-r border-white/20 flex flex-col overflow-hidden shadow-2xl ${isMobile ? "w-full" : ""
+        className={`fixed left-0 top-0 bottom-0 z-[60] bg-black/95 backdrop-blur-md border-r border-white/20 flex flex-col overflow-hidden shadow-2xl ${isMobile ? "w-full" : ""
           }`}
         initial={{ width: isMobile ? 0 : 79 }}
         animate={{
@@ -526,8 +536,25 @@ export function Sidebar() {
           damping: 40,
           mass: 0.8,
         }}
-        onMouseEnter={() => !isMobile && setIsHovering(true)}
-        onMouseLeave={() => !isMobile && setIsHovering(false)}
+        onMouseEnter={() => {
+          if (!isMobile) {
+            // Clear any pending timeout
+            if (hoverTimeoutRef.current) {
+              clearTimeout(hoverTimeoutRef.current)
+              hoverTimeoutRef.current = null
+            }
+            setIsHovering(true)
+          }
+        }}
+        onMouseLeave={() => {
+          if (!isMobile) {
+            // Add a small delay before collapsing to handle quick movements within the sidebar
+            hoverTimeoutRef.current = setTimeout(() => {
+              setIsHovering(false)
+              hoverTimeoutRef.current = null
+            }, 200) // 200ms delay
+          }
+        }}
         onClick={() => isMobile && setIsExpanded(true)}
       >
         <div className="h-[72px] border-b border-white/20 flex items-center relative">
@@ -588,8 +615,42 @@ export function Sidebar() {
           </div>
         </div>
 
-        <div className="px-2 pb-2 flex justify-center">
-          <AudioPlayer inSidebar={true} sidebarExpanded={isExpanded} />
+        <div
+          className="px-2 pb-2 pt-2 flex justify-center w-full"
+          onMouseEnter={() => {
+            if (!isMobile) {
+              // Clear any pending timeout when entering audio player area
+              if (hoverTimeoutRef.current) {
+                clearTimeout(hoverTimeoutRef.current)
+                hoverTimeoutRef.current = null
+              }
+              setIsHovering(true)
+            }
+          }}
+          onMouseLeave={(e) => {
+            if (!isMobile) {
+              // Check if we're moving to another part of the sidebar
+              const relatedTarget = e.relatedTarget as HTMLElement
+              if (relatedTarget && relatedTarget.closest('[data-sidebar]')) {
+                // Still within sidebar, don't collapse
+                return
+              }
+              // Add a longer delay before collapsing to handle control interactions
+              hoverTimeoutRef.current = setTimeout(() => {
+                setIsHovering(false)
+                hoverTimeoutRef.current = null
+              }, 500) // Increased delay to 500ms
+            }
+          }}
+        >
+          <div className="w-full" onMouseEnter={() => {
+            if (!isMobile && hoverTimeoutRef.current) {
+              clearTimeout(hoverTimeoutRef.current)
+              hoverTimeoutRef.current = null
+            }
+          }}>
+            <AudioPlayer inSidebar={true} sidebarExpanded={isExpanded} />
+          </div>
         </div>
 
         <div className="h-8 bg-gradient-to-t from-black/50 to-transparent pointer-events-none" />

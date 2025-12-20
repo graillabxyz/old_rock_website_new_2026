@@ -137,8 +137,35 @@ export default function DensityDeckTournaments() {
       <Sidebar />
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900 relative overflow-hidden">
         {/* Background Effects */}
-        <div className="absolute inset-0 bg-[url('/images/static-bg.png')] opacity-10" />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
+        <div className="absolute inset-0 opacity-10 blur-sm">
+          <video
+            autoPlay
+            loop
+            muted
+            playsInline
+            className="absolute inset-0 w-full h-full object-cover"
+          >
+            <source src="/images/static.mp4" type="video/mp4" />
+          </video>
+        </div>
+        <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-black/30" />
+
+        {/* Coming Soon Overlay */}
+        <div className="absolute inset-0 pt-[72px] bg-black/40 backdrop-blur-sm z-30 flex items-center justify-center pointer-events-none">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.5 }}
+            className="text-center pointer-events-auto"
+          >
+            <h2 className="text-6xl md:text-8xl font-black text-white font-['Montserrat'] mb-4 tracking-wider drop-shadow-2xl">
+              COMING SOON
+            </h2>
+            <p className="text-xl md:text-2xl text-gray-300 font-['PT_Mono'] drop-shadow-lg">
+              Tournaments are under development
+            </p>
+          </motion.div>
+        </div>
 
         {/* Content with proper spacing for header and sidebar */}
         <div className="pt-[72px] pl-20 relative z-10">
