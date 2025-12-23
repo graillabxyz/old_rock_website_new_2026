@@ -446,6 +446,12 @@ export default function PersonalityTestPage() {
       (aug) => aug.name.toUpperCase() === resultColor.name.toUpperCase(),
     )?.image
 
+    // Store original styles and classes before making changes (accessible in finally block)
+    const content = contentToCaptureRef.current
+    const originalContentClasses = content?.className || ""
+    const originalContentStyle = content?.style.cssText || ""
+    let overlayDiv: HTMLElement | null = null
+
     // Preload the image if it exists
     let imgLoaded = Promise.resolve()
     if (augmentationImage) {
@@ -462,18 +468,16 @@ export default function PersonalityTestPage() {
       await imgLoaded // Wait for the image to load
 
       // Temporarily hide sidebar and header for capture if they overlap
-      const sidebar = document.querySelector(".sidebar-container") as HTMLElement | null
-      const header = document.querySelector(".header-container") as HTMLElement | null
+      const sidebar = document.querySelector("[data-sidebar]") as HTMLElement | null
+      const header = document.querySelector("header") as HTMLElement | null
+      const originalSidebarDisplay = sidebar?.style.display || ""
+      const originalHeaderDisplay = header?.style.display || ""
+      
       if (sidebar) sidebar.style.display = "none"
       if (header) header.style.display = "none"
 
-      // Store original styles and classes of the contentToCaptureRef
-      const content = contentToCaptureRef.current
-      const originalContentClasses = content?.className || ""
-      const originalContentStyle = content?.style.cssText || ""
-
       // Apply temporary styles for capture to contentToCaptureRef
-      if (augmentationImage) {
+      if (augmentationImage && content) {
         content.style.backgroundImage = `url('${augmentationImage}')`
         content.style.backgroundSize = "cover"
         content.style.backgroundPosition = "center"
@@ -481,12 +485,14 @@ export default function PersonalityTestPage() {
         content.style.border = "none"
         content.style.position = "relative"
         content.style.overflow = "hidden"
-        content.style.padding = "2rem"
+        content.style.padding = "3rem"
+        content.style.minHeight = "600px"
       }
 
       // Create and append a temporary overlay for readability
-      const overlayDiv = document.createElement("div")
+      overlayDiv = document.createElement("div")
       overlayDiv.className = "absolute inset-0 bg-black/60 backdrop-blur-sm rounded-2xl"
+      overlayDiv.style.zIndex = "1"
       content?.prepend(overlayDiv)
 
       // Ensure the actual content has z-index
@@ -498,10 +504,15 @@ export default function PersonalityTestPage() {
         }
       })
 
+      // Wait a brief moment for styles to apply
+      await new Promise((resolve) => setTimeout(resolve, 100))
+
       const canvas = await html2canvas(content, {
         backgroundColor: null,
         useCORS: true,
         scale: 2,
+        logging: false,
+        allowTaint: false,
       })
       const image = canvas.toDataURL("image/webp", 0.9)
 
@@ -511,44 +522,60 @@ export default function PersonalityTestPage() {
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
+
+      // Restore sidebar and header visibility immediately after capture
+      if (sidebar) sidebar.style.display = originalSidebarDisplay
+      if (header) header.style.display = originalHeaderDisplay
     } catch (error) {
       console.error("Error generating image:", error)
       alert("Failed to generate image. Please try again.")
     } finally {
       setIsGeneratingImage(false)
+      
       // Restore original styles and remove temporary elements
-      const content = contentToCaptureRef.current
       if (content) {
-        content.style.cssText = originalContentStyle // Reset inline styles
-        content.className = originalContentClasses // Restore original classes
+        if (originalContentStyle) {
+          content.style.cssText = originalContentStyle
+        } else {
+          // If no original style, clear all inline styles
+          content.removeAttribute("style")
+        }
+        content.className = originalContentClasses
       }
 
-      const overlayDiv = document.querySelector(
-        ".absolute.inset-0.bg-black\\/60.backdrop-blur-sm.rounded-2xl",
-      ) as HTMLElement | null
+      // Remove overlay if it exists
       if (overlayDiv && overlayDiv.parentNode) {
         overlayDiv.remove()
       }
 
+      // Reset content element styles
       const contentElements = Array.from(contentToCaptureRef.current?.children || []) as HTMLElement[]
       contentElements.forEach((el) => {
-        el.style.position = ""
-        el.style.zIndex = ""
+        if (el.style) {
+          el.style.position = ""
+          el.style.zIndex = ""
+        }
       })
 
-      // Restore sidebar and header visibility
-      const sidebar = document.querySelector(".sidebar-container") as HTMLElement | null
-      const header = document.querySelector(".header-container") as HTMLElement | null
-      if (sidebar) sidebar.style.display = "block"
-      if (header) header.style.display = "block"
+      // Ensure sidebar and header are visible
+      const sidebar = document.querySelector("[data-sidebar]") as HTMLElement | null
+      const header = document.querySelector("header") as HTMLElement | null
+      if (sidebar && sidebar.style.display === "none") {
+        sidebar.style.display = ""
+      }
+      if (header && header.style.display === "none") {
+        header.style.display = ""
+      }
     }
   }
 
   const handleShareOnX = () => {
     if (!resultColor) return
 
+    // Build the tweet text with powers and @oldrocknft tag, no link or hashtags
+    const powersText = resultColor.powers || "Unique abilities aligned with my archetype."
     const tweetText = encodeURIComponent(
-      `I just took the Old Rock Personality Test and discovered I'm a ${resultColor.name} Goliath! Find out your archetype: ${window.location.origin}/personality-test #OldRock #PersonalityTest #Goliath`,
+      `I just took the Old Rock Personality Test and discovered I'm a ${resultColor.name} Goliath! My powers: ${powersText} @oldrocknft`,
     )
     window.open(`https://twitter.com/intent/tweet?text=${tweetText}`, "_blank")
   }
@@ -647,9 +674,9 @@ export default function PersonalityTestPage() {
                 {/* This div will be captured by html2canvas */}
                 <div
                   ref={contentToCaptureRef}
-                  className="p-4 rounded-2xl relative overflow-hidden" // Reduced padding
+                  className="p-6 md:p-8 rounded-2xl relative overflow-hidden"
                 >
-                  <h2 className="text-3xl md:text-4xl font-black font-montserrat text-white mb-3">
+                  <h2 className="text-3xl md:text-4xl font-black font-montserrat text-white mb-6 md:mb-8">
                     YOUR ARCHETYPE REVEALED!
                   </h2>
                   {resultColor ? (

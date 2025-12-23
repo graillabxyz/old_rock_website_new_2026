@@ -7,6 +7,7 @@ import Image from "next/image"
 import { motion, AnimatePresence } from "framer-motion"
 import { ChevronRight, FileText, BookOpen, BarChart3, Menu, X, Settings, User, Boxes, Package } from "lucide-react"
 import { AudioPlayer } from "@/components/audio-player"
+import { WalletSelector } from "@/components/wallet-selector"
 
 type MenuItem = {
   name: string
@@ -31,6 +32,7 @@ export function Sidebar() {
   const [selectedProfileNFT, setSelectedProfileNFT] = useState<any>(null)
   const [expandedSubmenu, setExpandedSubmenu] = useState<string | null>(null)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [showWalletSelector, setShowWalletSelector] = useState(false)
 
   // Local state for wallet connection
   const [isWalletConnected, setIsWalletConnected] = useState(false)
@@ -61,40 +63,58 @@ export function Sidebar() {
     }
   }, [])
 
-  // Update the connectWallet function to also update the UI state
+  // Update the connectWallet function to show wallet selector
   const connectWallet = async () => {
+    // Check if already connected
     if (typeof window !== "undefined" && window.ethereum) {
       try {
-        // Check if there's already a pending request
         const accounts = await window.ethereum.request({ method: "eth_accounts" })
         if (accounts.length > 0) {
           // Already connected, just update state
           await handleConnection(accounts)
           return
         }
+      } catch (error) {
+        // Continue to show wallet selector
+      }
+    }
 
-        // Request new connection
-        const newAccounts = await window.ethereum.request({ method: "eth_requestAccounts" })
-        if (newAccounts.length > 0) {
-          await handleConnection(newAccounts)
-        }
-      } catch (error: any) {
-        if (error.code === 4001) {
-          console.log("User rejected the request")
-        } else if (error.message?.includes("already pending")) {
-          console.log("Connection request already pending")
-          // Try to get current accounts instead
-          try {
-            const accounts = await window.ethereum.request({ method: "eth_accounts" })
-            if (accounts.length > 0) {
-              await handleConnection(accounts)
-            }
-          } catch (secondError) {
-            console.error("Failed to get accounts:", secondError)
+    // Show wallet selector modal
+    setShowWalletSelector(true)
+  }
+
+  // Handle wallet selection from modal
+  const handleWalletSelect = async (provider: any, walletName: string) => {
+    try {
+      // Check if there's already a pending request
+      const accounts = await provider.request({ method: "eth_accounts" })
+      if (accounts.length > 0) {
+        // Already connected, just update state
+        await handleConnection(accounts)
+        return
+      }
+
+      // Request new connection
+      const newAccounts = await provider.request({ method: "eth_requestAccounts" })
+      if (newAccounts.length > 0) {
+        await handleConnection(newAccounts)
+      }
+    } catch (error: any) {
+      if (error.code === 4001) {
+        console.log("User rejected the request")
+      } else if (error.message?.includes("already pending")) {
+        console.log("Connection request already pending")
+        // Try to get current accounts instead
+        try {
+          const accounts = await provider.request({ method: "eth_accounts" })
+          if (accounts.length > 0) {
+            await handleConnection(accounts)
           }
-        } else {
-          console.error("Failed to connect wallet:", error)
+        } catch (secondError) {
+          console.error("Failed to get accounts:", secondError)
         }
+      } else {
+        console.error("Failed to connect wallet:", error)
       }
     }
   }
@@ -660,6 +680,13 @@ export function Sidebar() {
 
         <div className="h-8 bg-gradient-to-t from-black/50 to-transparent pointer-events-none" />
       </motion.div>
+
+      {/* Wallet Selector Modal */}
+      <WalletSelector
+        isOpen={showWalletSelector}
+        onClose={() => setShowWalletSelector(false)}
+        onSelect={handleWalletSelect}
+      />
     </>
   )
 }
