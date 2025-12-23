@@ -458,32 +458,27 @@ export function WalletSelector({ isOpen, onClose, onSelect }: WalletSelectorProp
       const providers = Array.isArray(window.ethereum) ? window.ethereum : window.ethereum ? [window.ethereum] : []
       
       if (wallet.id === "metamask") {
-        // For MetaMask, check both array and single provider cases
-        if (Array.isArray(window.ethereum)) {
-          provider = window.ethereum.find((p: any) => 
-            p?.isMetaMask === true && 
-            !p?.isRabby && 
-            !p?.isPhantom &&
-            !p?.isCoinbaseWallet && 
-            !p?.isRainbow &&
-            !p?.isTrust &&
-            !p?.isTrustWallet
-          )
-        } else if (window.ethereum) {
-          const eth = window.ethereum as any
-          if (eth?.isMetaMask === true && 
-              !eth?.isRabby && 
-              !eth?.isPhantom &&
-              !eth?.isCoinbaseWallet && 
-              !eth?.isRainbow &&
-              !eth?.isTrust &&
-              !eth?.isTrustWallet) {
-            provider = window.ethereum
-          }
-        }
-        // Fallback to stored provider if re-detection didn't find one
-        if (!provider && wallet.provider) {
+        // Use the stored provider from detection - it's already validated to be MetaMask
+        // The detection logic ensures it has _metamask property or isMetaMask without other wallet flags
+        if (wallet.provider) {
           provider = wallet.provider
+          console.log("[WalletSelector] Using stored MetaMask provider:", {
+            has_metamask: provider._metamask !== undefined,
+            isMetaMask: provider.isMetaMask,
+            isRabby: provider.isRabby
+          })
+        } else {
+          // Re-detect only if stored provider is not available
+          // For MetaMask, prioritize _metamask property (strongest indicator)
+          if (Array.isArray(window.ethereum)) {
+            provider = window.ethereum.find((p: any) => p?._metamask !== undefined)
+          } else if (window.ethereum) {
+            const eth = window.ethereum as any
+            if (eth?._metamask !== undefined) {
+              provider = window.ethereum
+            }
+          }
+          console.log("[WalletSelector] Re-detected MetaMask provider:", provider ? "found" : "not found")
         }
       } else if (wallet.id === "coinbase") {
         // Coinbase can be in window.coinbaseWalletExtension OR in providers array
