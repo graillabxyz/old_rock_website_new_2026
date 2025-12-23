@@ -176,28 +176,18 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     if (!audio) return
 
     const handleEnded = () => {
-      // Always advance to next track and continue playing
-      setCurrentTrackIndex((prevIndex) => {
-        const newIndex = (prevIndex + 1) % defaultTracks.length
-        setProgress(0)
-        return newIndex
-      })
+      // Ensure isPlaying is true so the next track will play
+      setIsPlaying(true)
       
-      // Play the next track after a brief delay to ensure the new source is loaded
-      setTimeout(() => {
-        if (audioRef.current) {
-          audioRef.current.play().catch((error) => {
-            console.error("Error playing next track:", error)
-          })
-        }
-      }, 100)
+      // Advance to next track (this will automatically play if isPlaying is true)
+      changeTrack("next")
     }
 
     audio.addEventListener("ended", handleEnded)
     return () => {
       audio.removeEventListener("ended", handleEnded)
     }
-  }, [])
+  }, [changeTrack])
 
   // Set initial volume and handle audio events
   useEffect(() => {
