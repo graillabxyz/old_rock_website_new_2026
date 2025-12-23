@@ -52,8 +52,8 @@ export default function DensityDeckOverview() {
         </div>
 
         {/* Content with proper spacing for header and sidebar */}
-        <div className="pt-[72px] pl-20 relative z-20">
-          <div className="px-[5%] py-12">
+        <div className="pt-[72px] pl-0 md:pl-20 relative z-20">
+          <div className="px-4 sm:px-6 md:px-[5%] py-8 sm:py-10 md:py-12">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -61,7 +61,7 @@ export default function DensityDeckOverview() {
               className="max-w-6xl mx-auto"
             >
               {/* Hero Section */}
-              <div className="grid lg:grid-cols-2 gap-12 items-center mb-12">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 sm:gap-10 lg:gap-12 items-center mb-8 sm:mb-10 md:mb-12">
                 {/* Left Column */}
                 <div className="space-y-6">
                   {/* Badge */}
@@ -82,7 +82,7 @@ export default function DensityDeckOverview() {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.5, duration: 1 }}
                   >
-                    <h1 className="text-5xl sm:text-6xl md:text-7xl font-black tracking-tight font-montserrat text-white">
+                    <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black tracking-tight font-montserrat text-white">
                       <span className="block">DENSITY</span>
                       <span className="block bg-gradient-to-r from-purple-400 via-pink-400 to-orange-400 bg-clip-text text-transparent">
                         DECK
@@ -92,7 +92,7 @@ export default function DensityDeckOverview() {
 
                   {/* Description */}
                   <motion.p
-                    className="text-base sm:text-lg font-pt-mono-regular text-gray-300 leading-relaxed"
+                    className="text-sm sm:text-base md:text-lg font-pt-mono-regular text-gray-300 leading-relaxed"
                     initial={{ opacity: 0, y: 30 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.7, duration: 0.8 }}
@@ -131,7 +131,7 @@ export default function DensityDeckOverview() {
                 </div>
 
                 {/* Right Column */}
-                <div className="space-y-4 max-w-sm">
+                <div className="space-y-4 max-w-sm mx-auto lg:mx-0">
                   <motion.div
                     className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-6"
                     initial={{ opacity: 0, x: 20 }}
@@ -199,14 +199,14 @@ export default function DensityDeckOverview() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 1.1, duration: 0.8 }}
               >
-                <div className="text-center mb-10">
-                  <h2 className="text-3xl sm:text-4xl font-black font-montserrat text-white mb-4">CORE GAMEPLAY</h2>
-                  <p className="text-base font-pt-mono text-gray-300 max-w-2xl mx-auto leading-relaxed">
+                <div className="text-center mb-8 sm:mb-10">
+                  <h2 className="text-2xl sm:text-3xl md:text-4xl font-black font-montserrat text-white mb-3 sm:mb-4">CORE GAMEPLAY</h2>
+                  <p className="text-sm sm:text-base font-pt-mono text-gray-300 max-w-2xl mx-auto leading-relaxed px-4">
                     Strategy, luck, and tactical decisions combine in a dynamic card game where every choice matters.
                   </p>
                 </div>
 
-                <div className="grid lg:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                   {/* Hand Building */}
                   <motion.div
                     className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-6 hover:bg-white/15 transition-all duration-300"
@@ -273,7 +273,7 @@ export default function DensityDeckOverview() {
               </motion.div>
 
               {/* Game Progression & Tournament Combined */}
-              <div className="grid lg:grid-cols-2 gap-8">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8">
                 {/* Game Progression */}
                 <motion.div
                   initial={{ opacity: 0, y: 40 }}

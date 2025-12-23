@@ -158,18 +158,18 @@ export default function DensityDeckTournaments() {
             transition={{ duration: 0.5 }}
             className="text-center pointer-events-auto"
           >
-            <h2 className="text-6xl md:text-8xl font-black text-white font-['Montserrat'] mb-4 tracking-wider drop-shadow-2xl">
+            <h2 className="text-4xl sm:text-5xl md:text-6xl lg:text-8xl font-black text-white font-['Montserrat'] mb-3 sm:mb-4 tracking-wider drop-shadow-2xl px-4">
               COMING SOON
             </h2>
-            <p className="text-xl md:text-2xl text-gray-300 font-['PT_Mono'] drop-shadow-lg">
+            <p className="text-base sm:text-lg md:text-xl lg:text-2xl text-gray-300 font-['PT_Mono'] drop-shadow-lg px-4">
               Tournaments are under development
             </p>
           </motion.div>
         </div>
 
         {/* Content with proper spacing for header and sidebar */}
-        <div className="pt-[72px] pl-20 relative z-10">
-          <div className="container mx-auto px-6 py-20">
+        <div className="pt-[72px] pl-0 md:pl-20 relative z-10">
+          <div className="container mx-auto px-4 sm:px-6 py-12 sm:py-16 md:py-20">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -178,9 +178,9 @@ export default function DensityDeckTournaments() {
             >
               {/* Header */}
 
-              <div className="grid lg:grid-cols-4 gap-8">
+              <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 sm:gap-8">
                 {/* Tournament Sidebar */}
-                <div className="lg:col-span-1">
+                <div className="lg:col-span-1 order-2 lg:order-1">
                   <h3 className="text-xl font-semibold text-white mb-4">Upcoming Tournaments</h3>
                   <div className="space-y-3">
                     {mockTournaments.map((tournament) => (
@@ -208,7 +208,7 @@ export default function DensityDeckTournaments() {
                 </div>
 
                 {/* Main Tournament Display */}
-                <div className="lg:col-span-3">
+                <div className="lg:col-span-3 order-1 lg:order-2">
                   {/* Tournament Signup Card */}
                   <motion.div
                     initial={{ opacity: 0, y: 20 }}
@@ -236,7 +236,7 @@ export default function DensityDeckTournaments() {
                       </div>
                     </div>
 
-                    <div className="grid md:grid-cols-3 gap-6 mb-8">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8">
                       <div className="bg-black/40 rounded-xl p-4">
                         <div className="text-sm text-gray-400 mb-1">Start Time</div>
                         <div className="text-white font-semibold">{formatDateTime(selectedTournament.startTime)}</div>
@@ -300,8 +300,8 @@ export default function DensityDeckTournaments() {
                       </div>
                     </div>
 
-                    <div className="overflow-x-auto">
-                      <table className="w-full">
+                    <div className="overflow-x-auto -mx-4 sm:mx-0">
+                      <table className="w-full min-w-[600px]">
                         <thead>
                           <tr className="border-b border-white/10">
                             <th className="text-left py-3 px-4 text-gray-400 font-medium">Rank</th>

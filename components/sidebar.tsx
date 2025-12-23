@@ -395,7 +395,11 @@ export function Sidebar() {
         <button
           onClick={() => {
             handleSubmenuToggle(item.name)
-            handleMobileMenuItemClick()
+            // Don't close mobile menu when opening submenu - only when clicking submenu items
+            if (isMobile && expandedSubmenu === item.name) {
+              // If submenu is already open and we're closing it, don't close the mobile menu
+              // The submenu toggle will handle closing it
+            }
           }}
           className={`${baseClasses} cursor-pointer w-full text-left`}
         >
@@ -584,7 +588,7 @@ export function Sidebar() {
                 transition={{ delay: isExpanded ? index * 0.05 + 0.2 : 0, duration: 0.3 }}
               >
                 {renderMenuItem(item, index)}
-                {item.hasSubmenu && expandedSubmenu === item.name && isExpanded && (
+                {item.hasSubmenu && expandedSubmenu === item.name && (isExpanded || (isMobile && mobileMenuOpen)) && (
                   <motion.div
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: "auto" }}
@@ -602,6 +606,7 @@ export function Sidebar() {
                           <Link
                             href={subItem.href}
                             className="text-sm text-white hover:text-gray-300 transition-colors"
+                            onClick={() => handleMobileMenuItemClick()}
                           >
                             {subItem.name}
                           </Link>
@@ -649,7 +654,7 @@ export function Sidebar() {
               hoverTimeoutRef.current = null
             }
           }}>
-            <AudioPlayer inSidebar={true} sidebarExpanded={isExpanded} />
+            <AudioPlayer inSidebar={true} sidebarExpanded={isExpanded || (isMobile && mobileMenuOpen)} />
           </div>
         </div>
 
