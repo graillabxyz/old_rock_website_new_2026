@@ -274,12 +274,12 @@ const SimpleWalletButton: React.FC<Props> = ({ className, onConnectionChange, pr
     try {
       const accounts = await provider.request({ method: "eth_requestAccounts" })
       if (accounts.length > 0) {
-        await handleConnection(accounts)
-      }
-    } catch (error) {
-      console.error("Failed to connect wallet:", error)
-    } finally {
-      setIsConnecting(false)
+          await handleConnection(accounts)
+        }
+      } catch (error) {
+        console.error("Failed to connect wallet:", error)
+      } finally {
+        setIsConnecting(false)
       setShowWalletSelector(false)
     }
   }
@@ -406,14 +406,14 @@ const SimpleWalletButton: React.FC<Props> = ({ className, onConnectionChange, pr
   if (!isConnected) {
     return (
       <>
-        <button
-          onClick={connectWallet}
-          disabled={isConnecting}
-          className="flex items-center space-x-2 bg-transparent border-2 border-white text-white hover:bg-white/10 px-3 py-1.5 rounded-full font-pt-mono font-bold transition-all duration-300 hover:scale-105 text-sm disabled:opacity-50 min-h-[44px]"
-        >
-          <Wallet className="w-3.5 h-3.5" />
-          <span>{isConnecting ? "Connecting..." : "Connect Wallet"}</span>
-        </button>
+      <button
+        onClick={connectWallet}
+        disabled={isConnecting}
+        className="flex items-center space-x-2 bg-transparent border-2 border-white text-white hover:bg-white/10 px-3 py-1.5 rounded-full font-pt-mono font-bold transition-all duration-300 hover:scale-105 text-sm disabled:opacity-50 min-h-[44px]"
+      >
+        <Wallet className="w-3.5 h-3.5" />
+        <span>{isConnecting ? "Connecting..." : "Connect Wallet"}</span>
+      </button>
         <WalletSelector
           isOpen={showWalletSelector}
           onClose={() => setShowWalletSelector(false)}

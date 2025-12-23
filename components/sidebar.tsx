@@ -88,33 +88,33 @@ export function Sidebar() {
     try {
       // Check if there's already a pending request
       const accounts = await provider.request({ method: "eth_accounts" })
-      if (accounts.length > 0) {
-        // Already connected, just update state
-        await handleConnection(accounts)
-        return
-      }
-
-      // Request new connection
-      const newAccounts = await provider.request({ method: "eth_requestAccounts" })
-      if (newAccounts.length > 0) {
-        await handleConnection(newAccounts)
-      }
-    } catch (error: any) {
-      if (error.code === 4001) {
-        console.log("User rejected the request")
-      } else if (error.message?.includes("already pending")) {
-        console.log("Connection request already pending")
-        // Try to get current accounts instead
-        try {
-          const accounts = await provider.request({ method: "eth_accounts" })
-          if (accounts.length > 0) {
-            await handleConnection(accounts)
-          }
-        } catch (secondError) {
-          console.error("Failed to get accounts:", secondError)
+        if (accounts.length > 0) {
+          // Already connected, just update state
+          await handleConnection(accounts)
+          return
         }
-      } else {
-        console.error("Failed to connect wallet:", error)
+
+        // Request new connection
+      const newAccounts = await provider.request({ method: "eth_requestAccounts" })
+        if (newAccounts.length > 0) {
+          await handleConnection(newAccounts)
+        }
+      } catch (error: any) {
+        if (error.code === 4001) {
+          console.log("User rejected the request")
+        } else if (error.message?.includes("already pending")) {
+          console.log("Connection request already pending")
+          // Try to get current accounts instead
+          try {
+          const accounts = await provider.request({ method: "eth_accounts" })
+            if (accounts.length > 0) {
+              await handleConnection(accounts)
+            }
+          } catch (secondError) {
+            console.error("Failed to get accounts:", secondError)
+          }
+        } else {
+          console.error("Failed to connect wallet:", error)
       }
     }
   }

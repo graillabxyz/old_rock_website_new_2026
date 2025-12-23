@@ -552,8 +552,8 @@ export default function PersonalityTestPage() {
       const contentElements = Array.from(contentToCaptureRef.current?.children || []) as HTMLElement[]
       contentElements.forEach((el) => {
         if (el.style) {
-          el.style.position = ""
-          el.style.zIndex = ""
+        el.style.position = ""
+        el.style.zIndex = ""
         }
       })
 
