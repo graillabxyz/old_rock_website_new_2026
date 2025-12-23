@@ -2177,16 +2177,16 @@ export default function StoneboundSoulsPage() {
       if (selectedAugmentation && selectedSubclass) {
         // Show augmentation details
         return (
-          <div className="max-w-6xl mx-auto w-full h-full flex flex-col">
-            <div className="flex items-center justify-between mb-6 flex-shrink-0">
+          <div className="max-w-6xl mx-auto w-full h-full flex flex-col px-4 sm:px-6 md:px-8">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0 mb-4 sm:mb-6 flex-shrink-0">
               <div>
-                <h2 className="text-4xl font-bold text-white font-['Montserrat']">
+                <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white font-['Montserrat'] break-words">
                   {selectedSubclass.name} - {selectedAugmentation.name}
                 </h2>
-                <p className="text-gray-300 text-lg font-['PT_Mono']">{selectedAugmentation.description}</p>
+                <p className="text-gray-300 text-sm sm:text-base md:text-lg font-['PT_Mono']">{selectedAugmentation.description}</p>
               </div>
               <button
-                className="bg-gray-800 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline font-['Montserrat']"
+                className="bg-gray-800 hover:bg-gray-700 text-white font-bold py-2 px-3 sm:px-4 rounded focus:outline-none focus:shadow-outline font-['Montserrat'] text-xs sm:text-sm whitespace-nowrap"
                 onClick={() => setSelectedAugmentation(null)}
               >
                 Back to Augmentations
@@ -2220,7 +2220,7 @@ export default function StoneboundSoulsPage() {
             </div>
 
             {/* Content based on active tab */}
-            <div className="flex-1 overflow-y-auto space-y-6 pb-4">
+            <div className="flex-1 overflow-y-auto space-y-6 pb-4 overflow-x-hidden">
               {mainTab === "basic" && (
                 <div className="grid gap-6">
                   {/* Subclass Focus Ability Card */}
@@ -2449,7 +2449,7 @@ export default function StoneboundSoulsPage() {
                   <div className="bg-gradient-to-r from-cyan-500/30 to-blue-500/30 backdrop-blur-sm p-6 rounded-xl border-2 border-cyan-400/50">
                     <div className="flex items-center space-x-3 mb-6">
                       <Target className="w-8 h-8 text-cyan-400" />
-                      <h3 className="text-3xl font-bold text-white font-['Montserrat']">Game Mechanics</h3>
+                      <h3 className="text-xl sm:text-2xl md:text-3xl font-bold text-white font-['Montserrat']">Game Mechanics</h3>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                       {(() => {
@@ -2944,9 +2944,9 @@ export default function StoneboundSoulsPage() {
         // Show augmentation selection
         return (
           <div className="w-full flex flex-col" style={{ height: '100%' }}>
-            <div className="max-w-6xl mx-auto w-full flex items-center justify-between mb-6 flex-shrink-0 px-6 md:px-8">
+            <div className="max-w-6xl mx-auto w-full flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0 mb-4 sm:mb-6 flex-shrink-0 px-4 sm:px-6 md:px-8">
               <div>
-                <h2 className="text-4xl font-bold text-white font-['Montserrat']">
+                <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white font-['Montserrat']">
                   {selectedSubclass.name} - Choose Augmentation
                 </h2>
                 <p className="text-gray-300 text-lg font-['PT_Mono']">
@@ -2961,11 +2961,11 @@ export default function StoneboundSoulsPage() {
               </button>
             </div>
 
-            <div className="grid grid-cols-5 grid-rows-2 flex-1 w-full" style={{ minHeight: 0, height: '100%', gap: 0 }}>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 grid-rows-auto flex-1 w-full gap-2 sm:gap-3 md:gap-0" style={{ minHeight: 0, height: '100%' }}>
               {selectedSubclass.augmentations.map((augmentation) => (
                 <motion.div
                   key={augmentation.id}
-                  className="relative transition-all duration-300 cursor-pointer flex flex-col justify-end items-center p-4 overflow-hidden"
+                  className="relative transition-all duration-300 cursor-pointer flex flex-col justify-end items-center p-2 sm:p-3 md:p-4 overflow-hidden"
                   onClick={() => handleAugmentationSelect(augmentation)}
                   whileHover={{ scale: 1.05, zIndex: 50 }}
                   whileTap={{ scale: 0.95 }}
@@ -2996,10 +2996,10 @@ export default function StoneboundSoulsPage() {
       } else if (selectedClass) {
         // Show subclass selection
         return (
-          <div className="max-w-6xl mx-auto w-full h-full flex flex-col">
-            <div className="flex items-center justify-between mb-6 flex-shrink-0">
+          <div className="max-w-6xl mx-auto w-full h-full flex flex-col px-4 sm:px-6 md:px-8">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0 mb-4 sm:mb-6 flex-shrink-0">
               <div>
-                <h2 className="text-4xl font-bold text-white font-['Montserrat']">
+                <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white font-['Montserrat']">
                   {selectedClass.name} - Choose Subclass
                 </h2>
                 <p className="text-gray-300 text-lg font-['PT_Mono']">
@@ -3067,8 +3067,8 @@ export default function StoneboundSoulsPage() {
       } else {
         // Show class selection
         return (
-          <div className="max-w-6xl mx-auto w-full min-h-full flex flex-col">
-            <h2 className="text-4xl font-bold text-white mb-6 font-['Montserrat']">Choose Your Class</h2>
+          <div className="max-w-6xl mx-auto w-full min-h-full flex flex-col px-4 sm:px-6 md:px-8">
+            <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white mb-4 sm:mb-6 font-['Montserrat'] px-4 sm:px-0">Choose Your Class</h2>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 flex-1">
               {classesData.map((classData) => (
                 <motion.div
@@ -3109,13 +3109,13 @@ export default function StoneboundSoulsPage() {
     switch (activeSection) {
       case "overview":
         return (
-          <div className="max-w-6xl mx-auto w-full space-y-6">
+          <div className="max-w-6xl mx-auto w-full space-y-6 px-4 sm:px-6 md:px-8">
             {/* Title Section */}
             <div className="text-center mb-8">
               <motion.h1
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
-                className="text-5xl md:text-7xl font-black text-white drop-shadow-2xl font-['Montserrat'] mb-0"
+                className="text-3xl sm:text-4xl md:text-5xl lg:text-7xl font-black text-white drop-shadow-2xl font-['Montserrat'] mb-0"
               >
                 Stonebound Souls
               </motion.h1>
@@ -3219,8 +3219,8 @@ export default function StoneboundSoulsPage() {
 
       case "requirements":
         return (
-          <div className="max-w-4xl mx-auto w-full space-y-6">
-            <h2 className="text-4xl font-bold text-white text-center font-['Montserrat']">Entry Requirements</h2>
+          <div className="max-w-4xl mx-auto w-full space-y-6 px-4 sm:px-6 md:px-8">
+            <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white text-center font-['Montserrat'] px-4 sm:px-0">Entry Requirements</h2>
             <p className="text-gray-300 text-lg leading-relaxed text-center font-['PT_Mono']">
               To participate in Stonebound Souls, you must meet the following criteria:
             </p>
@@ -3252,8 +3252,8 @@ export default function StoneboundSoulsPage() {
 
       case "rules":
         return (
-          <div className="max-w-6xl mx-auto w-full">
-            <h2 className="text-4xl font-bold text-white mb-6 font-['Montserrat']">Game Rules</h2>
+          <div className="max-w-6xl mx-auto w-full px-4 sm:px-6 md:px-8">
+            <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white mb-4 sm:mb-6 font-['Montserrat'] px-4 sm:px-0">Game Rules</h2>
 
             {/* Rules Navigation Tabs */}
             <div className="flex space-x-4 mb-6">
@@ -3580,8 +3580,8 @@ export default function StoneboundSoulsPage() {
 
       case "progression":
         return (
-          <div className="max-w-4xl mx-auto w-full">
-            <h2 className="text-4xl font-bold text-white mb-6 font-['Montserrat']">Leveling and Progression</h2>
+          <div className="max-w-4xl mx-auto w-full px-4 sm:px-6 md:px-8">
+            <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white mb-4 sm:mb-6 font-['Montserrat'] px-4 sm:px-0">Leveling and Progression</h2>
             <p className="text-gray-300 text-lg leading-relaxed font-['PT_Mono'] mb-6">
               As you play Stonebound Souls, your character gains experience points (XP) and levels up.
             </p>
@@ -3661,7 +3661,7 @@ export default function StoneboundSoulsPage() {
           )}
 
           {/* Dynamic Content Overlay */}
-          <div className="relative z-10 w-full p-6 md:p-8 flex flex-col" style={{ height: 'calc(100vh - 72px - 80px)' }}>
+          <div className="relative z-10 w-full p-4 sm:p-6 md:p-8 flex flex-col min-h-[calc(100vh-72px-80px)] pb-20 sm:pb-24 md:pb-28">
             <AnimatePresence mode="wait">
               <motion.div
                 key={`${activeSection}-${selectedClass?.id}-${selectedSubclass?.id}-${selectedAugmentation?.id}`}
@@ -3677,9 +3677,9 @@ export default function StoneboundSoulsPage() {
         </div>
 
         {/* Bottom Navigation - Fixed to bottom of screen */}
-        <div className="fixed bottom-0 left-0 right-0 md:left-20 bg-black/80 backdrop-blur-md p-4 md:p-6 border-t border-white/10 z-50">
-          <div className="max-w-6xl mx-auto flex items-center justify-center">
-            <div className="flex items-center space-x-4">
+        <div className="fixed bottom-0 left-0 right-0 md:left-20 bg-black/80 backdrop-blur-md p-2 sm:p-4 md:p-6 border-t border-white/10 z-50">
+          <div className="max-w-6xl mx-auto flex items-center justify-center overflow-x-auto">
+            <div className="flex items-center space-x-2 sm:space-x-4">
               {sections.map((section) => (
                 <button
                   key={section.id}
@@ -3691,14 +3691,14 @@ export default function StoneboundSoulsPage() {
                       setSelectedAugmentation(null)
                     }
                   }}
-                  className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
+                  className={`flex items-center space-x-2 px-2 sm:px-4 py-2 rounded-lg transition-colors ${
                     activeSection === section.id
                       ? "bg-cyan-500 text-white shadow-lg"
                       : "bg-gray-800 text-gray-300 hover:bg-gray-700 hover:text-white"
                   }`}
                 >
                   {section.icon}
-                  <span>{section.name}</span>
+                  <span className="hidden sm:inline">{section.name}</span>
                 </button>
               ))}
             </div>
