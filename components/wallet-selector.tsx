@@ -119,8 +119,8 @@ export function WalletSelector({ isOpen, onClose, onSelect }: WalletSelectorProp
     }
 
     // Check each provider for better detection
-    // IMPORTANT: Check Rabby FIRST because it may set isMetaMask=true for compatibility
-    // Then check MetaMask - we need to check ALL providers, not just the first one
+    // IMPORTANT: Check wallets with more specific identifiers FIRST
+    // Order: Rabby -> Phantom -> Coinbase -> MetaMask (last because many wallets set isMetaMask=true)
     providers.forEach((provider: any) => {
       if (!provider) return
       
@@ -143,35 +143,13 @@ export function WalletSelector({ isOpen, onClose, onSelect }: WalletSelectorProp
         }
       }
 
-      // Check for MetaMask - must have isMetaMask flag AND NOT be Rabby
-      // This prevents Rabby from being detected as MetaMask
-      // Check ALL providers, even if we already found Rabby
+      // Check for Phantom Wallet BEFORE MetaMask
+      // Phantom may also set isMetaMask=true for compatibility
       if (
-        provider.isMetaMask === true &&
-        !provider.isRabby &&
-        !seenWalletTypes.has("metamask")
+        provider.isPhantom === true &&
+        !seenWalletTypes.has("phantom")
       ) {
-        const wallet = popularWallets.find((w) => w.id === "metamask")
-        if (wallet) {
-          // Create a new wallet object to avoid reference issues
-          const detectedWallet = {
-            ...wallet,
-            provider: provider,
-            isInstalled: true,
-          }
-          detectedWallets.push(detectedWallet)
-          seenWalletTypes.add("metamask")
-          seenProviderObjects.add(provider)
-        }
-      }
-
-      // Check for Rabby Wallet FIRST - must have isRabby flag
-      // Rabby sometimes sets isMetaMask=true, so we need to check isRabby first
-      if (
-        provider.isRabby === true &&
-        !seenWalletTypes.has("rabby")
-      ) {
-        const wallet = popularWallets.find((w) => w.id === "rabby")
+        const wallet = popularWallets.find((w) => w.id === "phantom")
         if (wallet) {
           const detectedWallet = {
             ...wallet,
@@ -179,34 +157,12 @@ export function WalletSelector({ isOpen, onClose, onSelect }: WalletSelectorProp
             isInstalled: true,
           }
           detectedWallets.push(detectedWallet)
-          seenWalletTypes.add("rabby")
+          seenWalletTypes.add("phantom")
           seenProviderObjects.add(provider)
         }
       }
 
-      // Check for MetaMask - must have isMetaMask flag AND NOT be Rabby
-      // This prevents Rabby from being detected as MetaMask
-      // Check ALL providers, even if we already found Rabby
-      if (
-        provider.isMetaMask === true &&
-        !provider.isRabby &&
-        !seenWalletTypes.has("metamask")
-      ) {
-        const wallet = popularWallets.find((w) => w.id === "metamask")
-        if (wallet) {
-          // Create a new wallet object to avoid reference issues
-          const detectedWallet = {
-            ...wallet,
-            provider: provider,
-            isInstalled: true,
-          }
-          detectedWallets.push(detectedWallet)
-          seenWalletTypes.add("metamask")
-          seenProviderObjects.add(provider)
-        }
-      }
-
-      // Check for Coinbase Wallet - must have isCoinbaseWallet flag
+      // Check for Coinbase Wallet BEFORE MetaMask
       if (
         provider.isCoinbaseWallet === true &&
         !seenWalletTypes.has("coinbase")
@@ -222,8 +178,35 @@ export function WalletSelector({ isOpen, onClose, onSelect }: WalletSelectorProp
           seenWalletTypes.add("coinbase")
           seenProviderObjects.add(provider)
         }
-        return
       }
+
+      // Check for MetaMask LAST - must have isMetaMask flag AND NOT be other wallets
+      // This prevents other wallets from being detected as MetaMask
+      // Many wallets set isMetaMask=true for compatibility, so we check it last
+      if (
+        provider.isMetaMask === true &&
+        !provider.isRabby &&
+        !provider.isPhantom &&
+        !provider.isCoinbaseWallet &&
+        !provider.isRainbow &&
+        !provider.isTrust &&
+        !provider.isTrustWallet &&
+        !seenWalletTypes.has("metamask")
+      ) {
+        const wallet = popularWallets.find((w) => w.id === "metamask")
+        if (wallet) {
+          // Create a new wallet object to avoid reference issues
+          const detectedWallet = {
+            ...wallet,
+            provider: provider,
+            isInstalled: true,
+          }
+          detectedWallets.push(detectedWallet)
+          seenWalletTypes.add("metamask")
+          seenProviderObjects.add(provider)
+        }
+      }
+
 
       // Check for Phantom Wallet (EVM) - must have isPhantom flag
       if (
@@ -437,41 +420,56 @@ export function WalletSelector({ isOpen, onClose, onSelect }: WalletSelectorProp
     // Ensure we're using the correct provider for this specific wallet
     let provider = wallet.provider
 
-    // If provider is not set or seems incorrect, try to find the correct one
-    // This is especially important for MetaMask which might get confused with other wallets
-    if (!provider || (wallet.id === "metamask" && (!provider.isMetaMask || provider.isRabby))) {
-      // Re-detect the provider for this specific wallet
-      if (typeof window !== "undefined") {
-        const providers = Array.isArray(window.ethereum) ? window.ethereum : window.ethereum ? [window.ethereum] : []
-        
-        if (wallet.id === "metamask") {
-          // For MetaMask, be very strict - must have isMetaMask and NOT be Rabby
-          provider = providers.find((p: any) => 
-            p?.isMetaMask === true && 
-            !p?.isRabby && 
-            !p?.isCoinbaseWallet && 
-            !p?.isPhantom &&
-            !p?.isRainbow &&
-            !p?.isTrust &&
-            !p?.isTrustWallet
-          )
-        } else if (wallet.id === "coinbase") {
-          provider = providers.find((p: any) => p?.isCoinbaseWallet === true) || window.coinbaseWalletExtension
-        } else if (wallet.id === "phantom") {
-          provider = window.phantom?.ethereum || providers.find((p: any) => p?.isPhantom === true)
-        } else if (wallet.id === "trust") {
-          provider = window.trustwallet || providers.find((p: any) => 
-            (p?.isTrust === true || p?.isTrustWallet === true || p?.__isTrustWallet === true) &&
-            !p?.isMetaMask &&
-            !p?.isRabby
-          )
-        } else if (wallet.id === "rainbow") {
-          provider = providers.find((p: any) => p?.isRainbow === true)
-        } else if (wallet.id === "rabby") {
-          provider = window.rabby || providers.find((p: any) => 
-            p?.isRabby === true && 
-            !p?.isMetaMask
-          )
+    // Always re-validate the provider when clicking to ensure we have the correct one
+    // This is especially important when multiple wallets are installed
+    if (typeof window !== "undefined") {
+      const providers = Array.isArray(window.ethereum) ? window.ethereum : window.ethereum ? [window.ethereum] : []
+      
+      if (wallet.id === "metamask") {
+        // For MetaMask, be very strict - must have isMetaMask and NOT be other wallets
+        const metamaskProvider = providers.find((p: any) => 
+          p?.isMetaMask === true && 
+          !p?.isRabby && 
+          !p?.isPhantom &&
+          !p?.isCoinbaseWallet && 
+          !p?.isRainbow &&
+          !p?.isTrust &&
+          !p?.isTrustWallet
+        )
+        if (metamaskProvider) {
+          provider = metamaskProvider
+        }
+      } else if (wallet.id === "coinbase") {
+        const coinbaseProvider = providers.find((p: any) => p?.isCoinbaseWallet === true) || window.coinbaseWalletExtension
+        if (coinbaseProvider) {
+          provider = coinbaseProvider
+        }
+      } else if (wallet.id === "phantom") {
+        const phantomProvider = window.phantom?.ethereum || providers.find((p: any) => p?.isPhantom === true)
+        if (phantomProvider) {
+          provider = phantomProvider
+        }
+      } else if (wallet.id === "trust") {
+        const trustProvider = window.trustwallet || providers.find((p: any) => 
+          (p?.isTrust === true || p?.isTrustWallet === true || p?.__isTrustWallet === true) &&
+          !p?.isMetaMask &&
+          !p?.isRabby &&
+          !p?.isPhantom
+        )
+        if (trustProvider) {
+          provider = trustProvider
+        }
+      } else if (wallet.id === "rainbow") {
+        const rainbowProvider = providers.find((p: any) => p?.isRainbow === true)
+        if (rainbowProvider) {
+          provider = rainbowProvider
+        }
+      } else if (wallet.id === "rabby") {
+        const rabbyProvider = window.rabby || providers.find((p: any) => 
+          p?.isRabby === true
+        )
+        if (rabbyProvider) {
+          provider = rabbyProvider
         }
       }
     }
