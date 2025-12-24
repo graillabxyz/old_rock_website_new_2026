@@ -43,6 +43,10 @@ export function WalletSelector({ isOpen, onClose, onSelect }: WalletSelectorProp
   if (typeof window === "undefined") return null
 
   // Function to detect wallets
+  // CRITICAL: This function must be side-effect free
+  // NEVER call ethereum.request() or any async provider methods here
+  // Only read static properties (isMetaMask, isRabby, etc.)
+  // Any requests must happen AFTER user clicks a wallet
   const detectWallets = () => {
     if (typeof window === "undefined") return
 
@@ -407,20 +411,34 @@ export function WalletSelector({ isOpen, onClose, onSelect }: WalletSelectorProp
   }
 
   // Run detection on mount and when wallets become available
+  // Wrapped in try-catch to ensure errors never prevent modal from showing
   useEffect(() => {
-    detectWallets()
+    try {
+      detectWallets()
+    } catch (error) {
+      console.error("[WalletSelector] Error during wallet detection:", error)
+      // Continue - modal should still show even if detection fails
+    }
 
     // Listen for when window.ethereum becomes available (e.g., MetaMask loads after page load)
     const checkInterval = setInterval(() => {
       if (window.ethereum) {
-        detectWallets()
+        try {
+          detectWallets()
+        } catch (error) {
+          console.error("[WalletSelector] Error during wallet detection (interval):", error)
+        }
         clearInterval(checkInterval)
       }
     }, 500)
 
     // Also listen for the ethereum#initialized event
     const handleEthereumInitialized = () => {
-      detectWallets()
+      try {
+        detectWallets()
+      } catch (error) {
+        console.error("[WalletSelector] Error during wallet detection (event):", error)
+      }
     }
     window.addEventListener("ethereum#initialized", handleEthereumInitialized as EventListener)
 
@@ -432,10 +450,16 @@ export function WalletSelector({ isOpen, onClose, onSelect }: WalletSelectorProp
   }, [])
 
   // Re-detect wallets when modal opens
+  // Wrapped in try-catch to ensure errors never prevent modal from showing
   useEffect(() => {
     if (isOpen) {
       console.log("[WalletSelector] Modal opened, re-detecting wallets")
-      detectWallets()
+      try {
+        detectWallets()
+      } catch (error) {
+        console.error("[WalletSelector] Error during wallet detection (modal open):", error)
+        // Continue - modal should still show even if detection fails
+      }
     }
   }, [isOpen])
 
