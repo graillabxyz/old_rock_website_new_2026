@@ -519,11 +519,35 @@ export function WalletSelector({ isOpen, onClose, onSelect }: WalletSelectorProp
 
     if (!provider) {
       console.error(`Could not find provider for ${wallet.name}`)
+      alert(`Could not find ${wallet.name} provider. Please ensure the wallet extension is installed and unlocked.`)
       return
     }
 
-    onSelect(provider, wallet.name)
-    onClose()
+    // Validate provider before passing it
+    if (typeof provider.request !== "function") {
+      console.error(`Invalid provider for ${wallet.name}: missing request method`)
+      alert(`${wallet.name} provider is not ready. Please try again in a moment.`)
+      return
+    }
+
+    // Add a small delay to ensure provider is fully ready
+    // This helps with wallets that load asynchronously
+    await new Promise(resolve => setTimeout(resolve, 50))
+
+    // Re-validate provider after delay (some wallets might change their provider object)
+    if (typeof provider.request !== "function") {
+      console.error(`Provider for ${wallet.name} became invalid after delay`)
+      alert(`${wallet.name} provider is not ready. Please try again in a moment.`)
+      return
+    }
+
+    try {
+      onSelect(provider, wallet.name)
+      onClose()
+    } catch (error) {
+      console.error(`Error selecting ${wallet.name}:`, error)
+      // Don't close modal on error so user can try again
+    }
   }
 
   const modalContent = (

@@ -272,14 +272,59 @@ const SimpleWalletButton: React.FC<Props> = ({ className, onConnectionChange, pr
   const handleWalletSelect = async (provider: any, walletName: string) => {
     setIsConnecting(true)
     try {
-      const accounts = await provider.request({ method: "eth_requestAccounts" })
-      if (accounts.length > 0) {
-          await handleConnection(accounts)
+      // Ensure provider is valid and ready
+      if (!provider || typeof provider.request !== "function") {
+        throw new Error(`Invalid provider for ${walletName}`)
+      }
+
+      // Add a small delay to ensure provider is fully initialized
+      await new Promise(resolve => setTimeout(resolve, 100))
+
+      // Try to connect with retry logic
+      let accounts: string[] = []
+      let lastError: any = null
+      const maxRetries = 3
+      
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+          accounts = await provider.request({ method: "eth_requestAccounts" })
+          if (accounts && accounts.length > 0) {
+            break // Success, exit retry loop
+          }
+        } catch (error: any) {
+          lastError = error
+          
+          // Don't retry if user rejected
+          if (error?.code === 4001 || error?.message?.includes("rejected") || error?.message?.includes("denied")) {
+            console.log("User rejected wallet connection")
+            return // User rejected, don't show error
+          }
+          
+          // Log retry attempt
+          if (attempt < maxRetries) {
+            console.warn(`Wallet connection attempt ${attempt} failed, retrying...`, error)
+            // Wait before retry (exponential backoff)
+            await new Promise(resolve => setTimeout(resolve, 200 * attempt))
+          }
         }
-      } catch (error) {
-        console.error("Failed to connect wallet:", error)
-      } finally {
-        setIsConnecting(false)
+      }
+
+      if (accounts && accounts.length > 0) {
+        await handleConnection(accounts)
+      } else if (lastError) {
+        throw lastError
+      } else {
+        throw new Error("No accounts returned from wallet")
+      }
+    } catch (error: any) {
+      console.error("Failed to connect wallet:", error)
+      
+      // Show user-friendly error message
+      if (error?.code !== 4001 && !error?.message?.includes("rejected") && !error?.message?.includes("denied")) {
+        alert(`Failed to connect ${walletName}. Please try again or check if the wallet is unlocked.`)
+      }
+    } finally {
+      setIsConnecting(false)
       setShowWalletSelector(false)
     }
   }
