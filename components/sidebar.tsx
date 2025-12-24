@@ -64,22 +64,12 @@ export function Sidebar() {
   }, [])
 
   // Update the connectWallet function to show wallet selector
-  const connectWallet = async () => {
-    // Check if already connected
-    if (typeof window !== "undefined" && window.ethereum) {
-      try {
-        const accounts = await window.ethereum.request({ method: "eth_accounts" })
-        if (accounts.length > 0) {
-          // Already connected, just update state
-          await handleConnection(accounts)
-          return
-        }
-      } catch (error) {
-        // Continue to show wallet selector
-      }
-    }
-
-    // Show wallet selector modal
+  // CRITICAL: Never call ethereum.request() before showing modal
+  // This can throw errors and prevent the modal from appearing
+  const connectWallet = () => {
+    // Show wallet selector modal immediately
+    // No async operations, no ethereum.request() calls
+    // The modal will handle wallet detection and connection
     setShowWalletSelector(true)
   }
 
