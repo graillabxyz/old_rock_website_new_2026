@@ -29,6 +29,7 @@ export function AudioPlayer({ tracks = [], inSidebar = false, sidebarExpanded = 
     setVolume,
     toggleMute,
     changeTrack,
+    seek,
     audioRef,
   } = useAudio()
 
@@ -39,6 +40,15 @@ export function AudioPlayer({ tracks = [], inSidebar = false, sidebarExpanded = 
   const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newVolume = Number.parseFloat(e.target.value)
     setVolume(newVolume)
+  }
+
+  // Handle progress bar click
+  const handleProgressClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    const progressBar = e.currentTarget
+    const rect = progressBar.getBoundingClientRect()
+    const clickX = e.clientX - rect.left
+    const percentage = (clickX / rect.width) * 100
+    seek(percentage)
   }
 
   // Auto-expand when sidebar opens
@@ -77,7 +87,10 @@ export function AudioPlayer({ tracks = [], inSidebar = false, sidebarExpanded = 
               </div>
 
               {/* Progress Bar */}
-              <div className="w-full h-1 bg-gray-700 rounded-full mb-2 overflow-hidden mx-2">
+              <div 
+                className="w-full h-1 bg-gray-700 rounded-full mb-2 overflow-hidden mx-2 cursor-pointer hover:h-1.5 transition-all"
+                onClick={handleProgressClick}
+              >
                 <div className="h-full bg-white rounded-full" style={{ width: `${progress}%` }}></div>
               </div>
 
@@ -190,7 +203,10 @@ export function AudioPlayer({ tracks = [], inSidebar = false, sidebarExpanded = 
                 </div>
 
                 {/* Progress Bar */}
-                <div className="w-full h-1 bg-gray-700 rounded-full mb-3 overflow-hidden">
+                <div 
+                  className="w-full h-1 bg-gray-700 rounded-full mb-3 overflow-hidden cursor-pointer hover:h-1.5 transition-all"
+                  onClick={handleProgressClick}
+                >
                   <div className="h-full bg-white rounded-full" style={{ width: `${progress}%` }}></div>
                 </div>
 
