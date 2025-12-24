@@ -38,11 +38,9 @@ interface WalletSelectorProps {
 
 export function WalletSelector({ isOpen, onClose, onSelect }: WalletSelectorProps) {
   const [availableWallets, setAvailableWallets] = useState<WalletOption[]>([])
-  const [mounted, setMounted] = useState(false)
 
-  useEffect(() => {
-    setMounted(true)
-  }, [])
+  // Early return only for SSR - on client, always allow rendering when isOpen is true
+  if (typeof window === "undefined") return null
 
   // Function to detect wallets
   const detectWallets = () => {
@@ -550,6 +548,23 @@ export function WalletSelector({ isOpen, onClose, onSelect }: WalletSelectorProp
     }
   }
 
+  // Render to document body using portal to ensure proper positioning
+  // Always render when isOpen is true (we're on client side with "use client")
+  if (typeof window === "undefined") return null
+
+  // Ensure document.body exists before creating portal
+  if (!document.body) {
+    console.warn("[WalletSelector] document.body not available yet")
+    return null
+  }
+
+  // Debug logging to help diagnose issues
+  useEffect(() => {
+    if (isOpen) {
+      console.log("[WalletSelector] Modal opened, isOpen:", isOpen, "availableWallets:", availableWallets.length)
+    }
+  }, [isOpen, availableWallets.length])
+
   const modalContent = (
     <AnimatePresence>
       {isOpen && (
@@ -586,52 +601,58 @@ export function WalletSelector({ isOpen, onClose, onSelect }: WalletSelectorProp
 
               {/* Wallet Options */}
               <div className="space-y-3">
-                {availableWallets.map((wallet) => (
-                  <button
-                    key={wallet.id}
-                    onClick={() => handleWalletSelect(wallet)}
-                    className={`w-full p-4 rounded-xl border transition-all duration-200 ${
-                      wallet.isInstalled
-                        ? "bg-gray-800/50 border-gray-700 hover:bg-gray-800 hover:border-gray-600 text-white cursor-pointer"
-                        : "bg-gray-800/30 border-gray-700/50 text-gray-500 cursor-pointer"
-                    }`}
-                  >
-                    <div className="flex items-center space-x-4">
-                      <div className="w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-lg bg-white/5 p-1.5">
-                        {wallet.iconUrl ? (
-                          <Image
-                            src={wallet.iconUrl}
-                            alt={`${wallet.name} logo`}
-                            width={32}
-                            height={32}
-                            className="w-full h-full object-contain"
-                            unoptimized
-                            onError={(e) => {
-                              // Fallback to emoji if image fails to load
-                              const target = e.target as HTMLImageElement
-                              target.style.display = "none"
-                              const parent = target.parentElement
-                              if (parent && !parent.querySelector(".fallback-icon")) {
-                                const fallback = document.createElement("span")
-                                fallback.className = "fallback-icon text-2xl"
-                                fallback.textContent = wallet.icon
-                                parent.appendChild(fallback)
-                              }
-                            }}
-                          />
-                        ) : (
-                          <span className="text-2xl">{wallet.icon}</span>
+                {availableWallets.length === 0 ? (
+                  <div className="text-center py-8 text-gray-400 font-pt-mono">
+                    <p>Detecting wallets...</p>
+                  </div>
+                ) : (
+                  availableWallets.map((wallet) => (
+                    <button
+                      key={wallet.id}
+                      onClick={() => handleWalletSelect(wallet)}
+                      className={`w-full p-4 rounded-xl border transition-all duration-200 ${
+                        wallet.isInstalled
+                          ? "bg-gray-800/50 border-gray-700 hover:bg-gray-800 hover:border-gray-600 text-white cursor-pointer"
+                          : "bg-gray-800/30 border-gray-700/50 text-gray-500 cursor-pointer"
+                      }`}
+                    >
+                      <div className="flex items-center space-x-4">
+                        <div className="w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-lg bg-white/5 p-1.5">
+                          {wallet.iconUrl ? (
+                            <Image
+                              src={wallet.iconUrl}
+                              alt={`${wallet.name} logo`}
+                              width={32}
+                              height={32}
+                              className="w-full h-full object-contain"
+                              unoptimized
+                              onError={(e) => {
+                                // Fallback to emoji if image fails to load
+                                const target = e.target as HTMLImageElement
+                                target.style.display = "none"
+                                const parent = target.parentElement
+                                if (parent && !parent.querySelector(".fallback-icon")) {
+                                  const fallback = document.createElement("span")
+                                  fallback.className = "fallback-icon text-2xl"
+                                  fallback.textContent = wallet.icon
+                                  parent.appendChild(fallback)
+                                }
+                              }}
+                            />
+                          ) : (
+                            <span className="text-2xl">{wallet.icon}</span>
+                          )}
+                        </div>
+                        <div className="flex-1 text-left">
+                          <div className="font-bold font-pt-mono text-lg">{wallet.name}</div>
+                        </div>
+                        {wallet.isInstalled && (
+                          <Wallet className="w-5 h-5 text-gray-400 flex-shrink-0" />
                         )}
                       </div>
-                      <div className="flex-1 text-left">
-                        <div className="font-bold font-pt-mono text-lg">{wallet.name}</div>
-                      </div>
-                      {wallet.isInstalled && (
-                        <Wallet className="w-5 h-5 text-gray-400 flex-shrink-0" />
-                      )}
-                    </div>
-                  </button>
-                ))}
+                    </button>
+                  ))
+                )}
               </div>
 
               {/* Footer */}
@@ -645,9 +666,9 @@ export function WalletSelector({ isOpen, onClose, onSelect }: WalletSelectorProp
     </AnimatePresence>
   )
 
-  // Render to document body using portal to ensure proper positioning
-  if (!mounted) return null
-
-  return typeof window !== "undefined" ? createPortal(modalContent, document.body) : null
+  // Ensure document.body exists before creating portal
+  if (!document.body) return null
+  
+  return createPortal(modalContent, document.body)
 }
 
