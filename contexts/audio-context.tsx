@@ -127,14 +127,33 @@ export function AudioProvider({ children }: { children: ReactNode }) {
   }
 
   // Handle seeking to a specific position
+  // Wait for duration to be available (loadedmetadata event)
   const seek = useCallback((percentage: number) => {
     const audio = audioRef.current
-    if (!audio || !audio.duration) return
+    if (!audio) return
 
-    // Clamp percentage between 0 and 100
+    // If duration is not available yet, wait for loadedmetadata
+    if (!audio.duration || isNaN(audio.duration) || !isFinite(audio.duration)) {
+      const handleLoadedMetadata = () => {
+        audio.removeEventListener("loadedmetadata", handleLoadedMetadata)
+        // Now duration should be available
+        if (audio.duration && isFinite(audio.duration)) {
+          const clampedPercentage = Math.max(0, Math.min(100, percentage))
+          const newTime = (clampedPercentage / 100) * audio.duration
+          audio.currentTime = newTime
+          setProgress(clampedPercentage)
+        }
+      }
+      audio.addEventListener("loadedmetadata", handleLoadedMetadata, { once: true })
+      // Force load if needed
+      if (audio.readyState === 0) {
+        audio.load()
+      }
+      return
+    }
+
+    // Duration is available, seek immediately
     const clampedPercentage = Math.max(0, Math.min(100, percentage))
-    
-    // Calculate the new time position
     const newTime = (clampedPercentage / 100) * audio.duration
     
     // Set the audio's currentTime
@@ -150,7 +169,8 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       const audio = audioRef.current
       if (!audio) return
 
-      const wasPlaying = isPlaying
+      // Mark that we should auto-play if currently playing
+      shouldAutoPlayRef.current = isPlayingRef.current
       
       setCurrentTrackIndex((prevIndex) => {
         let newIndex = prevIndex
@@ -163,31 +183,10 @@ export function AudioProvider({ children }: { children: ReactNode }) {
         return newIndex
       })
 
-      // If was playing, wait for the new track to load and then play
-      if (wasPlaying) {
-        const handleCanPlay = () => {
-          audio.removeEventListener("canplay", handleCanPlay)
-          audio.play().catch((error) => {
-            console.error("Error playing next track:", error)
-            setIsPlaying(false)
-          })
-        }
-        audio.addEventListener("canplay", handleCanPlay)
-        
-        // Fallback: if canplay doesn't fire within 2 seconds, try playing anyway
-        const timeout = setTimeout(() => {
-          audio.removeEventListener("canplay", handleCanPlay)
-          audio.play().catch((error) => {
-            console.error("Error playing next track (timeout):", error)
-            setIsPlaying(false)
-          })
-        }, 2000)
-        
-        // Clear timeout if canplay fires
-        audio.addEventListener("canplay", () => clearTimeout(timeout), { once: true })
-      }
+      // The useEffect that handles currentTrackIndex changes will update the source
+      // and check shouldAutoPlayRef to auto-play
     },
-    [isPlaying]
+    []
   )
 
   // Update progress
@@ -207,40 +206,33 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     }
   }, [currentTrackIndex])
 
+  // Track if we should auto-play after track change
+  // Used for both manual track changes and automatic next track after ended
+  const shouldAutoPlayRef = useRef(false)
+  const isPlayingRef = useRef(false)
+
+  // Keep isPlayingRef in sync with isPlaying state
+  useEffect(() => {
+    isPlayingRef.current = isPlaying
+  }, [isPlaying])
+
   // Handle track ended - automatically play next track
   useEffect(() => {
     const audio = audioRef.current
     if (!audio) return
 
     const handleEnded = () => {
-      // Advance to next track and ensure it plays
+      console.log("[AudioContext] Track ended, advancing to next track")
+      // Mark that we should auto-play the next track
+      shouldAutoPlayRef.current = true
+      // Advance to next track
       setCurrentTrackIndex((prevIndex) => {
         const newIndex = (prevIndex + 1) % defaultTracks.length
         setProgress(0)
         return newIndex
       })
-      
-      // Wait for the new track to load, then play
-      const handleCanPlay = () => {
-        audio.removeEventListener("canplay", handleCanPlay)
-        audio.play().catch((error) => {
-          console.error("Error playing next track after ended:", error)
-          setIsPlaying(false)
-        })
-      }
-      audio.addEventListener("canplay", handleCanPlay)
-      
-      // Fallback: if canplay doesn't fire within 2 seconds, try playing anyway
-      const timeout = setTimeout(() => {
-        audio.removeEventListener("canplay", handleCanPlay)
-        audio.play().catch((error) => {
-          console.error("Error playing next track after ended (timeout):", error)
-          setIsPlaying(false)
-        })
-      }, 2000)
-      
-      // Clear timeout if canplay fires
-      audio.addEventListener("canplay", () => clearTimeout(timeout), { once: true })
+      // The useEffect that handles currentTrackIndex changes will update the source
+      // and check shouldAutoPlayRef to auto-play
     }
 
     audio.addEventListener("ended", handleEnded)
@@ -279,16 +271,23 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       }
     }
 
+    const handleLoadedMetadata = () => {
+      // Metadata loaded, duration should now be available
+      console.log("[AudioContext] Metadata loaded, duration:", audio.duration)
+    }
+
     audio.addEventListener("play", handlePlay)
     audio.addEventListener("pause", handlePause)
     audio.addEventListener("error", handleError)
     audio.addEventListener("stalled", handleStalled)
+    audio.addEventListener("loadedmetadata", handleLoadedMetadata)
 
     return () => {
       audio.removeEventListener("play", handlePlay)
       audio.removeEventListener("pause", handlePause)
       audio.removeEventListener("error", handleError)
       audio.removeEventListener("stalled", handleStalled)
+      audio.removeEventListener("loadedmetadata", handleLoadedMetadata)
     }
   }, [volume, isPlaying])
 
@@ -297,57 +296,90 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     const audio = audioRef.current
     if (!audio) return
 
-    const wasPlaying = isPlaying
     const newSrc = defaultTracks[currentTrackIndex].src
+    const shouldAutoPlay = shouldAutoPlayRef.current
+    
+    console.log("[AudioContext] Track changed to:", defaultTracks[currentTrackIndex].title, "shouldAutoPlay:", shouldAutoPlay)
+    
+    // Reset the auto-play flag
+    shouldAutoPlayRef.current = false
     
     // Update the source and load the new track
     audio.src = newSrc
     audio.load()
 
-    // If was playing, wait for the track to be ready before playing
-    if (wasPlaying) {
+    // If we should play (either was playing or track ended), wait for the track to be ready
+    if (shouldAutoPlay) {
       const handleCanPlay = () => {
         audio.removeEventListener("canplay", handleCanPlay)
+        audio.removeEventListener("loadeddata", handleCanPlay)
         audio.removeEventListener("error", handleError)
-        audio.play().catch((error) => {
-          console.error("Error playing track:", error)
-          setIsPlaying(false)
-        })
+        audio.play()
+          .then(() => {
+            console.log("[AudioContext] Successfully started playing:", defaultTracks[currentTrackIndex].title)
+            setIsPlaying(true)
+          })
+          .catch((error) => {
+            console.error("Error playing track:", error)
+            setIsPlaying(false)
+          })
       }
       
       const handleError = () => {
         audio.removeEventListener("canplay", handleCanPlay)
+        audio.removeEventListener("loadeddata", handleCanPlay)
         audio.removeEventListener("error", handleError)
         console.error("Error loading track:", defaultTracks[currentTrackIndex].title)
         setIsPlaying(false)
       }
       
+      // Try multiple events for better compatibility
+      audio.addEventListener("canplay", handleCanPlay, { once: true })
+      audio.addEventListener("loadeddata", handleCanPlay, { once: true })
+      audio.addEventListener("error", handleError, { once: true })
+      
       // If already loaded, play immediately
       if (audio.readyState >= 2) { // HAVE_CURRENT_DATA
-        audio.play().catch((error) => {
-          console.error("Error playing track (already loaded):", error)
-          setIsPlaying(false)
-        })
-      } else {
-        audio.addEventListener("canplay", handleCanPlay, { once: true })
-        audio.addEventListener("error", handleError, { once: true })
-        
-        // Fallback: if canplay doesn't fire within 3 seconds, try playing anyway
-        const timeout = setTimeout(() => {
-          audio.removeEventListener("canplay", handleCanPlay)
-          audio.removeEventListener("error", handleError)
-          audio.play().catch((error) => {
-            console.error("Error playing track (timeout):", error)
+        audio.play()
+          .then(() => {
+            console.log("[AudioContext] Track already loaded, playing immediately")
+            setIsPlaying(true)
+          })
+          .catch((error) => {
+            console.error("Error playing track (already loaded):", error)
             setIsPlaying(false)
           })
+      } else {
+        // Fallback: if events don't fire within 3 seconds, try playing anyway
+        const timeout = setTimeout(() => {
+          audio.removeEventListener("canplay", handleCanPlay)
+          audio.removeEventListener("loadeddata", handleCanPlay)
+          audio.removeEventListener("error", handleError)
+          if (audio.readyState >= 1) { // HAVE_METADATA at least
+            audio.play()
+              .then(() => {
+                console.log("[AudioContext] Playing after timeout fallback")
+                setIsPlaying(true)
+              })
+              .catch((error) => {
+                console.error("Error playing track (timeout):", error)
+                setIsPlaying(false)
+              })
+          } else {
+            console.warn("[AudioContext] Track not ready after timeout, readyState:", audio.readyState)
+          }
         }, 3000)
         
-        // Clear timeout if canplay or error fires
+        // Clear timeout if any event fires
         audio.addEventListener("canplay", () => clearTimeout(timeout), { once: true })
+        audio.addEventListener("loadeddata", () => clearTimeout(timeout), { once: true })
         audio.addEventListener("error", () => clearTimeout(timeout), { once: true })
       }
+    } else {
+      // Not playing, just ensure state is correct
+      setIsPlaying(false)
     }
-  }, [currentTrackIndex, isPlaying])
+  }, [currentTrackIndex])
 
   return (
     <AudioContext.Provider
