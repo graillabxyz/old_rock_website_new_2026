@@ -540,17 +540,19 @@ export function WalletSelector({ isOpen, onClose, onSelect }: WalletSelectorProp
     }
 
     if (!provider) {
-      console.error(`Could not find provider for ${wallet.name}`)
+      console.error(`[WalletSelector] Could not find provider for ${wallet.name}`)
       alert(`Could not find ${wallet.name} provider. Please ensure the wallet extension is installed and unlocked.`)
       return
     }
 
     // Validate provider before passing it
     if (typeof provider.request !== "function") {
-      console.error(`Invalid provider for ${wallet.name}: missing request method`)
+      console.error(`[WalletSelector] Invalid provider for ${wallet.name}: missing request method`, provider)
       alert(`${wallet.name} provider is not ready. Please try again in a moment.`)
       return
     }
+
+    console.log(`[WalletSelector] Provider validated for ${wallet.name}, preparing to connect...`)
 
     // Add a small delay to ensure provider is fully ready
     // This helps with wallets that load asynchronously
@@ -558,16 +560,23 @@ export function WalletSelector({ isOpen, onClose, onSelect }: WalletSelectorProp
 
     // Re-validate provider after delay (some wallets might change their provider object)
     if (typeof provider.request !== "function") {
-      console.error(`Provider for ${wallet.name} became invalid after delay`)
+      console.error(`[WalletSelector] Provider for ${wallet.name} became invalid after delay`)
       alert(`${wallet.name} provider is not ready. Please try again in a moment.`)
       return
     }
 
     try {
+      // Don't close modal here - let the parent component close it after connection completes
+      // This ensures the wallet popup can appear before the modal disappears
+      console.log(`[WalletSelector] Calling onSelect for ${wallet.name}`, {
+        hasProvider: !!provider,
+        hasRequest: typeof provider.request === "function",
+        providerKeys: Object.keys(provider).slice(0, 5)
+      })
       onSelect(provider, wallet.name)
-      onClose()
+      // Note: Modal will be closed by parent component after connection attempt
     } catch (error) {
-      console.error(`Error selecting ${wallet.name}:`, error)
+      console.error(`[WalletSelector] Error selecting ${wallet.name}:`, error)
       // Don't close modal on error so user can try again
     }
   }

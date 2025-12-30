@@ -258,62 +258,164 @@ const SimpleWalletButton: React.FC<Props> = ({ className, onConnectionChange, pr
   }
 
   const handleWalletSelect = async (provider: any, walletName: string) => {
+    console.log(`[SimpleWalletButton] handleWalletSelect called for ${walletName}`, {
+      hasProvider: !!provider,
+      hasRequest: provider && typeof provider.request === "function",
+      providerType: provider?.constructor?.name
+    })
+    
     setIsConnecting(true)
+    // Close modal immediately so user can see wallet popup
+    setShowWalletSelector(false)
+    
     try {
       // Ensure provider is valid and ready
-      if (!provider || typeof provider.request !== "function") {
-        throw new Error(`Invalid provider for ${walletName}`)
+      if (!provider) {
+        throw new Error(`No provider provided for ${walletName}`)
+      }
+      
+      if (typeof provider.request !== "function") {
+        console.error(`[SimpleWalletButton] Provider missing request method:`, provider)
+        throw new Error(`Invalid provider for ${walletName}: missing request method`)
       }
 
+      console.log(`[SimpleWalletButton] Provider validated, calling eth_requestAccounts on ${walletName}`)
+      
       // Add a small delay to ensure provider is fully initialized
-      await new Promise(resolve => setTimeout(resolve, 100))
+      // This also gives the modal time to close before the wallet popup appears
+      await new Promise(resolve => setTimeout(resolve, 150))
 
-      // Try to connect with retry logic
+      // Verify provider is still valid after delay
+      if (typeof provider.request !== "function") {
+        throw new Error(`Provider for ${walletName} became invalid after delay`)
+      }
+
+      // Try to connect with retry logic and fallback for missed popups
       let accounts: string[] = []
       let lastError: any = null
       const maxRetries = 3
+      const popupTimeout = 3000 // 3 seconds to detect if popup appeared
+      
+      // Helper function to make request with timeout detection
+      const makeRequestWithFallback = async (attempt: number): Promise<string[]> => {
+        console.log(`[SimpleWalletButton] Making connection request (attempt ${attempt})`)
+        
+        // Start the request
+        const requestPromise = provider.request({ method: "eth_requestAccounts" })
+        
+        // Set up timeout to detect if popup didn't appear
+        let timeoutId: ReturnType<typeof setTimeout> | null = null
+        let requestResolved = false
+        let timeoutFired = false
+        
+        const timeoutPromise = new Promise<string[]>((_, reject) => {
+          timeoutId = setTimeout(() => {
+            if (!requestResolved) {
+              timeoutFired = true
+              reject(new Error("WALLET_POPUP_TIMEOUT"))
+            }
+          }, popupTimeout)
+        })
+        
+        try {
+          // Race between request and timeout
+          const result = await Promise.race([
+            requestPromise.then((accounts: string[]) => {
+              requestResolved = true
+              if (timeoutId) clearTimeout(timeoutId)
+              return accounts
+            }),
+            timeoutPromise
+          ])
+          
+          return result
+        } catch (error: any) {
+          if (timeoutId) clearTimeout(timeoutId)
+          
+          // If timeout occurred, check if accounts are already available (wallet might have connected silently)
+          if (timeoutFired && error?.message === "WALLET_POPUP_TIMEOUT") {
+            console.warn(`[SimpleWalletButton] Popup timeout on attempt ${attempt}, checking for existing accounts...`)
+            try {
+              // Give it a moment - the original request might still be processing
+              await new Promise(resolve => setTimeout(resolve, 500))
+              
+              const existingAccounts = await provider.request({ method: "eth_accounts" })
+              if (existingAccounts && existingAccounts.length > 0) {
+                console.log(`[SimpleWalletButton] Found existing accounts after timeout:`, existingAccounts)
+                return existingAccounts
+              }
+            } catch (checkError) {
+              console.warn(`[SimpleWalletButton] Could not check existing accounts:`, checkError)
+            }
+          }
+          
+          throw error
+        }
+      }
       
       for (let attempt = 1; attempt <= maxRetries; attempt++) {
         try {
-          accounts = await provider.request({ method: "eth_requestAccounts" })
+          console.log(`[SimpleWalletButton] Connection attempt ${attempt}/${maxRetries} for ${walletName}`)
+          
+          accounts = await makeRequestWithFallback(attempt)
+          
+          console.log(`[SimpleWalletButton] Received accounts:`, accounts?.length || 0, accounts)
+          
           if (accounts && accounts.length > 0) {
+            console.log(`[SimpleWalletButton] Connection successful on attempt ${attempt}`)
             break // Success, exit retry loop
+          } else {
+            console.warn(`[SimpleWalletButton] No accounts returned on attempt ${attempt}`)
+            if (attempt < maxRetries) {
+              throw new Error("No accounts returned")
+            }
           }
         } catch (error: any) {
           lastError = error
+          const isTimeout = error?.message === "WALLET_POPUP_TIMEOUT"
+          
+          console.error(`[SimpleWalletButton] Connection attempt ${attempt} failed:`, {
+            code: error?.code,
+            message: error?.message,
+            isTimeout,
+            error
+          })
           
           // Don't retry if user rejected
           if (error?.code === 4001 || error?.message?.includes("rejected") || error?.message?.includes("denied")) {
-            console.log("User rejected wallet connection")
+            console.log("[SimpleWalletButton] User rejected wallet connection")
             return // User rejected, don't show error
           }
           
           // Log retry attempt
           if (attempt < maxRetries) {
-            console.warn(`Wallet connection attempt ${attempt} failed, retrying...`, error)
-            // Wait before retry (exponential backoff)
-            await new Promise(resolve => setTimeout(resolve, 200 * attempt))
+            console.warn(`[SimpleWalletButton] ${isTimeout ? "Popup didn't appear" : "Connection failed"}, retrying (attempt ${attempt + 1}/${maxRetries})...`)
+            // Wait before retry (exponential backoff, longer for timeout cases)
+            const delay = isTimeout ? 500 * attempt : 200 * attempt
+            await new Promise(resolve => setTimeout(resolve, delay))
           }
         }
       }
 
       if (accounts && accounts.length > 0) {
+        console.log(`[SimpleWalletButton] Connection successful, handling connection with ${accounts.length} account(s)`)
         await handleConnection(accounts)
       } else if (lastError) {
+        console.error(`[SimpleWalletButton] All connection attempts failed, last error:`, lastError)
         throw lastError
       } else {
+        console.error(`[SimpleWalletButton] No accounts returned and no error recorded`)
         throw new Error("No accounts returned from wallet")
       }
     } catch (error: any) {
-      console.error("Failed to connect wallet:", error)
+      console.error("[SimpleWalletButton] Failed to connect wallet:", error)
       
       // Show user-friendly error message
       if (error?.code !== 4001 && !error?.message?.includes("rejected") && !error?.message?.includes("denied")) {
-        alert(`Failed to connect ${walletName}. Please try again or check if the wallet is unlocked.`)
+        alert(`Failed to connect ${walletName}. Please try again or check if the wallet is unlocked.\n\nError: ${error?.message || "Unknown error"}`)
       }
     } finally {
       setIsConnecting(false)
-      setShowWalletSelector(false)
     }
   }
 
