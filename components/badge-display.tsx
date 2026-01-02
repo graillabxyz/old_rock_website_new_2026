@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
+import { createPortal } from "react-dom"
 import { motion, AnimatePresence } from "framer-motion"
 import { ChevronDown, ChevronUp, Award, ChevronDown as ScrollIndicator } from "lucide-react"
 import { Badge, getBestBadges } from "@/lib/badge-utils"
@@ -176,16 +177,16 @@ export function BadgeDisplay({ badges }: BadgeDisplayProps) {
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
             className="relative w-full"
-            style={{ minHeight: '176px' }} // Profile picture height (224px) minus badge row height (48px)
+            style={{ minHeight: '176px', overflow: 'visible' }} // Profile picture height (224px) minus badge row height (48px)
           >
-            <div className="pt-4 border-t border-gray-800 relative z-20 mt-2" style={{ width: 'calc(100% + 3rem)', marginLeft: '-1.5rem', paddingRight: '1.5rem' }}>
+            <div className="pt-4 border-t border-gray-800 relative z-20 mt-2" style={{ width: 'calc(100% + 12rem)', marginRight: '-12rem', overflow: 'visible' }}>
               <div 
                 ref={scrollContainerRef}
-                className="overflow-y-auto space-y-6 pr-2 scrollbar-hide"
+                className="space-y-6 pr-2 scrollbar-hide"
                 style={{ 
                   maxHeight: '176px', // 224px (profile pic) - 48px (badge row height)
-                  overflowX: 'visible',
-                  overflowY: 'auto'
+                  overflowY: 'auto',
+                  overflowX: 'visible'
                 }}
               >
                 {Object.entries(badgesByCategory).map(([category, categoryBadges]) => {
@@ -253,34 +254,70 @@ function BadgeIcon({ badge, size = "md" }: BadgeIconProps) {
   const sizeClasses = size === "md" ? "w-12 h-12" : "w-10 h-10"
   const opacity = badge.unlocked ? "opacity-100" : "opacity-30"
   const [showCustomTooltip, setShowCustomTooltip] = useState(false)
+  const [tooltipPosition, setTooltipPosition] = useState({ top: 0, left: 0 })
+  const badgeRef = useRef<HTMLDivElement>(null)
+  const tooltipRef = useRef<HTMLDivElement>(null)
+  
+  const updateTooltipPosition = () => {
+    if (badgeRef.current) {
+      const rect = badgeRef.current.getBoundingClientRect()
+      setTooltipPosition({
+        top: rect.top - 8, // Position above the badge
+        left: rect.left + rect.width / 2 // Center horizontally
+      })
+    }
+  }
+  
+  useEffect(() => {
+    if (showCustomTooltip) {
+      updateTooltipPosition()
+      const handleScroll = () => updateTooltipPosition()
+      const handleResize = () => updateTooltipPosition()
+      
+      window.addEventListener('scroll', handleScroll, true)
+      window.addEventListener('resize', handleResize)
+      
+      return () => {
+        window.removeEventListener('scroll', handleScroll, true)
+        window.removeEventListener('resize', handleResize)
+      }
+    }
+  }, [showCustomTooltip])
   
   return (
-    <div
-      className={`relative ${sizeClasses} ${opacity} transition-opacity group cursor-help flex-shrink-0`}
-      onMouseEnter={() => setShowCustomTooltip(true)}
-      onMouseLeave={() => setShowCustomTooltip(false)}
-      title={!showCustomTooltip ? `${badge.name}${badge.description ? ` - ${badge.description}` : ""}` : undefined}
-      aria-label={`${badge.name}${badge.description ? ` - ${badge.description}` : ""}`}
-    >
-      {/* Badge Icon Placeholder - White icon */}
-      <div className="w-full h-full rounded-lg bg-gray-800 border border-gray-700 flex items-center justify-center">
-        <Award className="w-6 h-6 text-white" />
+    <>
+      <div
+        ref={badgeRef}
+        className={`relative ${sizeClasses} ${opacity} transition-opacity group cursor-help flex-shrink-0`}
+        onMouseEnter={() => {
+          setShowCustomTooltip(true)
+          updateTooltipPosition()
+        }}
+        onMouseLeave={() => setShowCustomTooltip(false)}
+        title={!showCustomTooltip ? `${badge.name}${badge.description ? ` - ${badge.description}` : ""}` : undefined}
+        aria-label={`${badge.name}${badge.description ? ` - ${badge.description}` : ""}`}
+      >
+        {/* Badge Icon Placeholder - White icon */}
+        <div className="w-full h-full rounded-lg bg-gray-800 border border-gray-700 flex items-center justify-center">
+          <Award className="w-6 h-6 text-white" />
+        </div>
+        
+        {/* Unlocked indicator */}
+        {badge.unlocked && (
+          <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-black" />
+        )}
       </div>
       
-      {/* Unlocked indicator */}
-      {badge.unlocked && (
-        <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-black" />
-      )}
-      
-      {/* Custom tooltip on hover - only show if custom tooltip is working */}
-      {showCustomTooltip && (
+      {/* Custom tooltip on hover - rendered via portal to escape container bounds */}
+      {showCustomTooltip && typeof window !== 'undefined' && createPortal(
         <div 
-          className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 z-[99999] pointer-events-none"
+          ref={tooltipRef}
+          className="fixed z-[99999] pointer-events-none"
           style={{ 
-            position: 'absolute',
-            willChange: 'transform',
-            isolation: 'isolate',
-            contain: 'layout style paint'
+            top: `${tooltipPosition.top}px`,
+            left: `${tooltipPosition.left}px`,
+            transform: 'translate(-50%, -100%)',
+            marginBottom: '8px'
           }}
         >
           <div className="bg-gray-900 text-white text-xs rounded px-2 py-1 whitespace-nowrap border border-gray-700 shadow-lg">
@@ -289,9 +326,10 @@ function BadgeIcon({ badge, size = "md" }: BadgeIconProps) {
               <div className="text-gray-400 text-xs mt-0.5">{badge.description}</div>
             )}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
-    </div>
+    </>
   )
 }
 
