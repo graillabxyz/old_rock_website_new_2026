@@ -93,6 +93,7 @@ export function SearchBar() {
   const [goliathCollectionLimit, setGoliathCollectionLimit] = useState(3717)
   const [nftOwnersList, setNftOwnersList] = useState<any[]>([])
   const [userWalletData, setUserWalletData] = useState<Map<string, { oldRock: boolean; goliath: boolean; density: number; ensName?: string }>>(new Map())
+  const [leaderboardData, setLeaderboardData] = useState<Array<{ address: string; ensName: string | null; displayName: string; totalDensity: number; hasOldRock: boolean; hasGoliath: boolean }>>([])
   const searchRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const router = useRouter()
@@ -252,7 +253,7 @@ export function SearchBar() {
     return () => document.removeEventListener("mousedown", handleClickOutside)
   }, [])
 
-  // Retrieve Goliath collection limit on mount
+  // Retrieve Goliath collection limit and leaderboard data on mount
   useEffect(() => {
     async function fetchGoliathCollectionLimit() {
       try {
@@ -282,8 +283,35 @@ export function SearchBar() {
       }
     }
 
+    async function fetchLeaderboardData() {
+      try {
+        const response = await fetch("/api/leaderboard");
+        if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+
+        const result = await response.json();
+        if (result.success && result.data) {
+          setLeaderboardData(result.data);
+          
+          // Pre-populate userWalletData cache with leaderboard data
+          const walletDataMap = new Map<string, { oldRock: boolean; goliath: boolean; density: number; ensName?: string }>();
+          result.data.forEach((user: any) => {
+            walletDataMap.set(user.address.toLowerCase(), {
+              oldRock: user.hasOldRock,
+              goliath: user.hasGoliath,
+              density: user.totalDensity,
+              ensName: user.ensName || undefined,
+            });
+          });
+          setUserWalletData(prev => new Map([...prev, ...walletDataMap]));
+        }
+      } catch (e) {
+        console.error("Error fetching leaderboard data:", e);
+      }
+    }
+
     fetchGoliathCollectionLimit();
     fetchNftOwnersList();
+    fetchLeaderboardData();
   }, []);
 
   // Focus input when search opens
@@ -372,15 +400,16 @@ export function SearchBar() {
       }
 
       // ENS name suggestions for partial names (3+ characters, no numbers, no .eth, not wallet address)
+      // Use leaderboard data as source of truth
       if (query.length >= 3 && !queryTrimmedNumber && !query.includes('.eth') && !query.startsWith('0x')) {
         try {
           const queryLower = query.toLowerCase();
           const matchingENS: Array<{ name: string; address: string; data: any; priority: number }> = [];
           
-          // Search through cached wallet data for ENS names matching the query
-          userWalletData.forEach((data, address) => {
-            if (data.ensName) {
-              const ensNameLower = data.ensName.toLowerCase();
+          // Search through leaderboard data first (source of truth)
+          leaderboardData.forEach((user) => {
+            if (user.ensName) {
+              const ensNameLower = user.ensName.toLowerCase();
               
               // Priority: exact match > starts with > contains
               let priority = 3;
@@ -395,6 +424,40 @@ export function SearchBar() {
               }
               
               matchingENS.push({
+                name: user.ensName,
+                address: user.address.toLowerCase(),
+                data: {
+                  oldRock: user.hasOldRock,
+                  goliath: user.hasGoliath,
+                  density: user.totalDensity,
+                  ensName: user.ensName,
+                },
+                priority: priority
+              });
+            }
+          });
+
+          // Also search through cached wallet data for additional matches
+          userWalletData.forEach((data, address) => {
+            // Skip if already in leaderboard results
+            if (matchingENS.some(e => e.address === address)) return;
+            
+            if (data.ensName) {
+              const ensNameLower = data.ensName.toLowerCase();
+              
+              // Priority: exact match > starts with > contains
+              let priority = 3;
+              if (ensNameLower === queryLower) {
+                priority = 1;
+              } else if (ensNameLower.startsWith(queryLower)) {
+                priority = 2;
+              } else if (ensNameLower.includes(queryLower)) {
+                priority = 3;
+              } else {
+                return; // No match
+              }
+              
+              matchingENS.push({
                 name: data.ensName,
                 address: address,
                 data: data,
@@ -402,60 +465,6 @@ export function SearchBar() {
               });
             }
           });
-
-          // Also search through a limited subset of NFT owners for ENS names (only if we have few cached results)
-          if (matchingENS.length < 5) {
-            const ownerENSResults: Array<{ name: string; address: string; priority: number }> = [];
-            const searchPromises = nftOwnersList.slice(0, 30).map(async (owner: string) => {
-              // Skip if already in cache
-              if (userWalletData.has(owner.toLowerCase())) return;
-              
-              try {
-                const ensResponse = await fetch(`https://api.ensideas.com/ens/resolve/${owner}`);
-                if (ensResponse.ok) {
-                  const ensData = await ensResponse.json();
-                  if (ensData?.name) {
-                    const ensNameLower = ensData.name.toLowerCase();
-                    
-                    // Priority: exact match > starts with > contains
-                    let priority = 3;
-                    if (ensNameLower === queryLower) {
-                      priority = 1;
-                    } else if (ensNameLower.startsWith(queryLower)) {
-                      priority = 2;
-                    } else if (ensNameLower.includes(queryLower)) {
-                      priority = 3;
-                    } else {
-                      return; // No match
-                    }
-                    
-                    ownerENSResults.push({
-                      name: ensData.name,
-                      address: owner.toLowerCase(),
-                      priority: priority
-                    });
-                  }
-                }
-              } catch (e) {
-                // Ignore individual ENS fetch errors
-              }
-            });
-
-            await Promise.all(searchPromises);
-            
-            // Add to matchingENS and fetch wallet data
-            for (const item of ownerENSResults) {
-              if (!matchingENS.some(e => e.address === item.address)) {
-                const walletData = await fetchUserWalletData(item.address);
-                matchingENS.push({
-                  name: item.name,
-                  address: item.address,
-                  data: walletData,
-                  priority: item.priority
-                });
-              }
-            }
-          }
 
           // Sort by priority (exact > starts with > contains), then limit to 10
           matchingENS
@@ -501,6 +510,7 @@ export function SearchBar() {
       }
 
       // Search wallet addresses and filter by NFT holdings and DENSITY balance
+      // Use leaderboard data as primary source
       if (queryTrimmed.length >= 3) {
         const queryLower = query.toLowerCase();
         const queryWithoutPrefix = query.replace('0x', '').toLowerCase();
@@ -510,8 +520,46 @@ export function SearchBar() {
         const searchForGoliath = originalQuery.toLowerCase().includes('goliath');
         const searchForDensity = originalQuery.toLowerCase().includes('density') || originalQuery.toLowerCase().includes('$density');
         
-        // Search through cached wallet data first
+        // Search through leaderboard data first (source of truth)
+        leaderboardData.forEach((user) => {
+          const addressLower = user.address.toLowerCase();
+          const addressWithoutPrefix = user.address.replace('0x', '').toLowerCase();
+          const ensNameLower = user.ensName?.toLowerCase() || '';
+          const displayNameLower = user.displayName.toLowerCase();
+          
+          // Match by address, ENS name, or display name
+          const matchesAddress = addressLower.includes(queryLower) || addressWithoutPrefix.includes(queryWithoutPrefix);
+          const matchesENS = ensNameLower.includes(queryLower);
+          const matchesDisplayName = displayNameLower.includes(queryLower);
+          
+          if (matchesAddress || matchesENS || matchesDisplayName) {
+            // If specific collection is searched, only show if they have it
+            if (searchForOldRock && !user.hasOldRock) return;
+            if (searchForGoliath && !user.hasGoliath) return;
+            if (searchForDensity && user.totalDensity === 0) return;
+            
+            const descriptionParts: string[] = [];
+            if (user.hasOldRock) descriptionParts.push("Old Rock holder");
+            if (user.hasGoliath) descriptionParts.push("Goliath holder");
+            if (user.totalDensity > 0) descriptionParts.push(`${user.totalDensity.toLocaleString()} $DENSITY`);
+            
+            mockResults.push({
+              id: user.address,
+              type: "profile",
+              name: user.displayName,
+              address: user.address,
+              description: descriptionParts.length > 0 ? descriptionParts.join(" • ") : "Profile",
+              image: "/placeholder.svg?height=100&width=100",
+              collection: "Profile",
+            });
+          }
+        });
+        
+        // Also search through cached wallet data for additional matches not in leaderboard
         userWalletData.forEach((data, address) => {
+          // Skip if already in leaderboard results
+          if (leaderboardData.some(u => u.address.toLowerCase() === address)) return;
+          
           const addressLower = address.toLowerCase();
           const addressWithoutPrefix = address.replace('0x', '').toLowerCase();
           const ensNameLower = data.ensName?.toLowerCase() || '';
@@ -541,45 +589,6 @@ export function SearchBar() {
               collection: "Profile",
             });
           }
-        });
-        
-        // Search through the owners list and fetch data for matching addresses
-        const matchingOwners = nftOwnersList.filter((owner: string) => {
-          const ownerLower = owner.toLowerCase();
-          const ownerWithoutPrefix = owner.replace('0x', '').toLowerCase();
-          return (ownerLower.includes(queryLower) || ownerWithoutPrefix.includes(queryWithoutPrefix)) && 
-                 !userWalletData.has(ownerLower);
-        }).slice(0, 10); // Limit to first 10 matches to avoid too many API calls
-        
-        // Fetch data for matching owners in parallel
-        const ownerDataPromises = matchingOwners.map(async (owner: string) => {
-          const walletData = await fetchUserWalletData(owner);
-          if (!walletData) return null;
-          
-          // Filter based on search criteria
-          if (searchForOldRock && !walletData.oldRock) return null;
-          if (searchForGoliath && !walletData.goliath) return null;
-          if (searchForDensity && walletData.density === 0) return null;
-          
-          const descriptionParts: string[] = [];
-          if (walletData.oldRock) descriptionParts.push("Old Rock holder");
-          if (walletData.goliath) descriptionParts.push("Goliath holder");
-          if (walletData.density > 0) descriptionParts.push(`${walletData.density.toLocaleString()} $DENSITY`);
-          
-          return {
-            id: owner,
-            type: "profile" as const,
-            name: walletData.ensName || shortenAddress(owner),
-            address: owner,
-            description: descriptionParts.length > 0 ? descriptionParts.join(" • ") : "Profile",
-            image: "/placeholder.svg?height=100&width=100",
-            collection: "Profile",
-          };
-        });
-        
-        const ownerResults = await Promise.all(ownerDataPromises);
-        ownerResults.forEach(result => {
-          if (result) mockResults.push(result);
         });
       }
 

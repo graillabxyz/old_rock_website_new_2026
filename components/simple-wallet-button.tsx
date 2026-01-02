@@ -264,7 +264,7 @@ const SimpleWalletButton: React.FC<Props> = ({ className, onConnectionChange, pr
       providerType: provider?.constructor?.name
     })
     
-    setIsConnecting(true)
+      setIsConnecting(true)
     // Close modal immediately so user can see wallet popup
     setShowWalletSelector(false)
     
@@ -369,7 +369,7 @@ const SimpleWalletButton: React.FC<Props> = ({ className, onConnectionChange, pr
             if (attempt < maxRetries) {
               throw new Error("No accounts returned")
             }
-          }
+        }
         } catch (error: any) {
           lastError = error
           const isTimeout = error?.message === "WALLET_POPUP_TIMEOUT"
@@ -414,8 +414,8 @@ const SimpleWalletButton: React.FC<Props> = ({ className, onConnectionChange, pr
       if (error?.code !== 4001 && !error?.message?.includes("rejected") && !error?.message?.includes("denied")) {
         alert(`Failed to connect ${walletName}. Please try again or check if the wallet is unlocked.\n\nError: ${error?.message || "Unknown error"}`)
       }
-    } finally {
-      setIsConnecting(false)
+      } finally {
+        setIsConnecting(false)
     }
   }
 
