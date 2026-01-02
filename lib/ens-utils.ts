@@ -206,14 +206,25 @@ export async function setENSAvatar(
     throw new Error(`You do not own or manage ${ensName}. Only the owner or manager can set the avatar.`)
   }
 
-  // Get the resolver for this name - fetched fresh from on-chain
-  let resolver = await ethersProvider.getResolver(ensName)
-  if (!resolver) {
+  // Get the resolver for this name - fetched fresh from on-chain using Registry contract
+  // We can't use provider.getResolver() as it may not support calling
+  const registry = new ethers.Contract(ENS_REGISTRY_ADDRESS, ENS_REGISTRY_ABI, ethersProvider)
+  let resolverAddress = await registry.resolver(namehash)
+  
+  if (!resolverAddress || resolverAddress === ethers.ZeroAddress) {
     throw new Error(`No resolver found for ${ensName}. Make sure you own this ENS name and have a resolver configured.`)
   }
 
-  // Get resolver address - on-chain
-  let resolverAddress = await resolver.getAddress()
+  // Create resolver contract instance to check interface support
+  const resolverContract = new ethers.Contract(resolverAddress, PUBLIC_RESOLVER_ABI, ethersProvider)
+  
+  // Create a resolver-like object that has the methods we need
+  const resolver = {
+    getAddress: async () => resolverAddress,
+    getText: async (key: string) => {
+      return await resolverContract.text(namehash, key)
+    },
+  } as ethers.Resolver
 
   // Check if resolver supports text records - on-chain check
   const supportsText = await resolverSupportsText(resolver, ethersProvider)
@@ -236,14 +247,24 @@ export async function setENSAvatar(
     // Wait a moment for the resolver to be updated on-chain
     await new Promise(resolve => setTimeout(resolve, 2000))
 
-    // Re-fetch the resolver from on-chain (fresh data)
-    resolver = await ethersProvider.getResolver(ensName)
-    if (!resolver) {
+    // Re-fetch the resolver from on-chain (fresh data) using Registry
+    const newResolverAddress = await registry.resolver(namehash)
+    
+    if (!newResolverAddress || newResolverAddress === ethers.ZeroAddress) {
       throw new Error("Failed to get resolver after upgrade. Please try again.")
     }
 
-    // Get fresh resolver address
-    resolverAddress = await resolver.getAddress()
+    // Update resolver address
+    resolverAddress = newResolverAddress
+    
+    // Create new resolver contract instance for reading
+    const newResolverContract = new ethers.Contract(resolverAddress, PUBLIC_RESOLVER_ABI, ethersProvider)
+    resolver = {
+      getAddress: async () => resolverAddress,
+      getText: async (key: string) => {
+        return await newResolverContract.text(namehash, key)
+      },
+    } as ethers.Resolver
 
     // Verify the new resolver supports text records - on-chain check
     const newSupportsText = await resolverSupportsText(resolver, ethersProvider)
@@ -252,9 +273,9 @@ export async function setENSAvatar(
     }
   }
 
-  // Create contract instance with the Public Resolver ABI
+  // Create contract instance with the Public Resolver ABI for writing (using signer)
   // Resolver address is from on-chain data, not localStorage
-  const resolverContract = new ethers.Contract(resolverAddress, PUBLIC_RESOLVER_ABI, signer)
+  const resolverContractWrite = new ethers.Contract(resolverAddress, PUBLIC_RESOLVER_ABI, signer)
 
   // Set the avatar text record using namehash
   // namehash is computed from on-chain ENS name, not from localStorage
@@ -262,7 +283,7 @@ export async function setENSAvatar(
   let tx
   try {
     // Transaction is constructed at signing time with fresh on-chain data
-    tx = await resolverContract.setText(namehash, "avatar", imageUrl)
+    tx = await resolverContractWrite.setText(namehash, "avatar", imageUrl)
   } catch (error: any) {
     if (error?.code === 4001 || error?.message?.includes("user rejected") || error?.message?.includes("denied")) {
       throw new Error("Transaction was rejected by user.")

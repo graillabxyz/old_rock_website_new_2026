@@ -22,7 +22,7 @@ export const SUPPORTED_TYPES = [...SUPPORTED_IMAGE_TYPES, ...SUPPORTED_VIDEO_TYP
 // File extensions for validation
 export const SUPPORTED_EXTENSIONS = [".webp", ".webm", ".mp4", ".gif", ".jpg", ".jpeg", ".png"]
 
-export const MAX_FILE_SIZE = 100 * 1024 * 1024 // 100MB
+export const MAX_FILE_SIZE = 2 * 1024 * 1024 // 2MB for banner uploads
 
 /**
  * Uploads a file to IPFS via the API route

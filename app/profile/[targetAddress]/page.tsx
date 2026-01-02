@@ -14,6 +14,7 @@ import { NFTOverlay } from "@/components/nft-overlay"
 import { setENSAvatar, getConnectedWalletENSName } from "@/lib/ens-utils"
 import { uploadToIPFS, getIPFSGatewayURL, SUPPORTED_IMAGE_TYPES, SUPPORTED_VIDEO_TYPES } from "@/lib/ipfs-utils"
 import { Upload } from "lucide-react"
+import { ENSConfirmationModal } from "@/components/ens-confirmation-modal"
 
 interface NFT {
   tokenId: string
@@ -79,6 +80,12 @@ export default function ProfilePage() {
   const [headerMediaType, setHeaderMediaType] = useState<"image" | "video" | null>(null)
   const [isUploadingHeader, setIsUploadingHeader] = useState(false)
   const [isEditingHeader, setIsEditingHeader] = useState(false)
+
+  // ENS confirmation modal state
+  const [showENSConfirm, setShowENSConfirm] = useState(false)
+  const [ensConfirmMessage, setEnsConfirmMessage] = useState("")
+  const [ensConfirmNFTName, setEnsConfirmNFTName] = useState("")
+  const [ensConfirmResolve, setEnsConfirmResolve] = useState<((value: boolean) => void) | null>(null)
 
   useEffect(() => {
     // Suppress harmless wallet extension errors in console
@@ -347,6 +354,12 @@ export default function ProfilePage() {
       return
     }
 
+    // Validate file size (2MB limit)
+    if (file.size > MAX_FILE_SIZE) {
+      alert(`File size exceeds the 2MB limit. Please choose a smaller file.\n\nCurrent file size: ${(file.size / 1024 / 1024).toFixed(2)}MB`)
+      return
+    }
+
     // Validate file type
     const isImage = SUPPORTED_IMAGE_TYPES.includes(file.type)
     const isVideo = SUPPORTED_VIDEO_TYPES.includes(file.type)
@@ -451,23 +464,20 @@ export default function ProfilePage() {
         imageUrl,
         async (needsUpgrade: boolean) => {
           if (needsUpgrade) {
-            // Show confirmation dialog explaining what's happening
-            // ENS name will be fetched on-chain, so we show a generic message
-            const confirmed = confirm(
-              `Setting ENS Avatar\n\n` +
-              `Your ENS resolver needs to be upgraded to support profile pictures.\n\n` +
-              `This will change your ENS avatar and requires:\n` +
-              `1. Upgrade resolver to Public Resolver (one-time transaction)\n` +
-              `2. Set ENS avatar to: ${nft.name}\n\n` +
-              `You'll need to approve two transactions in your wallet.\n\n` +
-              `The transaction will be constructed using on-chain ENS data.\n\n` +
-              `Continue?`
-            )
-            
-            if (confirmed) {
-              return true
-            }
-            return false
+            // Show custom branded confirmation modal
+            return new Promise<boolean>((resolve) => {
+              setEnsConfirmMessage(
+                `Your ENS resolver needs to be upgraded to support profile pictures.\n\n` +
+                `This will change your ENS avatar and requires:\n` +
+                `1. Upgrade resolver to Public Resolver (one-time transaction)\n` +
+                `2. Set ENS avatar to the selected NFT\n\n` +
+                `You'll need to approve two transactions in your wallet.\n\n` +
+                `The transaction will be constructed using on-chain ENS data.`
+              )
+              setEnsConfirmNFTName(nft.name)
+              setEnsConfirmResolve(() => resolve)
+              setShowENSConfirm(true)
+            })
           }
           return true
         }
@@ -593,18 +603,37 @@ export default function ProfilePage() {
           {isOwnProfile && (
             <div className="absolute top-4 right-4 z-10">
               {isEditingHeader ? (
-                <div className="flex items-center gap-2">
-                  <label className="cursor-pointer bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2">
-                    <Upload className="w-4 h-4" />
-                    {isUploadingHeader ? "Uploading..." : "Upload Header"}
-                    <input
-                      type="file"
-                      accept=".webp,.webm,.mp4,.gif,.jpg,.jpeg,.png"
-                      onChange={handleHeaderMediaUpload}
-                      className="hidden"
-                      disabled={isUploadingHeader}
-                    />
-                  </label>
+                <div className="flex flex-col items-end gap-2">
+                  <div className="flex items-center gap-2">
+                    <label className="cursor-pointer bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2">
+                      <Upload className="w-4 h-4" />
+                      {isUploadingHeader ? "Uploading..." : "Upload Header"}
+                      <input
+                        type="file"
+                        accept=".webp,.webm,.mp4,.gif,.jpg,.jpeg,.png"
+                        onChange={handleHeaderMediaUpload}
+                        className="hidden"
+                        disabled={isUploadingHeader}
+                      />
+                    </label>
+                    {headerMedia && (
+                      <button
+                        onClick={handleRemoveHeaderMedia}
+                        className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition-colors"
+                      >
+                        Remove
+                      </button>
+                    )}
+                    <button
+                      onClick={() => setIsEditingHeader(false)}
+                      className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                  <p className="text-xs text-gray-400 text-right font-pt-mono max-w-xs">
+                    Max file size: 2MB • Supported: webp, webm, mp4, gif, jpg, png
+                  </p>
                   {headerMedia && (
                     <button
                       onClick={handleRemoveHeaderMedia}
@@ -1040,6 +1069,28 @@ export default function ProfilePage() {
           )}
         </AnimatePresence>
 
+        {/* ENS Confirmation Modal */}
+        <ENSConfirmationModal
+          isOpen={showENSConfirm}
+          onClose={() => {
+            setShowENSConfirm(false)
+            if (ensConfirmResolve) {
+              ensConfirmResolve(false)
+              setEnsConfirmResolve(null)
+            }
+          }}
+          onConfirm={() => {
+            setShowENSConfirm(false)
+            if (ensConfirmResolve) {
+              ensConfirmResolve(true)
+              setEnsConfirmResolve(null)
+            }
+          }}
+          title="Setting ENS Avatar"
+          message={ensConfirmMessage}
+          nftName={ensConfirmNFTName}
+          isLoading={isSettingAvatar}
+        />
       </div>
     </>
   )
