@@ -852,14 +852,16 @@ export default function LeaderboardPage() {
                 return (
                   <motion.div
                     key={i}
-                    className="absolute rounded-lg z-[5]"
+                    className="absolute z-[5]"
                     style={{
                       width: `${randomSize * 4}px`,
                       height: `${randomSize * 4}px`,
-                      background: `radial-gradient(circle, ${getRockColorRgba(recurrentColor, 1)} 0%, ${getRockColorRgba(recurrentColor, 0.7)} 50%, transparent 100%)`,
+                      borderRadius: '50%',
+                      background: `radial-gradient(circle, ${getRockColorRgba(recurrentColor, 1)} 0%, ${getRockColorRgba(recurrentColor, 0.8)} 30%, ${getRockColorRgba(recurrentColor, 0.5)} 50%, ${getRockColorRgba(recurrentColor, 0.2)} 70%, transparent 100%)`,
                       left: `${Math.max(5, Math.min(95, randomX))}%`,
                       top: `${Math.max(5, Math.min(95, randomY))}%`,
                       boxShadow: `0 0 ${randomSize * 4}px ${getRockColorRgba(recurrentColor, 0.9)}, 0 0 ${randomSize * 8}px ${getRockColorRgba(recurrentColor, 0.6)}`,
+                      filter: 'blur(0.5px)',
                     }}
                     animate={{
                       scale: [0, randomSize * 1.5, 0],
