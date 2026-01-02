@@ -338,10 +338,10 @@ export function SearchBar() {
       // Simulate network delay
       await new Promise((resolve) => setTimeout(resolve, 300))
 
-      // Search by ENS name
+      // Search by ENS name - exact match
       if (query.includes('.eth') || (query.length >= 3 && !queryTrimmedNumber)) {
         try {
-          // Try to resolve ENS name to address
+          // Try to resolve ENS name to address (exact match)
           const ensResponse = await fetch(`https://api.ensideas.com/ens/resolve/${query}`);
           if (ensResponse.ok) {
             const ensData = await ensResponse.json();
@@ -368,6 +368,135 @@ export function SearchBar() {
           }
         } catch (e) {
           // Ignore ENS resolution errors
+        }
+      }
+
+      // ENS name suggestions for partial names (3+ characters, no numbers, no .eth, not wallet address)
+      if (query.length >= 3 && !queryTrimmedNumber && !query.includes('.eth') && !query.startsWith('0x')) {
+        try {
+          const queryLower = query.toLowerCase();
+          const matchingENS: Array<{ name: string; address: string; data: any; priority: number }> = [];
+          
+          // Search through cached wallet data for ENS names matching the query
+          userWalletData.forEach((data, address) => {
+            if (data.ensName) {
+              const ensNameLower = data.ensName.toLowerCase();
+              
+              // Priority: exact match > starts with > contains
+              let priority = 3;
+              if (ensNameLower === queryLower) {
+                priority = 1; // Exact match
+              } else if (ensNameLower.startsWith(queryLower)) {
+                priority = 2; // Starts with
+              } else if (ensNameLower.includes(queryLower)) {
+                priority = 3; // Contains
+              } else {
+                return; // No match
+              }
+              
+              matchingENS.push({
+                name: data.ensName,
+                address: address,
+                data: data,
+                priority: priority
+              });
+            }
+          });
+
+          // Also search through a limited subset of NFT owners for ENS names (only if we have few cached results)
+          if (matchingENS.length < 5) {
+            const ownerENSResults: Array<{ name: string; address: string; priority: number }> = [];
+            const searchPromises = nftOwnersList.slice(0, 30).map(async (owner: string) => {
+              // Skip if already in cache
+              if (userWalletData.has(owner.toLowerCase())) return;
+              
+              try {
+                const ensResponse = await fetch(`https://api.ensideas.com/ens/resolve/${owner}`);
+                if (ensResponse.ok) {
+                  const ensData = await ensResponse.json();
+                  if (ensData?.name) {
+                    const ensNameLower = ensData.name.toLowerCase();
+                    
+                    // Priority: exact match > starts with > contains
+                    let priority = 3;
+                    if (ensNameLower === queryLower) {
+                      priority = 1;
+                    } else if (ensNameLower.startsWith(queryLower)) {
+                      priority = 2;
+                    } else if (ensNameLower.includes(queryLower)) {
+                      priority = 3;
+                    } else {
+                      return; // No match
+                    }
+                    
+                    ownerENSResults.push({
+                      name: ensData.name,
+                      address: owner.toLowerCase(),
+                      priority: priority
+                    });
+                  }
+                }
+              } catch (e) {
+                // Ignore individual ENS fetch errors
+              }
+            });
+
+            await Promise.all(searchPromises);
+            
+            // Add to matchingENS and fetch wallet data
+            for (const item of ownerENSResults) {
+              if (!matchingENS.some(e => e.address === item.address)) {
+                const walletData = await fetchUserWalletData(item.address);
+                matchingENS.push({
+                  name: item.name,
+                  address: item.address,
+                  data: walletData,
+                  priority: item.priority
+                });
+              }
+            }
+          }
+
+          // Sort by priority (exact > starts with > contains), then limit to 10
+          matchingENS
+            .sort((a, b) => {
+              if (a.priority !== b.priority) return a.priority - b.priority;
+              return a.name.localeCompare(b.name);
+            })
+            .slice(0, 10)
+            .forEach(ensMatch => {
+              const walletData = ensMatch.data;
+              
+              if (walletData) {
+                const descriptionParts: string[] = [];
+                if (walletData.oldRock) descriptionParts.push("Old Rock holder");
+                if (walletData.goliath) descriptionParts.push("Goliath holder");
+                if (walletData.density > 0) descriptionParts.push(`${walletData.density.toLocaleString()} $DENSITY`);
+                
+                mockResults.push({
+                  id: ensMatch.address,
+                  type: "profile",
+                  name: ensMatch.name,
+                  address: ensMatch.address,
+                  description: descriptionParts.length > 0 ? descriptionParts.join(" • ") : "Profile",
+                  image: "/placeholder.svg?height=100&width=100",
+                  collection: "Profile",
+                });
+              } else {
+                // Still show ENS name even if we don't have wallet data
+                mockResults.push({
+                  id: ensMatch.address,
+                  type: "profile",
+                  name: ensMatch.name,
+                  address: ensMatch.address,
+                  description: "ENS Profile",
+                  image: "/placeholder.svg?height=100&width=100",
+                  collection: "Profile",
+                });
+              }
+            });
+        } catch (e) {
+          // Ignore ENS suggestion errors
         }
       }
 
