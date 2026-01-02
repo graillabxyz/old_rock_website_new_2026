@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { getCachedData, setCachedData, isCacheStale, isRefreshing, getRefreshPromise, setRefreshPromise, setProgress } from "@/lib/leaderboard-cache"
+import { getCachedData, getCachedDataIncludingStale, setCachedData, isCacheStale, isRefreshing, getRefreshPromise, setRefreshPromise, setProgress } from "@/lib/leaderboard-cache"
 
 export const dynamic = "force-dynamic"
 
@@ -26,55 +26,69 @@ async function processBatch(
       const hasOldRock = oldRockNFTs.length > 0
       const hasGoliath = goliathNFTs.length > 0
 
-      // Fetch DENSITY balance with retry logic to handle rate limiting
-      let density = 0
-      let unextractedDensity = 0
-      const maxRetries = 3
-      let retryCount = 0
-      let lastError: Error | null = null
-      
-      while (retryCount < maxRetries) {
-        try {
-          // Add small delay to avoid rate limiting (increases with retries)
-          if (retryCount > 0) {
-            await new Promise((resolve) => setTimeout(resolve, 1000 * retryCount))
-          }
+          // Fetch DENSITY balance with retry logic to handle rate limiting and 500 errors
+          let density = 0
+          let unextractedDensity = 0
+          const maxRetries = 3
+          let retryCount = 0
+          let lastError: Error | null = null
           
-          const densityResponse = await fetch(`${amplifyApiUrl}/density/${address}`, {
-            cache: "no-store",
-            headers: {
-              "Accept": "application/json",
-            },
-          })
-          
-          if (densityResponse.ok) {
-            const densityData = await densityResponse.json()
-            density = parseFloat(densityData?.data?.amount || "0") || 0
-            unextractedDensity = parseFloat(densityData?.data?.amountUnclaimed || "0") || 0
-            break // Success, exit retry loop
-          } else if (densityResponse.status === 429 || densityResponse.status === 503) {
-            // Rate limited or service unavailable - retry
-            retryCount++
-            lastError = new Error(`Rate limited (${densityResponse.status})`)
-            if (retryCount < maxRetries) {
-              continue
+          while (retryCount < maxRetries) {
+            try {
+              // Add exponential backoff delay to avoid rate limiting
+              if (retryCount > 0) {
+                const delay = Math.min(1000 * Math.pow(2, retryCount - 1), 5000) // 1s, 2s, 4s max
+                await new Promise((resolve) => setTimeout(resolve, delay))
+              }
+              
+              const densityResponse = await fetch(`${amplifyApiUrl}/density/${address}`, {
+                cache: "no-store",
+                headers: {
+                  "Accept": "application/json",
+                },
+                // Add timeout to prevent hanging
+                signal: AbortSignal.timeout(10000), // 10 second timeout
+              })
+              
+              if (densityResponse.ok) {
+                const densityData = await densityResponse.json()
+                density = parseFloat(densityData?.data?.amount || "0") || 0
+                unextractedDensity = parseFloat(densityData?.data?.amountUnclaimed || "0") || 0
+                break // Success, exit retry loop
+              } else if (densityResponse.status === 429 || densityResponse.status === 503 || densityResponse.status === 500) {
+                // Rate limited, service unavailable, or server error - retry
+                retryCount++
+                lastError = new Error(`API error (${densityResponse.status})`)
+                if (retryCount < maxRetries) {
+                  continue
+                }
+              } else if (densityResponse.status === 404) {
+                // Address not found - not an error, just no density
+                break
+              } else {
+                // Other error (4xx except 404) - log but don't retry
+                console.warn(`DENSITY query failed for ${address}: ${densityResponse.status}`)
+                break
+              }
+            } catch (e) {
+              retryCount++
+              // Handle timeout and network errors
+              if (e instanceof Error && (e.name === 'AbortError' || e.name === 'TimeoutError')) {
+                lastError = new Error(`Request timeout for ${address}`)
+              } else {
+                lastError = e instanceof Error ? e : new Error(String(e))
+              }
+              if (retryCount >= maxRetries) {
+                // Silently fail - we'll use 0 density which is fine
+                // Don't log every failure to avoid spam
+                if (retryCount === maxRetries && Math.random() < 0.1) { // Log 10% of failures
+                  console.warn(`DENSITY query failed after ${maxRetries} retries for ${address}:`, lastError.message)
+                }
+              }
             }
-          } else if (densityResponse.status === 404) {
-            // Address not found - not an error, just no density
-            break
-          } else {
-            // Other error - log but don't retry
-            console.warn(`DENSITY query failed for ${address}: ${densityResponse.status}`)
-            break
           }
-        } catch (e) {
-          retryCount++
-          lastError = e instanceof Error ? e : new Error(String(e))
-          if (retryCount >= maxRetries) {
-            console.warn(`DENSITY query failed after ${maxRetries} retries for ${address}:`, lastError.message)
-          }
-        }
-      }
+          
+          // If all retries failed, use 0 density (user still appears if they have NFTs)
 
       // Fetch ENS name
       let ensName: string | undefined
@@ -270,6 +284,7 @@ async function fetchTopUsersFast(limit: number, amplifyApiUrl: string): Promise<
   // Step 1: Try to get DENSITY holders list (if endpoint exists)
   let densityHolders: string[] = []
   try {
+    console.log(`📡 Fetching DENSITY holders from ${amplifyApiUrl}/density/holders`)
     const densityHoldersResponse = await fetch(`${amplifyApiUrl}/density/holders`, {
       cache: "no-store",
     })
@@ -277,18 +292,23 @@ async function fetchTopUsersFast(limit: number, amplifyApiUrl: string): Promise<
       const densityData = await densityHoldersResponse.json()
       densityHolders = densityData?.data || densityData?.holders || []
       console.log(`✅ Found ${densityHolders.length} DENSITY holders`)
+    } else {
+      console.warn(`⚠️ DENSITY holders endpoint returned ${densityHoldersResponse.status}`)
     }
   } catch (error) {
-    console.log("ℹ️ DENSITY holders endpoint not available")
+    console.warn("ℹ️ DENSITY holders endpoint not available:", error instanceof Error ? error.message : error)
   }
   
   // Step 2: Process DENSITY holders first (they're most likely to be top ranked)
   // Process in smaller batches for speed
   const densityBatchSize = 20
   const densityBatches: string[][] = []
-  for (let i = 0; i < Math.min(densityHolders.length, limit * 2); i += densityBatchSize) {
+  const maxDensityHoldersToProcess = Math.min(densityHolders.length, limit * 2)
+  for (let i = 0; i < maxDensityHoldersToProcess; i += densityBatchSize) {
     densityBatches.push(densityHolders.slice(i, i + densityBatchSize))
   }
+  
+  console.log(`🔄 Processing ${densityBatches.length} batches of DENSITY holders (max ${maxDensityHoldersToProcess} addresses)`)
   
   for (const batch of densityBatches) {
     const batchResults = await Promise.allSettled(
@@ -416,8 +436,13 @@ async function fetchLeaderboardData(): Promise<any[]> {
   const amplifyApiUrl = process.env.NEXT_PUBLIC_AMPLIFY_API_URL
 
   if (!amplifyApiUrl) {
-    throw new Error("Amplify API URL not configured")
+    console.error("❌ NEXT_PUBLIC_AMPLIFY_API_URL environment variable is not set")
+    console.error("Available env vars:", Object.keys(process.env).filter(k => k.includes('AMPLIFY')).join(', ') || 'none')
+    console.error("Please set NEXT_PUBLIC_AMPLIFY_API_URL in your .env.local file")
+    throw new Error("Amplify API URL not configured. Please set NEXT_PUBLIC_AMPLIFY_API_URL environment variable.")
   }
+  
+  console.log("✅ Using Amplify API URL:", amplifyApiUrl.replace(/\/$/, '')) // Log without trailing slash
 
   console.log("🔄 Starting leaderboard data fetch...")
 
@@ -482,13 +507,11 @@ async function fetchLeaderboardData(): Promise<any[]> {
   for (let i = 0; i < batches.length; i++) {
     const batch = batches[i]
     
-    // Update progress
-    setProgress(allResults.length, uniqueAddresses.length, i + 1, batches.length)
-    
     const batchResults = await processBatch(batch, amplifyApiUrl, i + 1, batches.length)
     allResults.push(...batchResults)
     
-    // Update progress after batch completes
+    // Update progress after batch completes - calculate based on batches processed
+    const progressPercent = Math.min(95, Math.round(((i + 1) / batches.length) * 100))
     setProgress(allResults.length, uniqueAddresses.length, i + 1, batches.length)
     
     // Longer delay between batches to avoid rate limiting on DENSITY queries
@@ -498,13 +521,16 @@ async function fetchLeaderboardData(): Promise<any[]> {
       await new Promise((resolve) => setTimeout(resolve, delay))
     }
   }
-
+  
   // Count addresses with successful DENSITY queries
   const addressesWithDensity = allResults.filter(r => r.totalDensity > 0).length
   const addressesWithNFTs = allResults.filter(r => r.hasOldRock || r.hasGoliath).length
   
   console.log(`✅ Processed ${allResults.length} valid leaderboard entries from ${uniqueAddresses.length} addresses`)
   console.log(`📊 Summary: ${addressesWithDensity} with $DENSITY, ${addressesWithNFTs} with NFTs`)
+  
+  // Final progress update - set to 100% when complete (after sorting)
+  setProgress(allResults.length, uniqueAddresses.length, batches.length, batches.length)
 
   // Sort by ranking score
   const leaderboard = allResults.sort((a, b) => {
@@ -536,16 +562,45 @@ export async function GET(request: NextRequest) {
       try {
         const amplifyApiUrl = process.env.NEXT_PUBLIC_AMPLIFY_API_URL
         if (!amplifyApiUrl) {
-          console.error("❌ Amplify API URL not configured")
-          throw new Error("Amplify API URL not configured")
+          console.error("❌ NEXT_PUBLIC_AMPLIFY_API_URL environment variable is not set")
+          console.error("Available env vars:", Object.keys(process.env).filter(k => k.includes('AMPLIFY')).join(', ') || 'none')
+          console.error("Please set NEXT_PUBLIC_AMPLIFY_API_URL in your .env.local file")
+          // Return empty array instead of throwing to allow graceful degradation
+          return NextResponse.json({
+            success: true,
+            data: [],
+            cached: false,
+            fast: true,
+            total: 0,
+            error: "Amplify API URL not configured. Please set NEXT_PUBLIC_AMPLIFY_API_URL environment variable.",
+          })
         }
+        
+        console.log("✅ Fast mode using Amplify API URL:", amplifyApiUrl.replace(/\/$/, ''))
         
         console.log(`🚀 Fast mode: Fetching top ${limit} users...`)
         const topUsers = await fetchTopUsersFast(limit, amplifyApiUrl)
         console.log(`✅ Fast mode: Got ${topUsers.length} users`)
         
         if (topUsers.length === 0) {
-          console.warn("⚠️ Fast mode returned 0 users, falling back to full query")
+          console.warn("⚠️ Fast mode returned 0 users, checking cache and falling back to full query")
+          // Check if we have cached data first
+          const cachedData = getCachedDataIncludingStale()
+          if (cachedData && cachedData.length > 0) {
+            console.log(`✅ Using ${cachedData.length} cached entries instead`)
+            const paginatedCached = limit > 0 ? cachedData.slice(offset, offset + limit) : cachedData
+            return NextResponse.json({
+              success: true,
+              data: paginatedCached,
+              cached: true,
+              stale: isCacheStale(),
+              paginated: limit > 0,
+              offset: limit > 0 ? offset : undefined,
+              limit: limit > 0 ? limit : undefined,
+              total: cachedData.length,
+              fast: true,
+            })
+          }
           // Fall through to regular query
         } else {
           // Add rank, ENS names, and badges (lightweight)
@@ -589,9 +644,12 @@ export async function GET(request: NextRequest) {
       }
     }
     
-    // Check cache first
+    // Check cache first (including stale cache as fallback)
     const cachedData = getCachedData()
     const cacheStale = isCacheStale()
+    const staleCachedData = getCachedDataIncludingStale()
+    
+    console.log(`📦 Cache status: fresh=${!!cachedData}, stale=${cacheStale}, staleData=${!!staleCachedData}, staleDataLength=${staleCachedData?.length || 0}`)
 
     // If we have fresh cached data and not forcing refresh, return it
     if (cachedData && !cacheStale && !forceRefresh) {
@@ -620,33 +678,68 @@ export async function GET(request: NextRequest) {
     if (isRefreshing()) {
       const refreshPromise = getRefreshPromise()
       if (refreshPromise) {
-        // Wait for existing refresh to complete
+        // Wait for existing refresh to complete (with timeout)
         try {
-          const freshData = await refreshPromise
+          const freshData = await Promise.race([
+            refreshPromise,
+            new Promise<any[]>((_, reject) => 
+              setTimeout(() => reject(new Error("Refresh timeout")), 30000) // 30s timeout - return stale cache if refresh takes too long
+            )
+          ])
+          
+          // Apply pagination if requested
+          if (limit > 0) {
+            const paginatedData = freshData.slice(offset, offset + limit)
+            return NextResponse.json({
+              success: true,
+              data: paginatedData,
+              cached: false,
+              paginated: true,
+              offset,
+              limit,
+              total: freshData.length,
+            })
+          }
+          
           return NextResponse.json({
             success: true,
             data: freshData,
             cached: false,
           })
         } catch (error) {
-          // If refresh failed, return stale cache if available
-          if (cachedData) {
+          // If refresh failed or timed out, return stale cache if available
+          const staleData = getCachedDataIncludingStale()
+          if (staleData && staleData.length > 0) {
+            const paginatedStale = limit > 0 ? staleData.slice(offset, offset + limit) : staleData
+            console.log(`⚠️ Refresh failed/timed out, returning ${paginatedStale.length} stale entries`)
             return NextResponse.json({
               success: true,
-              data: cachedData,
+              data: paginatedStale,
               cached: true,
               stale: true,
+              paginated: limit > 0,
+              offset: limit > 0 ? offset : undefined,
+              limit: limit > 0 ? limit : undefined,
+              total: staleData.length,
             })
           }
-          throw error
+          // If no stale cache, return empty array instead of throwing
+          console.error("❌ No cache available and refresh failed:", error instanceof Error ? error.message : error)
+          return NextResponse.json({
+            success: true,
+            data: [],
+            cached: false,
+            error: error instanceof Error ? error.message : "Failed to load leaderboard",
+            total: 0,
+          })
         }
       }
     }
 
-    // Start new refresh (non-blocking if we have stale cache)
+    // Start new refresh
     const refreshPromise = fetchLeaderboardData()
-      .then((data) => {
-        setCachedData(data)
+      .then(async (data) => {
+        await setCachedData(data)
         return data
       })
       .catch((error) => {
@@ -661,58 +754,91 @@ export async function GET(request: NextRequest) {
       // Don't await - let it refresh in background
       refreshPromise.catch((error) => {
         console.error("Background refresh failed:", error)
+        // Keep stale cache on error
       })
+      
+      const staleData = limit > 0 ? staleCachedData.slice(offset, offset + limit) : staleCachedData
+      console.log(`✅ Returning ${staleData.length} stale entries while refreshing in background`)
       return NextResponse.json({
         success: true,
-        data: cachedData,
+        data: staleData,
         cached: true,
         stale: true,
         refreshing: true,
+        paginated: limit > 0,
+        offset: limit > 0 ? offset : undefined,
+        limit: limit > 0 ? limit : undefined,
+        total: staleCachedData.length,
       })
     }
 
-    // No cache available, wait for fresh data
-    const freshData = await refreshPromise
-    
-    // Apply pagination if requested
-    if (limit > 0) {
-      const paginatedData = freshData.slice(offset, offset + limit)
+    // No cache available, wait for fresh data (with shorter timeout for initial load)
+    try {
+      const freshData = await Promise.race([
+        refreshPromise,
+        new Promise<any[]>((_, reject) => 
+          setTimeout(() => reject(new Error("Request timeout - leaderboard data fetch took too long")), 30000) // 30s timeout for initial load
+        )
+      ])
+      
+      // Apply pagination if requested
+      if (limit > 0) {
+        const paginatedData = freshData.slice(offset, offset + limit)
+        return NextResponse.json({
+          success: true,
+          data: paginatedData,
+          cached: false,
+          paginated: true,
+          offset,
+          limit,
+          total: freshData.length,
+        })
+      }
+      
       return NextResponse.json({
         success: true,
-        data: paginatedData,
+        data: freshData,
         cached: false,
-        paginated: true,
-        offset,
-        limit,
-        total: freshData.length,
+      })
+    } catch (timeoutError) {
+      // Timeout occurred - return empty array instead of failing
+      console.error("⚠️ Leaderboard fetch timed out, returning empty result")
+      return NextResponse.json({
+        success: true,
+        data: [],
+        cached: false,
+        error: "Request timeout - please try again",
+        total: 0,
       })
     }
-    
-    return NextResponse.json({
-      success: true,
-      data: freshData,
-      cached: false,
-    })
   } catch (error) {
     console.error("Error fetching leaderboard:", error)
-    // Try to return stale cache as fallback
-    const cachedData = getCachedData()
-    if (cachedData) {
+    // Try to return stale cache as fallback (even if stale)
+    const staleData = getCachedDataIncludingStale()
+    if (staleData) {
+      const paginatedStale = limit > 0 ? staleData.slice(offset, offset + limit) : staleData
       return NextResponse.json({
         success: true,
-        data: cachedData,
+        data: paginatedStale,
         cached: true,
         stale: true,
         error: "Failed to refresh, using cached data",
+        paginated: limit > 0,
+        offset: limit > 0 ? offset : undefined,
+        limit: limit > 0 ? limit : undefined,
+        total: staleData.length,
       })
     }
-    return NextResponse.json(
-      {
-        success: false,
-        error: error instanceof Error ? error.message : "Unknown error",
-      },
-      { status: 500 }
-    )
+    // Last resort: return empty array instead of 500 error to prevent page from getting stuck
+    console.error("❌ All fallbacks failed, returning empty leaderboard")
+    const errorMessage = error instanceof Error ? error.message : "Unknown error"
+    return NextResponse.json({
+      success: true,
+      data: [],
+      cached: false,
+      error: errorMessage,
+      total: 0,
+    })
   }
 }
 

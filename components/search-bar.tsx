@@ -193,21 +193,32 @@ export function SearchBar() {
     }
     
     try {
-      // Fetch user NFTs
-      const nftResponse = await fetch(`${process.env.NEXT_PUBLIC_AMPLIFY_API_URL}/nfts/${address}`);
-      if (!nftResponse.ok) return null;
-      
-      const nftData = await nftResponse.json();
-      const hasOldRock = (nftData?.data?.OldRocks?.length || 0) > 0;
-      const hasGoliath = (nftData?.data?.Goliath?.length || 0) > 0;
-      
-      // Fetch DENSITY balance
+      // Fetch user NFTs and density through API route to avoid CORS
+      let hasOldRock = false;
+      let hasGoliath = false;
       let density = 0;
+      
       try {
-        const densityResponse = await fetch(`${process.env.NEXT_PUBLIC_AMPLIFY_API_URL}/density/${address}`);
+        const nftResponse = await fetch(`/api/nfts?action=user-data&walletAddress=${address}`);
+        if (nftResponse.ok) {
+          const nftData = await nftResponse.json();
+          if (nftData.success && nftData.data) {
+            hasOldRock = (nftData.data.OldRocks?.length || 0) > 0;
+            hasGoliath = (nftData.data.Goliath?.length || 0) > 0;
+          }
+        }
+      } catch (e) {
+        // Ignore NFT fetch errors
+      }
+      
+      // Fetch DENSITY balance through API route
+      try {
+        const densityResponse = await fetch(`/api/nfts?action=user-density&walletAddress=${address}`);
         if (densityResponse.ok) {
           const densityData = await densityResponse.json();
-          density = parseFloat(densityData?.data?.amount || "0") || 0;
+          if (densityData.success && densityData.data) {
+            density = parseFloat(densityData.data.amount || "0") || 0;
+          }
         }
       } catch (e) {
         // Ignore density fetch errors
@@ -257,29 +268,48 @@ export function SearchBar() {
   useEffect(() => {
     async function fetchGoliathCollectionLimit() {
       try {
+        // Check if metadata service URL is configured
+        if (!process.env.NEXT_PUBLIC_METADATA_SERVICE_URL) {
+          console.warn("NEXT_PUBLIC_METADATA_SERVICE_URL not configured, skipping Goliath limit fetch");
+          return;
+        }
+        
         const response = await fetch(`${process.env.NEXT_PUBLIC_METADATA_SERVICE_URL}/goliath/limit`);
 
-        if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+        if (!response.ok) {
+          console.warn(`Could not fetch Goliath collection limit: ${response.status}`);
+          return;
+        }
 
         const data = await response.json();
 
         setGoliathCollectionLimit(data.limit);
       } catch (e) {
-        console.dir(e);
+        // Silently fail - not critical for search functionality
+        console.warn("Could not fetch Goliath collection limit:", e);
       }
     }
 
     async function fetchNftOwnersList() {
       try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_AMPLIFY_API_URL}/nfts/owners`);
+        // Use API route to avoid CORS issues
+        const response = await fetch("/api/leaderboard?limit=0"); // Get all users for search index
+        
+        if (!response.ok) {
+          // If leaderboard fails, try to get from cache or skip
+          console.warn("Could not fetch NFT owners list from leaderboard");
+          return;
+        }
 
-        if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
-
-        const data = await response.json();
-
-        setNftOwnersList(data.data || []);
+        const result = await response.json();
+        if (result.success && result.data) {
+          // Extract addresses from leaderboard data
+          const addresses = result.data.map((user: any) => user.address);
+          setNftOwnersList(addresses);
+        }
       } catch (e) {
-        console.dir(e);
+        // Silently fail - search will still work with leaderboard data
+        console.warn("Could not fetch NFT owners list:", e);
       }
     }
 
