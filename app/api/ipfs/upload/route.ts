@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 
-const MAX_FILE_SIZE = 100 * 1024 * 1024 // 100MB
+const MAX_FILE_SIZE = 2 * 1024 * 1024 // 2MB for banner uploads
 
 export async function POST(request: NextRequest) {
   try {
@@ -31,61 +31,59 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Try web3.storage first
-    const WEB3_STORAGE_TOKEN = process.env.WEB3_STORAGE_TOKEN
-    if (WEB3_STORAGE_TOKEN) {
-      try {
-        const uploadFormData = new FormData()
-        uploadFormData.append("file", file)
-
-        const response = await fetch("https://api.web3.storage/upload", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${WEB3_STORAGE_TOKEN}`,
-          },
-          body: uploadFormData,
-        })
-
-        if (response.ok) {
-          const data = await response.json()
-          return NextResponse.json({ success: true, cid: data.cid })
-        }
-      } catch (error) {
-        console.error("Web3.storage upload failed:", error)
-      }
+    // Use NFT.Storage for IPFS uploads
+    const NFT_STORAGE_TOKEN = process.env.NFT_STORAGE_TOKEN
+    
+    if (!NFT_STORAGE_TOKEN) {
+      return NextResponse.json(
+        { success: false, error: "IPFS upload service not configured. NFT_STORAGE_TOKEN is missing." },
+        { status: 500 }
+      )
     }
 
-    // Fallback to Pinata
-    const PINATA_API_KEY = process.env.PINATA_API_KEY
-    const PINATA_SECRET_KEY = process.env.PINATA_SECRET_KEY
+    try {
+      // NFT.Storage API endpoint
+      // The API key format is: {key}.{secret}
+      // We'll use it directly as the bearer token
+      const uploadFormData = new FormData()
+      uploadFormData.append("file", file)
 
-    if (PINATA_API_KEY && PINATA_SECRET_KEY) {
-      try {
-        const uploadFormData = new FormData()
-        uploadFormData.append("file", file)
+      const response = await fetch("https://api.nft.storage/upload", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${NFT_STORAGE_TOKEN}`,
+        },
+        body: uploadFormData,
+      })
 
-        const response = await fetch("https://api.pinata.cloud/pinning/pinFileToIPFS", {
-          method: "POST",
-          headers: {
-            pinata_api_key: PINATA_API_KEY,
-            pinata_secret_api_key: PINATA_SECRET_KEY,
-          },
-          body: uploadFormData,
-        })
-
-        if (response.ok) {
-          const data = await response.json()
-          return NextResponse.json({ success: true, cid: data.IpfsHash })
-        }
-      } catch (error) {
-        console.error("Pinata upload failed:", error)
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error("NFT.Storage upload failed:", response.status, errorText)
+        throw new Error(`NFT.Storage upload failed: ${response.statusText}`)
       }
-    }
 
-    return NextResponse.json(
-      { success: false, error: "IPFS upload service not configured. Please set WEB3_STORAGE_TOKEN or Pinata credentials." },
-      { status: 500 }
-    )
+      const data = await response.json()
+      // NFT.Storage returns the CID in data.value.cid (v1 format)
+      // or directly as data.cid (v0 format)
+      let cid = data.value?.cid || data.cid
+      
+      // If cid is an object, extract the string value
+      if (cid && typeof cid === 'object') {
+        cid = cid['/'] || cid.toString()
+      }
+      
+      if (!cid) {
+        throw new Error("No CID returned from NFT.Storage")
+      }
+
+      return NextResponse.json({ success: true, cid: String(cid) })
+    } catch (error: any) {
+      console.error("NFT.Storage upload error:", error)
+      return NextResponse.json(
+        { success: false, error: error?.message || "Failed to upload to IPFS" },
+        { status: 500 }
+      )
+    }
   } catch (error: any) {
     console.error("Error uploading to IPFS:", error)
     return NextResponse.json(
