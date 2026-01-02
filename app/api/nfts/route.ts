@@ -98,7 +98,8 @@ async function verifySocial(request: NextRequest) {
 async function fetchUserData(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
-    const walletAddress = searchParams.get("walletAddress")
+    // Support both 'walletAddress' and 'address' parameters for compatibility
+    const walletAddress = searchParams.get("walletAddress") || searchParams.get("address")
 
     if (!walletAddress) {
       return NextResponse.json({ success: false, error: "Wallet address required" }, { status: 400 })
@@ -148,12 +149,39 @@ async function fetchUserData(request: NextRequest) {
     const data = await response.json()
     console.log("✅ Amplify API service response received, processing user data...")
 
+    // Also fetch NFT data for badge calculation
+    let oldRockNFTs: any[] = []
+    let goliathNFTs: any[] = []
+    try {
+      const nftResponse = await fetch(
+        `${process.env.NEXT_PUBLIC_AMPLIFY_API_URL}/nfts/${walletAddress}`,
+        {
+          cache: "no-store",
+          headers: {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+          },
+        },
+      )
+      
+      if (nftResponse.ok) {
+        const nftData = await nftResponse.json()
+        oldRockNFTs = nftData?.data?.OldRocks || []
+        goliathNFTs = nftData?.data?.Goliath || []
+      }
+    } catch (error) {
+      console.warn(`⚠️ Failed to fetch NFT data for ${walletAddress}:`, error)
+      // Continue without NFT data - badges will just show density badges
+    }
+
     return NextResponse.json({
       success: true,
       data: {
         ensName: data?.data?.ensName,
         discord: !!data?.data?.social?.discord,
         x: !!data?.data?.social?.x,
+        OldRocks: oldRockNFTs,
+        Goliath: goliathNFTs,
       },
     })
   } catch (error) {
@@ -168,7 +196,8 @@ async function fetchUserData(request: NextRequest) {
 async function fetchUserDensity(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
-    const walletAddress = searchParams.get("walletAddress")
+    // Support both 'walletAddress' and 'address' parameters for compatibility
+    const walletAddress = searchParams.get("walletAddress") || searchParams.get("address")
 
     if (!walletAddress) {
       return NextResponse.json({ success: false, error: "Wallet address required" }, { status: 400 })

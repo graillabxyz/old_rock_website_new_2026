@@ -432,7 +432,22 @@ function calculateRockBadges(oldRockNFTs: any[]): Badge[] {
       unlocked: true,
       description: "Owns Recurrent reactive",
       icon: "recurrent-reactor",
-      rockColor: reactiveToColor["Recurrent"] || reactiveToColor[Array.from(reactiveTypes).find(r => r.includes("Recurrent")) || ""] || "#E0115F",
+      // Get all Recurrent colors and pick one at random if multiple
+      rockColor: (() => {
+        const recurrentColors = Array.from(reactiveTypes)
+          .filter(r => r.includes("Recurrent"))
+          .map(r => reactiveToColor[r])
+          .filter(c => c) // Remove undefined
+        
+        if (recurrentColors.length > 0) {
+          // Pick random color if multiple, otherwise use the first one
+          return recurrentColors[Math.floor(Math.random() * recurrentColors.length)]
+        } else {
+          // Fallback to any reactive color that includes "Recurrent"
+          const fallbackColor = reactiveToColor[Array.from(reactiveTypes).find(r => r.includes("Recurrent")) || ""]
+          return fallbackColor || "#E0115F"
+        }
+      })(),
     })
   } else {
     badges.push({
@@ -469,6 +484,8 @@ function calculateRockBadges(oldRockNFTs: any[]): Badge[] {
 
   // C. Rock DENSITY Rarity
   const densityTypes = new Set<string>()
+  const densityToColor: { [key: string]: string } = {} // Map density type to rock color
+  
   oldRockNFTs.forEach((nft) => {
     // Attributes are accessed as object properties (attributes.Density)
     // Can be: string, object with .value, or array
@@ -484,7 +501,15 @@ function calculateRockBadges(oldRockNFTs: any[]): Badge[] {
       } else {
         densityValue = String(density)
       }
-      if (densityValue) densityTypes.add(densityValue)
+      if (densityValue) {
+        densityTypes.add(densityValue)
+        
+        // Get the rock's color and store it for this density type
+        const rockColor = getRockColor(nft)
+        if (rockColor && !densityToColor[densityValue]) {
+          densityToColor[densityValue] = rockColor
+        }
+      }
     }
   })
 
@@ -494,6 +519,7 @@ function calculateRockBadges(oldRockNFTs: any[]): Badge[] {
 
   // Show all density tiers (unlocked and locked)
   if (hasLow) {
+    const lowDensityColor = densityToColor["Low"] || densityToColor[Array.from(densityTypes).find(d => d.includes("Low")) || ""] || "#8B4513"
     badges.push({
       id: "rock-low-density-core",
       name: "Low Density Core",
@@ -502,6 +528,7 @@ function calculateRockBadges(oldRockNFTs: any[]): Badge[] {
       unlocked: true,
       description: "Owns Low density",
       icon: "low-density-core",
+      rockColor: lowDensityColor,
     })
   } else {
     badges.push({
@@ -515,6 +542,7 @@ function calculateRockBadges(oldRockNFTs: any[]): Badge[] {
     })
   }
   if (hasMedium) {
+    const mediumDensityColor = densityToColor["Medium"] || densityToColor[Array.from(densityTypes).find(d => d.includes("Medium")) || ""] || "#FFB000"
     badges.push({
       id: "rock-medium-density-core",
       name: "Medium Density Core",
@@ -523,6 +551,7 @@ function calculateRockBadges(oldRockNFTs: any[]): Badge[] {
       unlocked: true,
       description: "Owns Medium density",
       icon: "medium-density-core",
+      rockColor: mediumDensityColor,
     })
   } else {
     badges.push({
@@ -536,6 +565,7 @@ function calculateRockBadges(oldRockNFTs: any[]): Badge[] {
     })
   }
   if (hasHigh) {
+    const highDensityColor = densityToColor["High"] || densityToColor[Array.from(densityTypes).find(d => d.includes("High")) || ""] || "#3B82F6"
     badges.push({
       id: "rock-high-density-core",
       name: "High Density Core",
@@ -544,6 +574,7 @@ function calculateRockBadges(oldRockNFTs: any[]): Badge[] {
       unlocked: true,
       description: "Owns High density",
       icon: "high-density-core",
+      rockColor: highDensityColor,
     })
   } else {
     badges.push({
@@ -940,35 +971,45 @@ function calculateGoliathBadges(goliathNFTs: any[]): Badge[] {
   const goliathColors = new Set<string>()
   goliathNFTs.forEach((nft) => {
     // Attributes can be in different formats:
-    // 1. Array format: nft.attributes = [{ trait_type: "Type", value: "Yellow" }]
-    // 2. Object format: nft.attributes = { Type: "Yellow" } or { Type: { value: "Yellow" } }
-    // 3. Direct property: nft.attributes.Type
+    // 1. Array format: nft.attributes = [{ trait_type: "Goliath", value: "Yellow" }]
+    // 2. Object format: nft.attributes = { Goliath: "Yellow" } or { Goliath: { value: "Yellow" } }
+    // 3. Also check Type as fallback
     
-    let typeAttr: any = null
+    let colorAttr: any = null
     
     // Try array format first (most common from API)
     if (Array.isArray(nft.attributes)) {
-      const typeAttrObj = nft.attributes.find((attr: any) => 
-        attr && (attr.trait_type === "Type" || attr.trait_type === "type" || attr.trait_type === "TYPE")
+      // First try "Goliath" attribute (primary)
+      const goliathAttrObj = nft.attributes.find((attr: any) => 
+        attr && (attr.trait_type === "Goliath" || attr.trait_type === "goliath" || attr.trait_type === "GOLIATH")
       )
-      if (typeAttrObj && typeAttrObj.value) {
-        typeAttr = typeAttrObj.value
+      if (goliathAttrObj && goliathAttrObj.value) {
+        colorAttr = goliathAttrObj.value
+      } else {
+        // Fallback to "Type" attribute
+        const typeAttrObj = nft.attributes.find((attr: any) => 
+          attr && (attr.trait_type === "Type" || attr.trait_type === "type" || attr.trait_type === "TYPE")
+        )
+        if (typeAttrObj && typeAttrObj.value) {
+          colorAttr = typeAttrObj.value
+        }
       }
     } else if (nft.attributes) {
-      // Try object format
-      typeAttr = nft.attributes.Type || nft.attributes.type || nft.attributes.TYPE
+      // Try object format - check "Goliath" first, then "Type" as fallback
+      colorAttr = nft.attributes.Goliath || nft.attributes.goliath || nft.attributes.GOLIATH ||
+                  nft.attributes.Type || nft.attributes.type || nft.attributes.TYPE
     }
     
-    if (typeAttr) {
+    if (colorAttr) {
       let color: string
-      if (typeof typeAttr === 'string') {
-        color = typeAttr
-      } else if (typeAttr?.value) {
-        color = typeAttr.value
-      } else if (Array.isArray(typeAttr) && typeAttr.length > 0) {
-        color = typeAttr[0]?.value || typeAttr[0] || String(typeAttr[0])
+      if (typeof colorAttr === 'string') {
+        color = colorAttr
+      } else if (colorAttr?.value) {
+        color = colorAttr.value
+      } else if (Array.isArray(colorAttr) && colorAttr.length > 0) {
+        color = colorAttr[0]?.value || colorAttr[0] || String(colorAttr[0])
       } else {
-        color = String(typeAttr)
+        color = String(colorAttr)
       }
       // Normalize color name (capitalize first letter)
       if (color) {
@@ -1162,11 +1203,13 @@ function calculatePrestigeBadges(data: BadgeData): Badge[] {
   const { totalDensity, oldRockNFTs, goliathNFTs } = data
 
   // A. Density Aligned
-  if (totalDensity > 0 && oldRockNFTs.length >= 1 && goliathNFTs.length >= 1) {
+  // Requires: Any $DENSITY balance (> 0), at least 1 Rock, and at least 1 Goliath
+  if (totalDensity >= 0.01 && oldRockNFTs.length >= 1 && goliathNFTs.length >= 1) {
     badges.push({
       id: "prestige-density-aligned",
       name: "Density Aligned",
       category: "Prestige",
+      tier: 1,
       unlocked: true,
       description: "Holds $DENSITY, owns ≥ 1 Rock, owns ≥ 1 Goliath",
       icon: "density-aligned",
@@ -1176,6 +1219,7 @@ function calculatePrestigeBadges(data: BadgeData): Badge[] {
       id: "prestige-density-aligned-locked",
       name: "Density Aligned",
       category: "Prestige",
+      tier: 1,
       unlocked: false,
       description: "Holds $DENSITY, owns ≥ 1 Rock, owns ≥ 1 Goliath",
       icon: "density-aligned",
@@ -1188,6 +1232,7 @@ function calculatePrestigeBadges(data: BadgeData): Badge[] {
       id: "prestige-ecosystem-pillar",
       name: "Ecosystem Pillar",
       category: "Prestige",
+      tier: 2,
       unlocked: true,
       description: "≥ 10,000 $DENSITY, ≥ 3 Rocks, ≥ 2 Goliaths",
       icon: "ecosystem-pillar",
@@ -1197,6 +1242,7 @@ function calculatePrestigeBadges(data: BadgeData): Badge[] {
       id: "prestige-ecosystem-pillar-locked",
       name: "Ecosystem Pillar",
       category: "Prestige",
+      tier: 2,
       unlocked: false,
       description: "≥ 10,000 $DENSITY, ≥ 3 Rocks, ≥ 2 Goliaths",
       icon: "ecosystem-pillar",

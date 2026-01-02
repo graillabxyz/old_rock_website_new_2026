@@ -3648,7 +3648,7 @@ export default function StoneboundSoulsPage() {
               <div
                 className="absolute inset-0 bg-cover bg-center"
                 style={{
-                  backgroundImage: `url('/images/stonebound-souls-overview-bg.jpg')`,
+                  backgroundImage: `url('/SBSbg.webp')`,
                 }}
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-black/30" />

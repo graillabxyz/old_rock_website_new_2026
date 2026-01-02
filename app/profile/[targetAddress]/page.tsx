@@ -192,13 +192,41 @@ export default function ProfilePage() {
           totalDensity = parseFloat(densityResult.data.amount?.toString() || "0") || 0
         }
 
-        // Calculate badges using actual data
-        const badges = calculateAllBadges({
-          totalDensity,
-          oldRockNFTs: nftResult.oldRockNFTs || [],
-          goliathNFTs: nftResult.goliathNFTs || [],
-        })
-        setUserBadges(badges)
+        // Fetch badges from centralized API
+        try {
+          const badgeResponse = await fetch(`/api/badges?address=${address}`)
+          if (badgeResponse.ok) {
+            const badgeData = await badgeResponse.json()
+            if (badgeData.success && badgeData.data) {
+              setUserBadges(badgeData.data.allBadges || [])
+            } else {
+              // Fallback to local calculation if API fails
+              const badges = calculateAllBadges({
+                totalDensity,
+                oldRockNFTs: nftResult.oldRockNFTs || [],
+                goliathNFTs: nftResult.goliathNFTs || [],
+              })
+              setUserBadges(badges)
+            }
+          } else {
+            // Fallback to local calculation if API fails
+            const badges = calculateAllBadges({
+              totalDensity,
+              oldRockNFTs: nftResult.oldRockNFTs || [],
+              goliathNFTs: nftResult.goliathNFTs || [],
+            })
+            setUserBadges(badges)
+          }
+        } catch (error) {
+          console.warn("Failed to fetch badges from API, using local calculation:", error)
+          // Fallback to local calculation if API fails
+          const badges = calculateAllBadges({
+            totalDensity,
+            oldRockNFTs: nftResult.oldRockNFTs || [],
+            goliathNFTs: nftResult.goliathNFTs || [],
+          })
+          setUserBadges(badges)
+        }
       }
 
       // Load saved profile NFT

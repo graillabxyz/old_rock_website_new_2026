@@ -19,8 +19,28 @@ export async function GET(request: NextRequest) {
     const progressData = getProgress()
 
     if (refreshing && progressData) {
-      // Calculate actual progress from batch processing
-      progress = Math.min(95, Math.floor((progressData.current / progressData.total) * 100))
+      // Calculate actual progress from batch processing - use batches processed instead of addresses
+      // This is more accurate since some addresses might fail
+      if (progressData.totalBatches > 0) {
+        const batchProgress = (progressData.currentBatch / progressData.totalBatches) * 100
+        // If all batches are complete, set to 100%
+        if (progressData.currentBatch >= progressData.totalBatches) {
+          progress = 100
+        } else {
+          progress = Math.min(99, Math.floor(batchProgress))
+        }
+      } else if (progressData.total > 0) {
+        // Fallback to address-based progress if batch info not available
+        const addressProgress = (progressData.current / progressData.total) * 100
+        // If all addresses are processed, set to 100%
+        if (progressData.current >= progressData.total) {
+          progress = 100
+        } else {
+          progress = Math.min(99, Math.floor(addressProgress))
+        }
+      } else {
+        progress = 10
+      }
       status = "loading"
     } else if (refreshing) {
       // Refreshing but no progress data yet

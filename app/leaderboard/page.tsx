@@ -34,6 +34,7 @@ export default function LeaderboardPage() {
   const [leaderboardUsers, setLeaderboardUsers] = useState<LeaderboardUser[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [loadingProgress, setLoadingProgress] = useState(0)
+  const [error, setError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
   const [sortBy, setSortBy] = useState<"rank" | "totalDensity" | "densityDeck">("rank")
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc")
@@ -41,7 +42,6 @@ export default function LeaderboardPage() {
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   const [currentOffset, setCurrentOffset] = useState(0)
   const [totalUsers, setTotalUsers] = useState(0)
-  const loadMoreTriggerRef = useRef<HTMLDivElement>(null)
 
   // Check wallet connection status
   useEffect(() => {
@@ -75,29 +75,58 @@ export default function LeaderboardPage() {
     const fetchInitialLeaderboard = async () => {
       setIsLoading(true)
       setLoadingProgress(0)
+      setError(null)
       setCurrentOffset(0)
 
-      // Simulate progress for fast load
-      const progressInterval = setInterval(() => {
-        setLoadingProgress((prev) => {
-          if (prev >= 90) return prev
-          return prev + Math.random() * 5
-        })
-      }, 200)
+      // Poll progress endpoint for real-time updates
+      const progressInterval = setInterval(async () => {
+        try {
+          const progressResponse = await fetch("/api/leaderboard/progress")
+          if (progressResponse.ok) {
+            const progressData = await progressResponse.json()
+            if (progressData.progress !== undefined) {
+              setLoadingProgress(progressData.progress)
+              // If progress is 100% or status is ready, stop polling
+              if (progressData.progress >= 100 || progressData.status === "ready") {
+                clearInterval(progressInterval)
+              }
+            }
+          }
+        } catch (error) {
+          // Silently fail - progress is not critical
+        }
+      }, 500) // Poll every 500ms
 
       try {
         // Use fast mode to get top 50 quickly
         const response = await fetch("/api/leaderboard?fast=true&limit=50")
         if (!response.ok) {
-          const errorText = await response.text()
-          console.error("Leaderboard API error:", response.status, errorText)
-          throw new Error(`Failed to fetch leaderboard data: ${response.status}`)
+          const errorData = await response.json().catch(() => ({}))
+          console.error("Leaderboard API error:", response.status, errorData)
+          
+          // Check if it's a configuration error
+          if (errorData.error && errorData.error.includes("Amplify API URL not configured")) {
+            throw new Error(`Configuration Error: ${errorData.error}${errorData.help ? ` ${errorData.help}` : ""}`)
+          }
+          
+          throw new Error(`Failed to fetch leaderboard data: ${response.status} - ${errorData.error || "Unknown error"}`)
         }
 
         const result = await response.json()
         console.log("Leaderboard API response:", { success: result.success, dataLength: result.data?.length, total: result.total })
         
-        if (!result.success || !result.data) {
+        if (!result.success) {
+          // If there's an error but we got data, log it but continue
+          if (result.error) {
+            console.warn("Leaderboard API warning:", result.error)
+          }
+          // If no data, throw error
+          if (!result.data) {
+            throw new Error(result.error || "Invalid leaderboard data")
+          }
+        }
+        
+        if (!result.data) {
           console.error("Invalid leaderboard data:", result)
           throw new Error("Invalid leaderboard data")
         }
@@ -117,32 +146,107 @@ export default function LeaderboardPage() {
           return true
         })
 
-        // Process and enrich user data (lightweight - no NFT fetching for initial load)
-        const processedUsers = await Promise.all(
-          uniqueData.map(async (user: any, index: number) => {
-            // Calculate badges (lightweight - using density only)
-            const badgeData = {
-              totalDensity: user.totalDensity || 0,
-              oldRockNFTs: [], // Will be fetched on demand if needed
-              goliathNFTs: [],
-            }
-            const badges = calculateAllBadges(badgeData)
-            const bestBadges = getBestBadges(badges)
+        // Process and enrich user data - fetch NFT data for accurate badge calculation
+        // Process in batches to avoid rate limiting
+        const BATCH_SIZE = 3 // Process 3 users at a time (reduced to avoid rate limiting)
+        const BATCH_DELAY = 400 // 400ms delay between batches (increased to avoid rate limiting)
+        const processedUsers: LeaderboardUser[] = []
+        
+        for (let i = 0; i < uniqueData.length; i += BATCH_SIZE) {
+          const batch = uniqueData.slice(i, i + BATCH_SIZE)
+          const batchResults = await Promise.all(
+            batch.map(async (user: any, batchIndex: number) => {
+              // Fetch NFT data for badge calculation - with retry logic
+              let oldRockNFTs: any[] = []
+              let goliathNFTs: any[] = []
+              
+              // Try fetching NFT data with retry
+              const maxRetries = 2
+              for (let retry = 0; retry <= maxRetries; retry++) {
+                try {
+                  if (retry > 0) {
+                    // Add delay between retries
+                    await new Promise(resolve => setTimeout(resolve, 500 * retry))
+                  }
+                  
+                  // Fetch directly from Amplify API to avoid auth overhead
+                  const nftResponse = await fetch(
+                    `${process.env.NEXT_PUBLIC_AMPLIFY_API_URL}/nfts/${user.address}`,
+                    {
+                      cache: "no-store",
+                      headers: {
+                        Accept: "application/json",
+                      },
+                      signal: AbortSignal.timeout(5000), // 5 second timeout
+                    }
+                  )
+                  
+                  if (nftResponse.ok) {
+                    const nftData = await nftResponse.json()
+                    oldRockNFTs = nftData?.data?.OldRocks || []
+                    goliathNFTs = nftData?.data?.Goliath || []
+                    break // Success, exit retry loop
+                  } else if (nftResponse.status === 429 || nftResponse.status >= 500) {
+                    // Rate limited or server error - retry
+                    if (retry < maxRetries) continue
+                  } else {
+                    // Other error (404, etc.) - don't retry
+                    break
+                  }
+                } catch (error) {
+                  // Network error or timeout - retry if attempts left
+                  if (retry < maxRetries) continue
+                  // Silently fail - will use empty arrays for badges
+                }
+              }
 
-            // Fetch avatar
-            const avatar = await fetchENSAvatar(user.address)
+              // Calculate badges using the NFT data we already fetched (avoid double API calls)
+              // This ensures we use the same data source and avoid rate limiting
+              const badgeData = {
+                totalDensity: user.totalDensity || 0,
+                oldRockNFTs,
+                goliathNFTs,
+              }
+              const badges = calculateAllBadges(badgeData)
+              const bestBadges = getBestBadges(badges)
+              
+              // Verify we have badges - if not, log for debugging
+              if (bestBadges.length === 0 && badges.length > 0) {
+                console.warn(`User ${user.address.slice(0, 8)}: ${badges.length} total badges but 0 best badges`, {
+                  unlocked: badges.filter(b => b.unlocked).length,
+                  categories: [...new Set(badges.map(b => b.category))],
+                  density: user.totalDensity,
+                  rocks: oldRockNFTs.length,
+                  goliaths: goliathNFTs.length,
+                })
+              } else if (bestBadges.length > 0) {
+                // Log successful badge calculation (can be removed in production)
+                console.log(`User ${user.address.slice(0, 8)}: ${bestBadges.length}/${badges.length} badges`, 
+                  bestBadges.map(b => `${b.name} (${b.category})`).join(', '))
+              }
 
-            return {
-              ...user,
-              rank: index + 1,
-              badges,
-              bestBadges,
-              avatar,
-              totalDensity: user.totalDensity || 0, // Ensure it's a number
-              unextractedDensity: user.unextractedDensity || 0,
-            }
-          })
-        )
+              // Fetch avatar (non-blocking, can fail silently)
+              const avatar = await fetchENSAvatar(user.address).catch(() => null)
+
+              return {
+                ...user,
+                rank: i + batchIndex + 1,
+                badges,
+                bestBadges,
+                avatar: avatar || null,
+                totalDensity: user.totalDensity || 0,
+                unextractedDensity: user.unextractedDensity || 0,
+              }
+            })
+          )
+          
+          processedUsers.push(...batchResults)
+          
+          // Add delay between batches to avoid rate limiting
+          if (i + BATCH_SIZE < uniqueData.length) {
+            await new Promise(resolve => setTimeout(resolve, BATCH_DELAY))
+          }
+        }
 
         setLeaderboardUsers(processedUsers)
         setCurrentOffset(50)
@@ -161,29 +265,7 @@ export default function LeaderboardPage() {
     fetchInitialLeaderboard()
   }, [])
 
-  // Load more users when scrolling near bottom
-  useEffect(() => {
-    if (!hasMore || isLoadingMore) return
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting && hasMore && !isLoadingMore) {
-          loadMoreUsers()
-        }
-      },
-      { threshold: 0.1 }
-    )
-
-    if (loadMoreTriggerRef.current) {
-      observer.observe(loadMoreTriggerRef.current)
-    }
-
-    return () => {
-      if (loadMoreTriggerRef.current) {
-        observer.unobserve(loadMoreTriggerRef.current)
-      }
-    }
-  }, [hasMore, isLoadingMore])
+  // Removed IntersectionObserver - using button instead
 
   const loadMoreUsers = async () => {
     if (isLoadingMore || !hasMore) return
@@ -193,11 +275,19 @@ export default function LeaderboardPage() {
       // Load next 50 from cache (or full query if cache is stale)
       const response = await fetch(`/api/leaderboard?limit=50&offset=${currentOffset}`)
       if (!response.ok) {
-        throw new Error("Failed to fetch more leaderboard data")
+        const errorData = await response.json().catch(() => ({}))
+        console.error("Error loading more users:", response.status, errorData)
+        throw new Error(`Failed to fetch more leaderboard data: ${response.status}`)
       }
 
       const result = await response.json()
-      if (!result.success || !result.data || result.data.length === 0) {
+      if (!result.success) {
+        console.warn("Load more API returned unsuccessful:", result.error || "Unknown error")
+        setHasMore(false)
+        return
+      }
+      
+      if (!result.data || result.data.length === 0) {
         setHasMore(false)
         return
       }
@@ -209,36 +299,110 @@ export default function LeaderboardPage() {
         return addr && !existingAddresses.has(addr)
       })
 
-      // Process and enrich new user data (lightweight)
-      const processedUsers = await Promise.all(
-        newData.map(async (user: any, index: number) => {
-          // Calculate badges (lightweight)
-          const badgeData = {
-            totalDensity: user.totalDensity || 0,
-            oldRockNFTs: [],
-            goliathNFTs: [],
-          }
-          const badges = calculateAllBadges(badgeData)
-          const bestBadges = getBestBadges(badges)
+      // Process and enrich new user data - fetch NFT data for accurate badge calculation
+      // Process in batches to avoid rate limiting
+      const BATCH_SIZE = 5 // Process 5 users at a time
+      const BATCH_DELAY = 200 // 200ms delay between batches
+      const processedUsers: LeaderboardUser[] = []
+      
+      for (let i = 0; i < newData.length; i += BATCH_SIZE) {
+        const batch = newData.slice(i, i + BATCH_SIZE)
+        const batchResults = await Promise.all(
+          batch.map(async (user: any, batchIndex: number) => {
+            // Fetch NFT data for badge calculation - with retry logic
+            let oldRockNFTs: any[] = []
+            let goliathNFTs: any[] = []
+            
+            // Try fetching NFT data with retry
+            const maxRetries = 2
+            for (let retry = 0; retry <= maxRetries; retry++) {
+              try {
+                if (retry > 0) {
+                  // Add delay between retries
+                  await new Promise(resolve => setTimeout(resolve, 500 * retry))
+                }
+                
+                // Fetch directly from Amplify API to avoid auth overhead
+                const amplifyApiUrl = process.env.NEXT_PUBLIC_AMPLIFY_API_URL
+                if (!amplifyApiUrl) {
+                  // Fallback to API route if env var not available (shouldn't happen)
+                  break
+                }
+                
+                const nftResponse = await fetch(
+                  `${amplifyApiUrl}/nfts/${user.address}`,
+                  {
+                    cache: "no-store",
+                    headers: {
+                      Accept: "application/json",
+                    },
+                    signal: AbortSignal.timeout(5000), // 5 second timeout
+                  }
+                )
+                
+                if (nftResponse.ok) {
+                  const nftData = await nftResponse.json()
+                  oldRockNFTs = nftData?.data?.OldRocks || []
+                  goliathNFTs = nftData?.data?.Goliath || []
+                  break // Success, exit retry loop
+                } else if (nftResponse.status === 429 || nftResponse.status >= 500) {
+                  // Rate limited or server error - retry
+                  if (retry < maxRetries) continue
+                } else {
+                  // Other error (404, etc.) - don't retry
+                  break
+                }
+              } catch (error) {
+                // Network error or timeout - retry if attempts left
+                if (retry < maxRetries) continue
+                // Silently fail - will use empty arrays for badges
+              }
+            }
 
-          // Fetch avatar
-          const avatar = await fetchENSAvatar(user.address)
+            // Calculate badges with actual NFT data (or density only if NFT fetch failed)
+            const badgeData = {
+              totalDensity: user.totalDensity || 0,
+              oldRockNFTs,
+              goliathNFTs,
+            }
+            const badges = calculateAllBadges(badgeData)
+            const bestBadges = getBestBadges(badges)
 
-          return {
-            ...user,
-            rank: currentOffset + index + 1,
-            badges,
-            bestBadges,
-            avatar,
-            totalDensity: user.totalDensity || 0, // Ensure it's a number
-            unextractedDensity: user.unextractedDensity || 0,
-          }
-        })
-      )
+            // Fetch avatar (non-blocking, can fail silently)
+            const avatar = await fetchENSAvatar(user.address).catch(() => null)
+
+            return {
+              ...user,
+              rank: currentOffset + i + batchIndex + 1,
+              badges,
+              bestBadges,
+              avatar: avatar || null,
+              totalDensity: user.totalDensity || 0,
+              unextractedDensity: user.unextractedDensity || 0,
+            }
+          })
+        )
+        
+        processedUsers.push(...batchResults)
+        
+        // Add delay between batches to avoid rate limiting
+        if (i + BATCH_SIZE < newData.length) {
+          await new Promise(resolve => setTimeout(resolve, BATCH_DELAY))
+        }
+      }
       
       setLeaderboardUsers((prev) => [...prev, ...processedUsers])
-      setCurrentOffset((prev) => prev + newUsers.length)
-      setHasMore(newUsers.length === 50 && (result.total > currentOffset + newUsers.length))
+      
+      // Update offset and check if there are more users to load
+      const newOffset = currentOffset + processedUsers.length
+      setCurrentOffset(newOffset)
+      
+      // Check if there are more users: either we got a full batch (50) and total is greater than new offset
+      // or if total is not available, check if we got a full batch
+      const hasMoreData = result.total 
+        ? newOffset < result.total 
+        : processedUsers.length === 50
+      setHasMore(hasMoreData)
     } catch (error) {
       console.error("Error loading more users:", error)
       setHasMore(false)
@@ -364,9 +528,22 @@ export default function LeaderboardPage() {
     const isSingularityBadge = badge.id === "density-singularity" && badge.unlocked
     const isGravityWellBadge = badge.id === "density-gravity-well" && badge.unlocked
     const isHighDensityCoreBadge = badge.id === "rock-high-density-core" && badge.unlocked
+    const highDensityColor = badge.rockColor || "#3B82F6"
+    const isMediumDensityCoreBadge = badge.id === "rock-medium-density-core" && badge.unlocked
+    const mediumDensityColor = badge.rockColor || "#FFB000"
+    const isLowDensityCoreBadge = badge.id === "rock-low-density-core" && badge.unlocked
+    const lowDensityColor = badge.rockColor || "#8B4513"
+    const isFullSpectrumCoreBadge = badge.id === "rock-full-spectrum-core" && badge.unlocked
     const isLithicCouncilBadge = badge.id === "rock-lithic-council" && badge.unlocked
     const isTitanHostBadge = badge.id === "goliath-titan-host" && badge.unlocked
+    const isFirstGoliathBadge = badge.id === "goliath-first-goliath" && badge.unlocked
+    const isGoliathGuardianBadge = badge.id === "goliath-goliath-guardian" && badge.unlocked
+    const isLegionHolderBadge = badge.id === "goliath-legion-holder" && badge.unlocked
     const isMysticBadge = badge.id?.startsWith("mystic-") && !badge.id.includes("-locked") && badge.unlocked
+    const isMassBuilderBadge = badge.id === "density-mass-builder" && badge.unlocked
+    const isWeightBearerBadge = badge.id === "density-weight-bearer" && badge.unlocked
+    const isStoneboundBadge = badge.id === "rock-stonebound" && badge.unlocked
+    const isRockCollectiveBadge = badge.id === "rock-collective" && badge.unlocked
     
     // Get rock color for reactive badges (convert hex to rgba)
     const getRockColorRgba = (hex: string, opacity: number) => {
@@ -410,7 +587,7 @@ export default function LeaderboardPage() {
       <>
         <div
           ref={badgeRef}
-          className="relative w-8 h-8 flex items-center justify-center rounded-full bg-gray-800/80 border border-gray-700 cursor-help overflow-hidden backdrop-blur-sm"
+          className="relative w-8 h-8 flex items-center justify-center rounded-full bg-gray-800/80 border border-gray-700 cursor-help overflow-visible backdrop-blur-sm"
           onMouseEnter={() => {
             setShowCustomTooltip(true)
             updateTooltipPosition()
@@ -422,24 +599,71 @@ export default function LeaderboardPage() {
           <div className="absolute inset-0 rounded-full bg-gray-800/80 border border-gray-700 z-0 backdrop-blur-sm" />
           
           {/* Animation backgrounds for special badges - Between container and icon */}
-          {/* Pure badge - Uses actual rock color with hexagon shape */}
+          {/* Pure badge - Uses actual rock color with soft hexagon-like shape */}
           {isPureBadge && (
-            <motion.div
-              className="absolute inset-0 z-[5]"
-              style={{
-                clipPath: "polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)",
-                background: `radial-gradient(circle, ${getRockColorRgba(pureColor, 1)} 0%, ${getRockColorRgba(pureColor, 0.7)} 30%, ${getRockColorRgba(pureColor, 0.4)} 60%, ${getRockColorRgba(pureColor, 0.1)} 85%, transparent 100%)`,
-              }}
-              animate={{
-                scale: [1, 1.25, 1],
-                opacity: [0.8, 1, 0.8],
-              }}
-              transition={{
-                duration: 2.5,
-                repeat: Infinity,
-                ease: "easeInOut",
-              }}
-            />
+            <>
+              {/* Main pulsing hexagon - soft edges with multiple radial gradients */}
+              <motion.div
+                className="absolute inset-0 z-[5] rounded-full"
+                style={{
+                  background: `radial-gradient(ellipse 80% 100% at 50% 50%, ${getRockColorRgba(pureColor, 1)} 0%, ${getRockColorRgba(pureColor, 0.8)} 20%, ${getRockColorRgba(pureColor, 0.6)} 40%, ${getRockColorRgba(pureColor, 0.4)} 60%, ${getRockColorRgba(pureColor, 0.2)} 80%, transparent 100%)`,
+                  filter: 'blur(0.5px)',
+                }}
+                animate={{
+                  scale: [1, 1.15, 1.3, 1.15, 1],
+                  opacity: [0.7, 0.9, 1, 0.9, 0.7],
+                  rotate: [0, 5, 0, -5, 0],
+                }}
+                transition={{
+                  duration: 4 * 1.5,
+                  repeat: Infinity,
+                  ease: [0.4, 0, 0.6, 1], // Custom easing for smoother, more dynamic feel
+                }}
+              />
+              {/* Additional soft layers for hexagon-like shape */}
+              {[...Array(3)].map((_, i) => {
+                const angle = (i * 60) * (Math.PI / 180)
+                const radius = 35
+                return (
+                  <motion.div
+                    key={i}
+                    className="absolute inset-0 z-[5] rounded-full"
+                    style={{
+                      background: `radial-gradient(ellipse at ${50 + Math.cos(angle) * radius}% ${50 + Math.sin(angle) * radius}%, ${getRockColorRgba(pureColor, 0.6 - i * 0.15)} 0%, ${getRockColorRgba(pureColor, 0.4 - i * 0.1)} 50%, transparent 100%)`,
+                      filter: 'blur(1px)',
+                    }}
+                    animate={{
+                      scale: [1, 1.1 + i * 0.05, 1],
+                      opacity: [0.4, 0.7 - i * 0.1, 0.4],
+                    }}
+                    transition={{
+                      duration: (4 + i * 0.5) * 1.5,
+                      repeat: Infinity,
+                      ease: [0.4, 0, 0.6, 1],
+                      delay: i * 0.2 * 1.5,
+                    }}
+                  />
+                )
+              })}
+              {/* Secondary outer glow layer for more depth */}
+              <motion.div
+                className="absolute inset-0 z-[4] rounded-full"
+                style={{
+                  background: `radial-gradient(circle, ${getRockColorRgba(pureColor, 0.5)} 0%, ${getRockColorRgba(pureColor, 0.3)} 40%, ${getRockColorRgba(pureColor, 0.1)} 70%, transparent 100%)`,
+                  filter: 'blur(3px)',
+                }}
+                animate={{
+                  scale: [1.1, 1.25, 1.4, 1.25, 1.1],
+                  opacity: [0.4, 0.6, 0.8, 0.6, 0.4],
+                }}
+                transition={{
+                  duration: 4 * 1.5,
+                  repeat: Infinity,
+                  ease: [0.4, 0, 0.6, 1],
+                  delay: 0.2 * 1.5, // Slight offset for more dynamic effect
+                }}
+              />
+            </>
           )}
           
           {/* Polar badge - White fire or black hole effect based on color */}
@@ -447,16 +671,16 @@ export default function LeaderboardPage() {
             <>
               {/* Check if white or black */}
               {polarColor === "#F8F8FF" || polarColor === "#FFFFFF" || polarColor.toLowerCase() === "#ffffff" || polarColor.toLowerCase() === "#f8f8ff" ? (
-                // White Fire Effect
+                // White Fire Effect - Multiple flickering flames
                 <>
+                  {/* Base fire glow - no scaling, just flickering */}
                   <motion.div
-                    className="absolute inset-0 rounded-full z-[5] overflow-hidden"
+                    className="absolute inset-0 rounded-full z-[5]"
                     style={{
-                      background: `radial-gradient(ellipse at center bottom, rgba(255, 255, 255, 1) 0%, rgba(255, 255, 255, 0.8) 25%, rgba(255, 255, 255, 0.5) 50%, rgba(255, 255, 255, 0.2) 75%, transparent 100%)`,
+                      background: `radial-gradient(ellipse at center bottom, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.7) 25%, rgba(255, 255, 255, 0.4) 50%, rgba(255, 255, 255, 0.2) 75%, transparent 100%)`,
                     }}
                     animate={{
-                      scaleY: [1, 1.3, 1],
-                      opacity: [0.8, 1, 0.8],
+                      opacity: [0.7, 1, 0.8, 0.9, 0.7],
                     }}
                     transition={{
                       duration: 1.5,
@@ -464,30 +688,69 @@ export default function LeaderboardPage() {
                       ease: "easeInOut",
                     }}
                   />
-                  {/* Fire flicker effect */}
-                  {[...Array(3)].map((_, i) => (
-                    <motion.div
-                      key={i}
-                      className="absolute bottom-0 left-1/2 z-[5]"
-                      style={{
-                        width: `${30 + i * 10}%`,
-                        height: `${40 + i * 15}%`,
-                        transform: 'translateX(-50%)',
-                        background: `radial-gradient(ellipse at center, rgba(255, 255, 255, ${0.9 - i * 0.2}) 0%, rgba(255, 255, 255, ${0.6 - i * 0.15}) 50%, transparent 100%)`,
-                        clipPath: `polygon(${20 + i * 10}% 100%, ${50 - i * 5}% ${60 - i * 10}%, ${50 + i * 5}% ${60 - i * 10}%, ${80 - i * 10}% 100%)`,
-                      }}
-                      animate={{
-                        scaleX: [1, 1.2 + i * 0.1, 0.9 - i * 0.05, 1],
-                        opacity: [0.7, 1, 0.5, 0.7],
-                      }}
-                      transition={{
-                        duration: 1.2 + i * 0.3,
-                        repeat: Infinity,
-                        delay: i * 0.2,
-                        ease: "easeInOut",
-                      }}
-                    />
-                  ))}
+                  {/* Individual flame tongues - more fire-like flickering, less bouncing */}
+                  {[...Array(7)].map((_, i) => {
+                    const baseX = 30 + (i * 6) // Spread flames across more evenly
+                    const baseHeight = 60 + (i % 3) * 8 // Vary heights more
+                    const randomOffset = (i * 7) % 5 // Random-like offset
+                    return (
+                      <motion.div
+                        key={i}
+                        className="absolute bottom-0 z-[5]"
+                        style={{
+                          left: `${baseX}%`,
+                          width: `${12 + (i % 3) * 4}%`,
+                          height: `${baseHeight}%`,
+                          transform: 'translateX(-50%)',
+                          background: `radial-gradient(ellipse 120% 100% at center top, rgba(255, 255, 255, ${0.95 - i * 0.08}) 0%, rgba(255, 255, 255, ${0.75 - i * 0.08}) 20%, rgba(255, 255, 255, ${0.5 - i * 0.08}) 40%, rgba(255, 255, 255, ${0.3 - i * 0.08}) 60%, rgba(255, 255, 255, ${0.1 - i * 0.08}) 80%, transparent 100%)`,
+                          filter: 'blur(2px)',
+                          borderRadius: '50% 50% 0 0',
+                        }}
+                        animate={{
+                          x: [0, (i % 2 === 0 ? 1 : -1) * (2 + (i % 2)), 0, (i % 2 === 0 ? -1 : 1) * (1 + (i % 3)), 0],
+                          scaleX: [1, 1.15 + (i % 2) * 0.05, 0.95, 1.1, 1],
+                          scaleY: [1, 1.4 + (i % 3) * 0.1, 0.9, 1.3, 1],
+                          opacity: [0.5, 1, 0.6, 0.9, 0.5],
+                        }}
+                        transition={{
+                          duration: 0.8 + (i % 3) * 0.2,
+                          repeat: Infinity,
+                          delay: i * 0.1,
+                          ease: [0.4, 0, 0.6, 1], // More natural fire-like easing
+                        }}
+                      />
+                    )
+                  })}
+                  {/* Additional smaller flickering flames */}
+                  {[...Array(5)].map((_, i) => {
+                    const randomPos = 25 + (i * 12) + (i % 2) * 3
+                    return (
+                      <motion.div
+                        key={`small-${i}`}
+                        className="absolute bottom-0 z-[5]"
+                        style={{
+                          left: `${randomPos}%`,
+                          width: `${6 + (i % 2) * 3}%`,
+                          height: `${20 + (i % 3) * 5}%`,
+                          transform: 'translateX(-50%)',
+                          background: `radial-gradient(ellipse 120% 100% at center top, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.6) 30%, rgba(255, 255, 255, 0.3) 60%, transparent 100%)`,
+                          filter: 'blur(1.5px)',
+                          borderRadius: '50% 50% 0 0',
+                        }}
+                        animate={{
+                          x: [0, (i % 2 === 0 ? -1 : 1) * (1.5 + (i % 2)), 0],
+                          scaleY: [1, 1.5 + (i % 2) * 0.2, 0.8, 1],
+                          opacity: [0.4, 0.95, 0.3, 0.4],
+                        }}
+                        transition={{
+                          duration: 0.6 + (i % 2) * 0.3,
+                          repeat: Infinity,
+                          delay: i * 0.15,
+                          ease: [0.4, 0, 0.6, 1],
+                        }}
+                      />
+                    )
+                  })}
                 </>
               ) : polarColor === "#000000" || polarColor.toLowerCase() === "#000000" ? (
                 // Black Hole Effect
@@ -565,7 +828,7 @@ export default function LeaderboardPage() {
           {isRecurrentBadge && (
             <>
               <motion.div
-                className="absolute inset-0 rounded-full overflow-hidden z-[5]"
+                className="absolute inset-0 rounded-full z-[5] overflow-visible"
                 style={{
                   background: `radial-gradient(circle, ${getRockColorRgba(recurrentColor, 1)} 0%, ${getRockColorRgba(recurrentColor, 0.7)} 40%, ${getRockColorRgba(recurrentColor, 0.4)} 70%, transparent 100%)`,
                 }}
@@ -574,66 +837,590 @@ export default function LeaderboardPage() {
                   opacity: [0.8, 1, 0.8],
                 }}
                 transition={{
-                  duration: 2,
+                  duration: 3,
                   repeat: Infinity,
                   ease: "easeInOut",
                 }}
               />
-              {/* Sparkle effect with actual rock color */}
-              {[...Array(8)].map((_, i) => (
-                <motion.div
-                  key={i}
-                  className="absolute w-1.5 h-1.5 rounded-full z-[5]"
-                  style={{
-                    backgroundColor: getRockColorRgba(recurrentColor, 1),
-                    left: `${15 + (i * 12)}%`,
-                    top: `${15 + (i % 4) * 25}%`,
-                    boxShadow: `0 0 6px ${getRockColorRgba(recurrentColor, 0.9)}, 0 0 12px ${getRockColorRgba(recurrentColor, 0.6)}`,
-                  }}
-                  animate={{
-                    scale: [0, 2, 0],
-                    opacity: [0, 1, 0],
-                  }}
-                  transition={{
-                    duration: 1.5,
-                    repeat: Infinity,
-                    delay: i * 0.2,
-                    ease: "easeInOut",
-                  }}
-                />
-              ))}
+              {/* Sparkle effect with actual rock color - slower, more random positioning and size */}
+              {[...Array(12)].map((_, i) => {
+                // More random positioning
+                const randomX = 10 + (i * 7.5) + ((i * 13) % 8) - 4
+                const randomY = 10 + ((i * 11) % 70) + ((i * 7) % 12) - 6
+                // Random size variation
+                const randomSize = 1 + (i % 3) * 0.5 + ((i * 5) % 3) * 0.3
+                return (
+                  <motion.div
+                    key={i}
+                    className="absolute rounded-full z-[5]"
+                    style={{
+                      width: `${randomSize * 4}px`,
+                      height: `${randomSize * 4}px`,
+                      backgroundColor: getRockColorRgba(recurrentColor, 1),
+                      left: `${Math.max(5, Math.min(95, randomX))}%`,
+                      top: `${Math.max(5, Math.min(95, randomY))}%`,
+                      boxShadow: `0 0 ${randomSize * 4}px ${getRockColorRgba(recurrentColor, 0.9)}, 0 0 ${randomSize * 8}px ${getRockColorRgba(recurrentColor, 0.6)}`,
+                    }}
+                    animate={{
+                      scale: [0, randomSize * 1.5, 0],
+                      opacity: [0, 1, 0],
+                    }}
+                    transition={{
+                      duration: 2.5 + (i % 3) * 0.5,
+                      repeat: Infinity,
+                      delay: i * 0.3,
+                      ease: "easeInOut",
+                    }}
+                  />
+                )
+              })}
             </>
           )}
           
-          {/* Singularity badge - Rotating conic gradient with pulsing */}
+          {/* Singularity badge - Slow swirling vortex effect */}
           {isSingularityBadge && (
             <>
+              {/* Outer swirling rings */}
+              {[...Array(3)].map((_, i) => (
+                <motion.div
+                  key={i}
+                  className="absolute inset-0 rounded-full z-[5]"
+                  style={{
+                    background: `radial-gradient(circle at ${50 + i * 10}% ${50 + i * 10}%, rgba(139, 92, 246, ${0.8 - i * 0.2}) 0%, rgba(168, 85, 247, ${0.6 - i * 0.15}) 30%, transparent 70%)`,
+                    borderRadius: '50%',
+                  }}
+                  animate={{
+                    rotate: [0, 360],
+                    scale: [1 - i * 0.1, 1.1 - i * 0.1, 1 - i * 0.1],
+                    x: [0, (i % 2 === 0 ? 1 : -1) * 5, 0],
+                    y: [0, (i % 2 === 0 ? -1 : 1) * 5, 0],
+                  }}
+                  transition={{
+                    duration: 8 + i * 2,
+                    repeat: Infinity,
+                    ease: "easeInOut",
+                    delay: i * 0.5,
+                  }}
+                />
+              ))}
+              {/* Pulsing core */}
               <motion.div
                 className="absolute inset-0 rounded-full z-[5]"
                 style={{
-                  background: "conic-gradient(from 0deg, rgba(139, 92, 246, 1), rgba(168, 85, 247, 1), rgba(192, 132, 252, 1), rgba(168, 85, 247, 1), rgba(139, 92, 246, 1))",
+                  background: "radial-gradient(circle, rgba(139, 92, 246, 1) 0%, rgba(168, 85, 247, 0.7) 40%, rgba(192, 132, 252, 0.4) 70%, transparent 100%)",
+                }}
+                animate={{
+                  scale: [1, 1.15, 0.95, 1],
+                  opacity: [0.8, 1, 0.9, 0.8],
+                }}
+                transition={{
+                  duration: 3,
+                  repeat: Infinity,
+                  ease: "easeInOut",
+                }}
+              />
+            </>
+          )}
+          
+          {/* Gravity Well badge - Slow gravitational pull effect */}
+          {isGravityWellBadge && (
+            <>
+              {/* Outer rings being pulled in */}
+              {[...Array(2)].map((_, i) => (
+                <motion.div
+                  key={i}
+                  className="absolute inset-0 rounded-full z-[5]"
+                  style={{
+                    border: `2px solid rgba(139, 92, 246, ${0.6 - i * 0.2})`,
+                    borderRadius: '50%',
+                    borderStyle: 'dashed',
+                  }}
+                  animate={{
+                    scale: [1 + i * 0.2, 0.8, 1 + i * 0.2],
+                    opacity: [0.5, 0.9, 0.5],
+                  }}
+                  transition={{
+                    duration: 3 + i * 0.5,
+                    repeat: Infinity,
+                    ease: "easeInOut",
+                    delay: i * 0.4,
+                  }}
+                />
+              ))}
+              {/* Pulsing core */}
+              <motion.div
+                className="absolute inset-0 rounded-full z-[5]"
+                style={{
+                  background: "radial-gradient(circle, rgba(139, 92, 246, 1) 0%, rgba(168, 85, 247, 0.8) 40%, rgba(192, 132, 252, 0.5) 70%, transparent 100%)",
+                }}
+                animate={{
+                  scale: [1, 1.1, 0.95, 1],
+                  opacity: [0.8, 1, 0.9, 0.8],
+                }}
+                transition={{
+                  duration: 3,
+                  repeat: Infinity,
+                  ease: "easeInOut",
+                }}
+              />
+            </>
+          )}
+          
+          {/* High Density Core badge - Uses actual rock color with expanding energy rings */}
+          {isHighDensityCoreBadge && (
+            <>
+              {/* Expanding energy rings */}
+              {[...Array(2)].map((_, i) => (
+                <motion.div
+                  key={i}
+                  className="absolute inset-0 rounded-full z-[5]"
+                  style={{
+                    background: `radial-gradient(circle, transparent 45%, ${getRockColorRgba(highDensityColor, 0.4 - i * 0.15)} 48%, ${getRockColorRgba(highDensityColor, 0.6 - i * 0.2)} 50%, ${getRockColorRgba(highDensityColor, 0.4 - i * 0.15)} 52%, transparent 55%)`,
+                    borderRadius: '50%',
+                  }}
+                  animate={{
+                    scale: [1 + i * 0.1, 1.4 - i * 0.1, 1 + i * 0.1],
+                    opacity: [0.5, 0.9, 0.5],
+                  }}
+                  transition={{
+                    duration: (3 + i * 0.5) * 1.5,
+                    repeat: Infinity,
+                    ease: "easeInOut",
+                    delay: i * 0.4 * 1.5,
+                  }}
+                />
+              ))}
+              {/* Orbiting particles */}
+              {[...Array(4)].map((_, i) => {
+                const angle = (i * 90) * (Math.PI / 180)
+                const radius = 30
+                return (
+                  <motion.div
+                    key={i}
+                    className="absolute inset-0 rounded-full z-[5]"
+                    style={{
+                      background: `radial-gradient(circle at ${50 + Math.cos(angle) * radius}% ${50 + Math.sin(angle) * radius}%, ${getRockColorRgba(highDensityColor, 0.9)} 0%, ${getRockColorRgba(highDensityColor, 0.5)} 30%, transparent 60%)`,
+                  }}
+                  animate={{
+                    x: [0, Math.cos(angle) * 8, 0],
+                    y: [0, Math.sin(angle) * 8, 0],
+                    scale: [0.5, 1.2, 0.5],
+                    opacity: [0.4, 1, 0.4],
+                    rotate: [0, 360],
+                  }}
+                  transition={{
+                    duration: (4 + i * 0.3) * 1.5,
+                    repeat: Infinity,
+                    ease: "easeInOut",
+                    delay: i * 0.2 * 1.5,
+                  }}
+                  />
+                )
+              })}
+              {/* Pulsing core with rock color */}
+              <motion.div
+                className="absolute inset-0 rounded-full z-[5]"
+                style={{
+                  background: `radial-gradient(circle, ${getRockColorRgba(highDensityColor, 1)} 0%, ${getRockColorRgba(highDensityColor, 0.8)} 40%, ${getRockColorRgba(highDensityColor, 0.5)} 70%, transparent 100%)`,
+                }}
+                animate={{
+                  scale: [1, 1.15, 0.95, 1],
+                  opacity: [0.8, 1, 0.85, 0.8],
+                }}
+                transition={{
+                  duration: 3 * 1.5,
+                  repeat: Infinity,
+                  ease: "easeInOut",
+                }}
+              />
+            </>
+          )}
+          
+          {/* Low Density Core badge - Uses actual rock color */}
+          {isLowDensityCoreBadge && (
+            <>
+              {/* Expanding energy rings - soft gradient instead of hard border */}
+              {[...Array(2)].map((_, i) => (
+                <motion.div
+                  key={i}
+                  className="absolute inset-0 rounded-full z-[5]"
+                  style={{
+                    background: `radial-gradient(circle, transparent 45%, ${getRockColorRgba(lowDensityColor, 0.4 - i * 0.15)} 48%, ${getRockColorRgba(lowDensityColor, 0.6 - i * 0.2)} 50%, ${getRockColorRgba(lowDensityColor, 0.4 - i * 0.15)} 52%, transparent 55%)`,
+                    borderRadius: '50%',
+                  }}
+                  animate={{
+                    scale: [1 + i * 0.1, 1.3 - i * 0.1, 1 + i * 0.1],
+                    opacity: [0.5, 0.8, 0.5],
+                  }}
+                  transition={{
+                    duration: (3 + i * 0.5) * 1.5,
+                    repeat: Infinity,
+                    ease: "easeInOut",
+                    delay: i * 0.4 * 1.5,
+                  }}
+                />
+              ))}
+              {/* Pulsing core with rock color */}
+              <motion.div
+                className="absolute inset-0 rounded-full z-[5]"
+                style={{
+                  background: `radial-gradient(circle, ${getRockColorRgba(lowDensityColor, 1)} 0%, ${getRockColorRgba(lowDensityColor, 0.8)} 40%, ${getRockColorRgba(lowDensityColor, 0.5)} 70%, transparent 100%)`,
+                }}
+                animate={{
+                  scale: [1, 1.1, 0.95, 1],
+                  opacity: [0.8, 1, 0.85, 0.8],
+                }}
+                transition={{
+                  duration: 3 * 1.5,
+                  repeat: Infinity,
+                  ease: "easeInOut",
+                }}
+              />
+            </>
+          )}
+          
+          {/* Medium Density Core badge - Uses actual rock color */}
+          {isMediumDensityCoreBadge && (
+            <>
+              {/* Expanding energy rings - soft gradient instead of hard border */}
+              {[...Array(2)].map((_, i) => (
+                <motion.div
+                  key={i}
+                  className="absolute inset-0 rounded-full z-[5]"
+                  style={{
+                    background: `radial-gradient(circle, transparent 45%, ${getRockColorRgba(mediumDensityColor, 0.4 - i * 0.15)} 48%, ${getRockColorRgba(mediumDensityColor, 0.6 - i * 0.2)} 50%, ${getRockColorRgba(mediumDensityColor, 0.4 - i * 0.15)} 52%, transparent 55%)`,
+                    borderRadius: '50%',
+                  }}
+                  animate={{
+                    scale: [1 + i * 0.1, 1.3 - i * 0.1, 1 + i * 0.1],
+                    opacity: [0.5, 0.8, 0.5],
+                  }}
+                  transition={{
+                    duration: (3 + i * 0.5) * 1.5,
+                    repeat: Infinity,
+                    ease: "easeInOut",
+                    delay: i * 0.4 * 1.5,
+                  }}
+                />
+              ))}
+              {/* Orbiting particles */}
+              {[...Array(3)].map((_, i) => {
+                const angle = (i * 120) * (Math.PI / 180)
+                const radius = 28
+                return (
+                  <motion.div
+                    key={i}
+                    className="absolute inset-0 rounded-full z-[5]"
+                    style={{
+                      background: `radial-gradient(circle at ${50 + Math.cos(angle) * radius}% ${50 + Math.sin(angle) * radius}%, ${getRockColorRgba(mediumDensityColor, 0.9)} 0%, ${getRockColorRgba(mediumDensityColor, 0.5)} 30%, transparent 60%)`,
+                    }}
+                    animate={{
+                      x: [0, Math.cos(angle) * 7, 0],
+                      y: [0, Math.sin(angle) * 7, 0],
+                      scale: [0.5, 1.1, 0.5],
+                      opacity: [0.4, 0.9, 0.4],
+                      rotate: [0, 360],
+                    }}
+                    transition={{
+                      duration: (4 + i * 0.3) * 1.5,
+                      repeat: Infinity,
+                      ease: "easeInOut",
+                      delay: i * 0.2 * 1.5,
+                    }}
+                  />
+                )
+              })}
+              {/* Pulsing core with rock color */}
+              <motion.div
+                className="absolute inset-0 rounded-full z-[5]"
+                style={{
+                  background: `radial-gradient(circle, ${getRockColorRgba(mediumDensityColor, 1)} 0%, ${getRockColorRgba(mediumDensityColor, 0.8)} 40%, ${getRockColorRgba(mediumDensityColor, 0.5)} 70%, transparent 100%)`,
+                }}
+                animate={{
+                  scale: [1, 1.12, 0.95, 1],
+                  opacity: [0.8, 1, 0.85, 0.8],
+                }}
+                transition={{
+                  duration: 3 * 1.5,
+                  repeat: Infinity,
+                  ease: "easeInOut",
+                }}
+              />
+            </>
+          )}
+          
+          {/* Full Spectrum Core badge - Rainbow circling animation */}
+          {isFullSpectrumCoreBadge && (
+            <>
+              {/* Rotating rainbow ring - soft edges with blur and smooth mask */}
+              <motion.div
+                className="absolute inset-0 rounded-full z-[5]"
+                style={{
+                  background: "radial-gradient(circle, transparent 38%, rgba(255, 0, 0, 0.3) 42%, rgba(255, 127, 0, 0.4) 45%, rgba(255, 255, 0, 0.5) 48%, rgba(0, 255, 0, 0.4) 51%, rgba(0, 0, 255, 0.3) 54%, rgba(75, 0, 130, 0.4) 57%, rgba(148, 0, 211, 0.3) 60%, transparent 63%)",
+                  filter: 'blur(2px)',
                 }}
                 animate={{
                   rotate: [0, 360],
-                  opacity: [0.9, 1, 0.9],
+                  opacity: [0.7, 1, 0.7],
                 }}
                 transition={{
-                  duration: 4,
+                  duration: 4 * 1.5,
                   repeat: Infinity,
                   ease: "linear",
                 }}
               />
+              {/* Additional soft rainbow layers for smoother effect */}
+              {[...Array(3)].map((_, i) => {
+                const colors = [
+                  ['rgba(255, 0, 0, 0.4)', 'rgba(255, 127, 0, 0.3)', 'rgba(255, 255, 0, 0.2)'],
+                  ['rgba(0, 255, 0, 0.4)', 'rgba(0, 0, 255, 0.3)', 'rgba(75, 0, 130, 0.2)'],
+                  ['rgba(148, 0, 211, 0.4)', 'rgba(255, 0, 0, 0.3)', 'rgba(255, 127, 0, 0.2)'],
+                ]
+                const colorSet = colors[i]
+                return (
+                  <motion.div
+                    key={i}
+                    className="absolute inset-0 rounded-full z-[5]"
+                    style={{
+                      background: `radial-gradient(circle, transparent ${40 + i * 5}%, ${colorSet[0]} ${45 + i * 5}%, ${colorSet[1]} ${50 + i * 5}%, ${colorSet[2]} ${55 + i * 5}%, transparent ${60 + i * 5}%)`,
+                      filter: `blur(${1 + i * 0.5}px)`,
+                    }}
+                    animate={{
+                      rotate: [0, 360 * (i % 2 === 0 ? 1 : -1)],
+                      opacity: [0.5, 0.8, 0.5],
+                    }}
+                    transition={{
+                      duration: (4 + i * 0.5) * 1.5,
+                      repeat: Infinity,
+                      ease: "linear",
+                      delay: i * 0.3 * 1.5,
+                    }}
+                  />
+                )
+              })}
+              {/* Additional rainbow particles orbiting - soft edges */}
+              {[...Array(6)].map((_, i) => {
+                const angle = (i * 60) * (Math.PI / 180)
+                const colors = ['#ff0000', '#ff7f00', '#ffff00', '#00ff00', '#0000ff', '#9400d3']
+                const color = colors[i % colors.length]
+                const radius = 32
+                return (
+                  <motion.div
+                    key={i}
+                    className="absolute inset-0 rounded-full z-[5]"
+                    style={{
+                      background: `radial-gradient(circle at ${50 + Math.cos(angle) * radius}% ${50 + Math.sin(angle) * radius}%, ${color} 0%, ${color}80 20%, ${color}40 40%, transparent 70%)`,
+                      filter: 'blur(1px)',
+                    }}
+                    animate={{
+                      x: [0, Math.cos(angle) * 10, 0],
+                      y: [0, Math.sin(angle) * 10, 0],
+                      scale: [0.6, 1.3, 0.6],
+                      opacity: [0.5, 1, 0.5],
+                      rotate: [0, 360],
+                    }}
+                    transition={{
+                      duration: (5 + i * 0.2) * 1.5,
+                      repeat: Infinity,
+                      ease: "easeInOut",
+                      delay: i * 0.15 * 1.5,
+                    }}
+                  />
+                )
+              })}
+              {/* Pulsing rainbow core */}
               <motion.div
                 className="absolute inset-0 rounded-full z-[5]"
                 style={{
-                  background: "radial-gradient(circle, rgba(139, 92, 246, 0.6) 0%, rgba(168, 85, 247, 0.4) 50%, transparent 100%)",
+                  background: "radial-gradient(circle, rgba(255, 0, 0, 0.9) 0%, rgba(255, 127, 0, 0.8) 20%, rgba(255, 255, 0, 0.7) 40%, rgba(0, 255, 0, 0.6) 60%, rgba(0, 0, 255, 0.5) 80%, transparent 100%)",
+                }}
+                animate={{
+                  scale: [1, 1.15, 0.95, 1],
+                  opacity: [0.8, 1, 0.85, 0.8],
+                  rotate: [0, 180, 360],
+                }}
+                transition={{
+                  duration: 3 * 1.5,
+                  repeat: Infinity,
+                  ease: "easeInOut",
+                }}
+              />
+            </>
+          )}
+          
+          {/* Lithic Council badge - Modern golden energy with rotating particles */}
+          {isLithicCouncilBadge && (
+            <>
+              {/* Rotating golden particles - soft edges */}
+              {[...Array(6)].map((_, i) => {
+                const angle = (i * 60) * (Math.PI / 180)
+                const radius = 35
+                return (
+                  <motion.div
+                    key={i}
+                    className="absolute inset-0 rounded-full z-[5]"
+                    style={{
+                      background: `radial-gradient(circle at ${50 + Math.cos(angle) * radius}% ${50 + Math.sin(angle) * radius}%, rgba(250, 204, 21, 0.9) 0%, rgba(234, 179, 8, 0.7) 30%, rgba(234, 179, 8, 0.4) 50%, rgba(250, 204, 21, 0.2) 70%, transparent 100%)`,
+                      filter: 'blur(1px)',
+                    }}
+                    animate={{
+                      x: [0, Math.cos(angle) * 8, 0],
+                      y: [0, Math.sin(angle) * 8, 0],
+                      scale: [0.6, 1.1, 0.6],
+                      opacity: [0.4, 1, 0.4],
+                      rotate: [0, 360],
+                    }}
+                    transition={{
+                      duration: (4 + i * 0.3) * 1.5,
+                      repeat: Infinity,
+                      ease: "easeInOut",
+                      delay: i * 0.2 * 1.5,
+                    }}
+                  />
+                )
+              })}
+              {/* Rotating outer ring - soft gradient */}
+              <motion.div
+                className="absolute inset-0 rounded-full z-[5]"
+                style={{
+                  background: `radial-gradient(circle, transparent 43%, rgba(250, 204, 21, 0.2) 46%, rgba(250, 204, 21, 0.5) 48%, rgba(250, 204, 21, 0.7) 50%, rgba(250, 204, 21, 0.5) 52%, rgba(250, 204, 21, 0.2) 54%, transparent 57%)`,
+                  filter: 'blur(1px)',
+                }}
+                animate={{
+                  rotate: [0, 360],
+                  scale: [1, 1.1, 1],
+                  opacity: [0.6, 1, 0.6],
+                }}
+                transition={{
+                  duration: 5 * 1.5,
+                  repeat: Infinity,
+                  ease: "linear",
+                }}
+              />
+              {/* Pulsing center core */}
+              <motion.div
+                className="absolute inset-0 rounded-full z-[5]"
+                style={{
+                  background: "radial-gradient(circle, rgba(250, 204, 21, 1) 0%, rgba(234, 179, 8, 0.8) 40%, rgba(217, 119, 6, 0.5) 70%, transparent 100%)",
+                }}
+                animate={{
+                  scale: [1, 1.15, 0.95, 1],
+                  opacity: [0.8, 1, 0.85, 0.8],
+                }}
+                transition={{
+                  duration: 3 * 1.5,
+                  repeat: Infinity,
+                  ease: "easeInOut",
+                }}
+              />
+              {/* Inner rotating gradient - soft with blur */}
+              <motion.div
+                className="absolute inset-0 rounded-full z-[5]"
+                style={{
+                  background: `radial-gradient(circle, transparent 30%, rgba(250, 204, 21, 0.3) 40%, rgba(234, 179, 8, 0.5) 50%, rgba(250, 204, 21, 0.3) 60%, transparent 70%)`,
+                  filter: 'blur(2px)',
+                }}
+                animate={{
+                  rotate: [0, -360],
+                  opacity: [0.5, 0.8, 0.5],
+                }}
+                transition={{
+                  duration: 6 * 1.5,
+                  repeat: Infinity,
+                  ease: "linear",
+                }}
+              />
+            </>
+          )}
+          
+          {/* Titan Host badge - Slow expanding energy waves */}
+          {isTitanHostBadge && (
+            <>
+              {/* Expanding energy rings - soft gradient instead of hard border */}
+              {[...Array(2)].map((_, i) => (
+                <motion.div
+                  key={i}
+                  className="absolute inset-0 rounded-full z-[5]"
+                  style={{
+                    background: `radial-gradient(circle, transparent 45%, rgba(249, 115, 22, ${0.4 - i * 0.15}) 48%, rgba(249, 115, 22, ${0.7 - i * 0.3}) 50%, rgba(249, 115, 22, ${0.4 - i * 0.15}) 52%, transparent 55%)`,
+                    borderRadius: '50%',
+                  }}
+                  animate={{
+                    scale: [0.8 + i * 0.1, 1.3, 0.8 + i * 0.1],
+                    opacity: [0.6, 1, 0.6],
+                  }}
+                  transition={{
+                    duration: (4 + i * 0.8) * 1.5,
+                    repeat: Infinity,
+                    ease: "easeInOut",
+                    delay: i * 0.6 * 1.5,
+                  }}
+                />
+              ))}
+              {/* Pulsing core */}
+              <motion.div
+                className="absolute inset-0 rounded-full z-[5]"
+                style={{
+                  background: "radial-gradient(circle, rgba(249, 115, 22, 1) 0%, rgba(251, 146, 60, 0.8) 40%, rgba(253, 186, 116, 0.5) 70%, transparent 100%)",
+                }}
+                animate={{
+                  scale: [1, 1.12, 1],
+                  opacity: [0.8, 1, 0.8],
+                }}
+                transition={{
+                  duration: 3 * 1.5,
+                  repeat: Infinity,
+                  ease: "easeInOut",
+                }}
+              />
+            </>
+          )}
+          
+          {/* Mystic badges - Slow flowing rainbow waves */}
+          {isMysticBadge && (
+            <>
+              {/* Multiple rainbow wave layers flowing in different directions */}
+              {[...Array(3)].map((_, i) => (
+                <motion.div
+                  key={i}
+                  className="absolute inset-0 rounded-full z-[5] overflow-visible"
+                  style={{
+                    background: `linear-gradient(${i * 60}deg, 
+                      rgba(239, 68, 68, ${0.7 - i * 0.15}) 0%, 
+                      rgba(251, 146, 60, ${0.7 - i * 0.15}) 14%, 
+                      rgba(234, 179, 8, ${0.7 - i * 0.15}) 28%, 
+                      rgba(34, 197, 94, ${0.7 - i * 0.15}) 42%, 
+                      rgba(59, 130, 246, ${0.7 - i * 0.15}) 57%, 
+                      rgba(139, 92, 246, ${0.7 - i * 0.15}) 71%, 
+                      rgba(236, 72, 153, ${0.7 - i * 0.15}) 85%, 
+                      rgba(239, 68, 68, ${0.7 - i * 0.15}) 100%)`,
+                  }}
+                  animate={{
+                    x: [0, (i % 2 === 0 ? 1 : -1) * 8, 0],
+                    y: [0, (i % 2 === 0 ? -1 : 1) * 8, 0],
+                    scale: [1, 1.05, 1],
+                    opacity: [0.6, 0.9, 0.6],
+                  }}
+                  transition={{
+                    duration: 5 + i * 1.5,
+                    repeat: Infinity,
+                    ease: "easeInOut",
+                    delay: i * 0.6,
+                  }}
+                />
+              ))}
+              {/* Pulsing center glow */}
+              <motion.div
+                className="absolute inset-0 rounded-full z-[5]"
+                style={{
+                  background: "radial-gradient(circle, rgba(139, 92, 246, 0.6) 0%, rgba(236, 72, 153, 0.4) 50%, transparent 100%)",
                 }}
                 animate={{
                   scale: [1, 1.2, 1],
                   opacity: [0.7, 1, 0.7],
                 }}
                 transition={{
-                  duration: 2,
+                  duration: 3.5,
                   repeat: Infinity,
                   ease: "easeInOut",
                 }}
@@ -641,99 +1428,285 @@ export default function LeaderboardPage() {
             </>
           )}
           
-          {/* Gravity Well badge - Pulsing purple gradient */}
+          {/* Gravity Well badge - Slow gravitational pull effect */}
           {isGravityWellBadge && (
+            <>
+              {/* Outer rings being pulled in */}
+              {[...Array(2)].map((_, i) => (
+                <motion.div
+                  key={i}
+                  className="absolute inset-0 rounded-full z-[5]"
+                  style={{
+                    border: `2px solid rgba(139, 92, 246, ${0.6 - i * 0.2})`,
+                    borderRadius: '50%',
+                    borderStyle: 'dashed',
+                  }}
+                  animate={{
+                    scale: [1 + i * 0.2, 0.8, 1 + i * 0.2],
+                    opacity: [0.5, 0.9, 0.5],
+                  }}
+                  transition={{
+                    duration: 3 + i * 0.5,
+                    repeat: Infinity,
+                    ease: "easeInOut",
+                    delay: i * 0.4,
+                  }}
+                />
+              ))}
+              {/* Pulsing core */}
+              <motion.div
+                className="absolute inset-0 rounded-full z-[5]"
+                style={{
+                  background: "radial-gradient(circle, rgba(139, 92, 246, 1) 0%, rgba(168, 85, 247, 0.8) 40%, rgba(192, 132, 252, 0.5) 70%, transparent 100%)",
+                }}
+                animate={{
+                  scale: [1, 1.1, 0.95, 1],
+                  opacity: [0.8, 1, 0.9, 0.8],
+                }}
+                transition={{
+                  duration: 3,
+                  repeat: Infinity,
+                  ease: "easeInOut",
+                }}
+              />
+            </>
+          )}
+          
+          {/* Mass Builder badge - Slow building energy effect */}
+          {isMassBuilderBadge && (
+            <>
+              {/* Layered energy building up */}
+              {[...Array(2)].map((_, i) => (
+                <motion.div
+                  key={i}
+                  className="absolute inset-0 rounded-full z-[5]"
+                  style={{
+                    background: `radial-gradient(circle at ${50 + (i % 2 === 0 ? -10 : 10)}% ${50 + (i % 2 === 0 ? 10 : -10)}%, rgba(147, 51, 234, ${0.8 - i * 0.3}) 0%, rgba(168, 85, 247, ${0.6 - i * 0.2}) 50%, transparent 100%)`,
+                  }}
+                  animate={{
+                    scale: [1, 1.1 + i * 0.05, 1],
+                    opacity: [0.6, 1, 0.6],
+                  }}
+                  transition={{
+                    duration: 3.5 + i * 0.5,
+                    repeat: Infinity,
+                    ease: "easeInOut",
+                    delay: i * 0.5,
+                  }}
+                />
+              ))}
+            </>
+          )}
+          
+          {/* Weight Bearer badge - Slow balancing effect */}
+          {isWeightBearerBadge && (
             <motion.div
               className="absolute inset-0 rounded-full z-[5]"
               style={{
-                background: "radial-gradient(circle, rgba(139, 92, 246, 1) 0%, rgba(168, 85, 247, 0.8) 40%, rgba(192, 132, 252, 0.5) 70%, transparent 100%)",
+                background: "radial-gradient(ellipse at center, rgba(168, 85, 247, 1) 0%, rgba(147, 51, 234, 0.7) 50%, transparent 100%)",
               }}
               animate={{
-                scale: [1, 1.15, 1],
+                scaleX: [1, 1.1, 0.95, 1],
+                scaleY: [1, 0.95, 1.1, 1],
                 opacity: [0.8, 1, 0.8],
               }}
               transition={{
-                duration: 2.5,
+                duration: 4,
                 repeat: Infinity,
                 ease: "easeInOut",
               }}
             />
           )}
           
-          {/* High Density Core badge - Pulsing blue gradient */}
-          {isHighDensityCoreBadge && (
-            <motion.div
-              className="absolute inset-0 rounded-full z-[5]"
-              style={{
-                background: "radial-gradient(circle, rgba(59, 130, 246, 1) 0%, rgba(96, 165, 250, 0.8) 40%, rgba(147, 197, 253, 0.5) 70%, transparent 100%)",
-              }}
-              animate={{
-                scale: [1, 1.2, 1],
-                opacity: [0.8, 1, 0.8],
-              }}
-              transition={{
-                duration: 2,
-                repeat: Infinity,
-                ease: "easeInOut",
-              }}
-            />
+          {/* Stonebound badge - Slow earth-like pulsing */}
+          {isStoneboundBadge && (
+            <>
+              {/* Earth-like layers */}
+              {[...Array(2)].map((_, i) => (
+                <motion.div
+                  key={i}
+                  className="absolute inset-0 rounded-full z-[5]"
+                  style={{
+                    background: `radial-gradient(circle, rgba(139, 69, 19, ${0.8 - i * 0.3}) 0%, rgba(160, 82, 45, ${0.6 - i * 0.2}) 50%, transparent 100%)`,
+                  }}
+                  animate={{
+                    scale: [1, 1.08 + i * 0.02, 1],
+                    opacity: [0.7, 1, 0.7],
+                  }}
+                  transition={{
+                    duration: 3.5 + i * 0.8,
+                    repeat: Infinity,
+                    ease: "easeInOut",
+                    delay: i * 0.4,
+                  }}
+                />
+              ))}
+            </>
           )}
           
-          {/* Lithic Council badge - Rotating gold gradient */}
-          {isLithicCouncilBadge && (
+          {/* Rock Collective badge - Slow gathering effect */}
+          {isRockCollectiveBadge && (
+            <>
+              {/* Multiple gathering points */}
+              {[...Array(3)].map((_, i) => {
+                const angle = (i * 120) * (Math.PI / 180)
+                const radius = 30
+                return (
+                  <motion.div
+                    key={i}
+                    className="absolute inset-0 rounded-full z-[5]"
+                    style={{
+                      background: `radial-gradient(circle at ${50 + Math.cos(angle) * radius}% ${50 + Math.sin(angle) * radius}%, rgba(139, 69, 19, 0.8) 0%, transparent 60%)`,
+                    }}
+                    animate={{
+                      scale: [0.8, 1.2, 0.8],
+                      opacity: [0.5, 1, 0.5],
+                    }}
+                    transition={{
+                      duration: 4 + i * 0.5,
+                      repeat: Infinity,
+                      ease: "easeInOut",
+                      delay: i * 0.6,
+                    }}
+                  />
+                )
+              })}
+            </>
+          )}
+          
+          {/* First Goliath badge - Subtle initial awakening glow */}
+          {isFirstGoliathBadge && (
             <motion.div
               className="absolute inset-0 rounded-full z-[5]"
               style={{
-                background: "conic-gradient(from 0deg, rgba(234, 179, 8, 1), rgba(250, 204, 21, 1), rgba(234, 179, 8, 1))",
+                background: "radial-gradient(circle, rgba(139, 92, 246, 0.9) 0%, rgba(124, 58, 237, 0.6) 40%, rgba(139, 92, 246, 0.3) 70%, transparent 100%)",
               }}
               animate={{
-                rotate: [0, 360],
-                opacity: [0.9, 1, 0.9],
+                scale: [1, 1.1, 1],
+                opacity: [0.7, 0.95, 0.7],
               }}
               transition={{
                 duration: 3,
                 repeat: Infinity,
-                ease: "linear",
-              }}
-            />
-          )}
-          
-          {/* Titan Host badge - Pulsing orange gradient */}
-          {isTitanHostBadge && (
-            <motion.div
-              className="absolute inset-0 rounded-full z-[5]"
-              style={{
-                background: "radial-gradient(circle, rgba(249, 115, 22, 1) 0%, rgba(251, 146, 60, 0.8) 40%, rgba(253, 186, 116, 0.5) 70%, transparent 100%)",
-              }}
-              animate={{
-                scale: [1, 1.15, 1],
-                opacity: [0.8, 1, 0.8],
-              }}
-              transition={{
-                duration: 2.5,
-                repeat: Infinity,
                 ease: "easeInOut",
               }}
             />
           )}
           
-          {/* Mystic badges - Rotating rainbow gradient */}
-          {isMysticBadge && (
-            <motion.div
-              className="absolute inset-0 rounded-full z-[5]"
-              style={{
-                background: "conic-gradient(from 0deg, rgba(239, 68, 68, 1), rgba(251, 146, 60, 1), rgba(234, 179, 8, 1), rgba(34, 197, 94, 1), rgba(59, 130, 246, 1), rgba(139, 92, 246, 1), rgba(236, 72, 153, 1), rgba(239, 68, 68, 1))",
-              }}
-              animate={{
-                rotate: [0, 360],
-                opacity: [0.9, 1, 0.9],
-              }}
-              transition={{
-                duration: 3,
-                repeat: Infinity,
-                ease: "linear",
-              }}
-            />
+          {/* Goliath Guardian badge - Subtle protective energy waves */}
+          {isGoliathGuardianBadge && (
+            <>
+              {/* Protective energy rings */}
+              {[...Array(2)].map((_, i) => (
+                <motion.div
+                  key={i}
+                  className="absolute inset-0 rounded-full z-[5]"
+                  style={{
+                    border: `2px solid rgba(168, 85, 247, ${0.6 - i * 0.2})`,
+                    borderRadius: '50%',
+                    borderStyle: 'dashed',
+                  }}
+                  animate={{
+                    scale: [1 + i * 0.1, 1.15 + i * 0.1, 1 + i * 0.1],
+                    opacity: [0.5, 0.8, 0.5],
+                  }}
+                  transition={{
+                    duration: 3.5 + i * 0.5,
+                    repeat: Infinity,
+                    ease: "easeInOut",
+                    delay: i * 0.4,
+                  }}
+                />
+              ))}
+              {/* Pulsing core */}
+              <motion.div
+                className="absolute inset-0 rounded-full z-[5]"
+                style={{
+                  background: "radial-gradient(circle, rgba(168, 85, 247, 0.8) 0%, rgba(139, 92, 246, 0.5) 50%, transparent 100%)",
+                }}
+                animate={{
+                  scale: [1, 1.1, 1],
+                  opacity: [0.7, 1, 0.7],
+                }}
+                transition={{
+                  duration: 3,
+                  repeat: Infinity,
+                  ease: "easeInOut",
+                }}
+              />
+            </>
+          )}
+          
+          {/* Legion Holder badge - Similar to Titan Host but with different color and pattern */}
+          {isLegionHolderBadge && (
+            <>
+              {/* Expanding energy rings - similar to Titan Host but with purple/orange mix */}
+              {[...Array(2)].map((_, i) => (
+                <motion.div
+                  key={i}
+                  className="absolute inset-0 rounded-full z-[5]"
+                  style={{
+                    border: `3px solid rgba(168, 85, 247, ${0.7 - i * 0.3})`,
+                    borderRadius: '50%',
+                    borderStyle: i % 2 === 0 ? 'solid' : 'dashed',
+                  }}
+                  animate={{
+                    scale: [0.8 + i * 0.1, 1.35, 0.8 + i * 0.1],
+                    opacity: [0.6, 1, 0.6],
+                    rotate: [0, i % 2 === 0 ? 180 : -180, 360],
+                  }}
+                  transition={{
+                    duration: 4.5 + i * 0.8,
+                    repeat: Infinity,
+                    ease: "easeInOut",
+                    delay: i * 0.6,
+                  }}
+                />
+              ))}
+              {/* Pulsing core with purple gradient */}
+              <motion.div
+                className="absolute inset-0 rounded-full z-[5]"
+                style={{
+                  background: "radial-gradient(circle, rgba(168, 85, 247, 1) 0%, rgba(147, 51, 234, 0.8) 40%, rgba(192, 132, 252, 0.5) 70%, transparent 100%)",
+                }}
+                animate={{
+                  scale: [1, 1.12, 1],
+                  opacity: [0.8, 1, 0.8],
+                }}
+                transition={{
+                  duration: 3,
+                  repeat: Infinity,
+                  ease: "easeInOut",
+                }}
+              />
+              {/* Additional orbiting particles for distinction from Titan Host */}
+              {[...Array(3)].map((_, i) => {
+                const angle = (i * 120) * (Math.PI / 180)
+                const radius = 35
+                return (
+                  <motion.div
+                    key={`particle-${i}`}
+                    className="absolute inset-0 rounded-full z-[5]"
+                    style={{
+                      background: `radial-gradient(circle at ${50 + Math.cos(angle) * radius}% ${50 + Math.sin(angle) * radius}%, rgba(192, 132, 252, 0.8) 0%, transparent 50%)`,
+                    }}
+                    animate={{
+                      x: [0, Math.cos(angle) * 6, 0],
+                      y: [0, Math.sin(angle) * 6, 0],
+                      scale: [0.4, 1, 0.4],
+                      opacity: [0.3, 0.8, 0.3],
+                      rotate: [0, 360],
+                    }}
+                    transition={{
+                      duration: 5 + i * 0.5,
+                      repeat: Infinity,
+                      ease: "easeInOut",
+                      delay: i * 0.4,
+                    }}
+                  />
+                )
+              })}
+            </>
           )}
           
           {/* Badge Icon - On top of everything */}
@@ -855,7 +1828,25 @@ export default function LeaderboardPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {isLoading ? (
+                    {error ? (
+                      <tr>
+                        <td colSpan={5} className="px-6 py-12">
+                          <div className="flex flex-col items-center justify-center gap-4">
+                            <div className="bg-red-900/20 border border-red-500/50 rounded-lg p-6 max-w-2xl w-full">
+                              <h3 className="text-red-400 text-xl font-bold mb-2">Configuration Error</h3>
+                              <p className="text-gray-300 mb-4">{error}</p>
+                              {error.includes("NEXT_PUBLIC_AMPLIFY_API_URL") && (
+                                <div className="text-left bg-gray-900/50 rounded p-4 mt-4">
+                                  <p className="text-sm text-gray-400 mb-2">To fix this, add the following to your <code className="text-purple-400">.env.local</code> file:</p>
+                                  <code className="text-green-400 text-sm block">NEXT_PUBLIC_AMPLIFY_API_URL=your_api_url_here</code>
+                                  <p className="text-xs text-gray-500 mt-2">After adding the variable, restart your development server.</p>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    ) : isLoading ? (
                       <tr>
                         <td colSpan={5} className="px-6 py-12">
                           <div className="flex flex-col items-center justify-center gap-4">
@@ -968,17 +1959,23 @@ export default function LeaderboardPage() {
                   </tbody>
                 </table>
                 
-                {/* Load More Trigger */}
-                {hasMore && !searchQuery && (
-                  <div ref={loadMoreTriggerRef} className="py-8 text-center">
-                    {isLoadingMore ? (
-                      <div className="flex items-center justify-center gap-2 text-gray-400">
-                        <Loader2 className="w-5 h-5 animate-spin" />
-                        <span className="font-pt-mono text-sm">Loading more...</span>
-                      </div>
-                    ) : (
-                      <div className="h-20" /> // Spacer to trigger intersection observer
-                    )}
+                {/* Load More Button - Only show after initial load is complete */}
+                {!isLoading && hasMore && !searchQuery && (
+                  <div className="py-8 text-center">
+                    <button
+                      onClick={loadMoreUsers}
+                      disabled={isLoadingMore}
+                      className="px-8 py-3 bg-gray-800 hover:bg-gray-700 border border-gray-700 hover:border-gray-600 text-white font-medium font-pt-mono rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 mx-auto"
+                    >
+                      {isLoadingMore ? (
+                        <>
+                          <Loader2 className="w-5 h-5 animate-spin" />
+                          <span>Loading more...</span>
+                        </>
+                      ) : (
+                        <span>Load More</span>
+                      )}
+                    </button>
                   </div>
                 )}
               </div>
