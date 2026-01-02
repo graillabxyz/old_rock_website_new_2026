@@ -82,6 +82,7 @@ export default function ProfilePage() {
   const [isEditingHeader, setIsEditingHeader] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
   const [uploadError, setUploadError] = useState<string | null>(null)
+  const [uploadSuccess, setUploadSuccess] = useState(false)
 
   // ENS confirmation modal state
   const [showENSConfirm, setShowENSConfirm] = useState(false)
