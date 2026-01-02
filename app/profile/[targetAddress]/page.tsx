@@ -73,6 +73,22 @@ export default function ProfilePage() {
   const [isSettingAvatar, setIsSettingAvatar] = useState(false)
 
   useEffect(() => {
+    // Suppress harmless wallet extension errors in console
+    const originalError = console.error
+    console.error = (...args: any[]) => {
+      const message = args[0]?.toString() || ""
+      // Filter out wallet extension errors about window.ethereum
+      if (
+        message.includes("Cannot set property ethereum") ||
+        message.includes("Cannot redefine property: ethereum") ||
+        message.includes("MetaMask encountered an error setting the global Ethereum provider")
+      ) {
+        // Suppress these errors - they're harmless and come from wallet extensions
+        return
+      }
+      originalError.apply(console, args)
+    }
+
     const checkWallet = async () => {
       if (typeof window !== "undefined" && window.ethereum) {
         try {
@@ -87,6 +103,11 @@ export default function ProfilePage() {
     }
 
     checkWallet()
+
+    // Restore original console.error on cleanup
+    return () => {
+      console.error = originalError
+    }
 
     const handleWalletConnected = (event: CustomEvent) => {
       if (event.detail.address) {

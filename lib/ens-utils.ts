@@ -48,21 +48,41 @@ export async function setENSAvatar(
   // Create contract instance with the Public Resolver ABI
   const resolverContract = new ethers.Contract(resolverAddress, PUBLIC_RESOLVER_ABI, signer)
 
-  // Check if the resolver supports setText by checking if the function exists
-  // We'll try to call it and handle the error if it doesn't exist
+  // Check if the resolver supports setText by trying to estimate gas
+  // If gas estimation fails, the function likely doesn't exist
   let tx
   try {
-    // First, verify the resolver supports text records by checking if we can read
+    // First, try to estimate gas for the transaction
+    // This will fail if the function doesn't exist on the contract
     try {
-      await resolver.getText("avatar")
-    } catch (readError) {
-      // If we can't read, the resolver might not support text records
-      // But we'll still try to write in case it's a write-only resolver
+      await resolverContract.setText.estimateGas(namehash, "avatar", imageUrl)
+    } catch (estimateError: any) {
+      // If gas estimation fails, the function doesn't exist
+      const publicResolverAddress = ENS_PUBLIC_RESOLVER_ADDRESS.toLowerCase()
+      const currentResolverAddress = resolverAddress.toLowerCase()
+      
+      if (currentResolverAddress !== publicResolverAddress) {
+        throw new Error(
+          `Your ENS name "${ensName}" is using a resolver (${resolverAddress.slice(0, 10)}...) that doesn't support text records. ` +
+          `Please update your resolver to the Public Resolver using the ENS Manager app: ` +
+          `https://app.ens.domains/name/${ensName}/details`
+        )
+      } else {
+        throw new Error(
+          `Failed to set avatar. The resolver may not support text records. ` +
+          `Please try again or contact support if the issue persists.`
+        )
+      }
     }
 
-    // Try to set the avatar text record using namehash
+    // If gas estimation succeeds, the function exists - proceed with the transaction
     tx = await resolverContract.setText(namehash, "avatar", imageUrl)
   } catch (error: any) {
+    // If we already threw a custom error above, re-throw it
+    if (error?.message?.includes("doesn't support text records") || error?.message?.includes("Failed to set avatar")) {
+      throw error
+    }
+    
     // Provide more helpful error messages based on the error type
     if (error?.code === "CALL_EXCEPTION" || error?.message?.includes("function") || error?.message?.includes("not supported")) {
       const publicResolverAddress = ENS_PUBLIC_RESOLVER_ADDRESS.toLowerCase()
