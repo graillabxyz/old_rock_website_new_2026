@@ -4,20 +4,22 @@ import { Header } from "@/components/header"
 import { CyberpunkBackground } from "@/components/cyberpunk-background"
 import { Sidebar } from "@/components/sidebar"
 import { motion } from "framer-motion"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Footer } from "@/components/footer"
 import Image from "next/image"
 import { Search } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { useRouter } from "next/navigation"
 import { calculateAllBadges, getBestBadges, Badge as BadgeType } from "@/lib/badge-utils"
-import { Award } from "lucide-react"
+import { Award, Loader2 } from "lucide-react"
+import { createPortal } from "react-dom"
 
 interface LeaderboardUser {
   address: string
   ensName: string | null
   displayName: string
   totalDensity: number
+  unextractedDensity: number
   hasOldRock: boolean
   hasGoliath: boolean
   rank: number
@@ -31,8 +33,9 @@ export default function LeaderboardPage() {
   const [userProfile, setUserProfile] = useState<any>(null)
   const [leaderboardUsers, setLeaderboardUsers] = useState<LeaderboardUser[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [loadingProgress, setLoadingProgress] = useState(0)
   const [searchQuery, setSearchQuery] = useState("")
-  const [sortBy, setSortBy] = useState<"rank" | "totalDensity">("rank")
+  const [sortBy, setSortBy] = useState<"rank" | "totalDensity" | "densityDeck">("rank")
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc")
 
   // Check wallet connection status
@@ -62,10 +65,35 @@ export default function LeaderboardPage() {
 
   const router = useRouter()
 
-  // Fetch leaderboard data
+  // Fetch leaderboard data with progress tracking
   useEffect(() => {
     const fetchLeaderboardData = async () => {
       setIsLoading(true)
+      setLoadingProgress(0)
+
+      // Simulate progress while loading
+      const progressInterval = setInterval(() => {
+        setLoadingProgress((prev) => {
+          if (prev >= 90) return prev // Don't go to 100 until data is loaded
+          return prev + Math.random() * 10
+        })
+      }, 200)
+
+      // Poll progress endpoint
+      const progressPollInterval = setInterval(async () => {
+        try {
+          const progressResponse = await fetch("/api/leaderboard/progress")
+          if (progressResponse.ok) {
+            const progressData = await progressResponse.json()
+            if (progressData.progress !== undefined) {
+              setLoadingProgress(progressData.progress)
+            }
+          }
+        } catch (error) {
+          // Ignore progress polling errors
+        }
+      }, 500)
+
       try {
         const response = await fetch("/api/leaderboard")
         if (!response.ok) {
@@ -76,6 +104,8 @@ export default function LeaderboardPage() {
         if (!result.success || !result.data) {
           throw new Error("Invalid leaderboard data")
         }
+
+        setLoadingProgress(100)
 
         // Fetch NFTs and calculate badges for each user
         const usersWithBadges = await Promise.all(
@@ -92,6 +122,7 @@ export default function LeaderboardPage() {
                   badges: [],
                   bestBadges: [],
                   avatar: await fetchENSAvatar(user.address),
+                  unextractedDensity: user.unextractedDensity || 0,
                 }
               }
 
@@ -117,6 +148,7 @@ export default function LeaderboardPage() {
                 badges,
                 bestBadges,
                 avatar,
+                unextractedDensity: user.unextractedDensity || 0,
               }
             } catch (error) {
               console.error(`Error processing user ${user.address}:`, error)
@@ -126,6 +158,7 @@ export default function LeaderboardPage() {
                 badges: [],
                 bestBadges: [],
                 avatar: await fetchENSAvatar(user.address),
+                unextractedDensity: user.unextractedDensity || 0,
               }
             }
           })
@@ -136,6 +169,9 @@ export default function LeaderboardPage() {
         console.error("Error fetching leaderboard data:", error)
         setLeaderboardUsers([])
       } finally {
+        clearInterval(progressInterval)
+        clearInterval(progressPollInterval)
+        setLoadingProgress(100)
         setIsLoading(false)
       }
     }
@@ -199,12 +235,16 @@ export default function LeaderboardPage() {
         comparison = a.rank - b.rank
       } else if (sortBy === "totalDensity") {
         comparison = a.totalDensity - b.totalDensity
+      } else if (sortBy === "densityDeck") {
+        // For now, Density Deck sorting is placeholder (coming soon)
+        // Could sort by games played, win rate, etc. when data is available
+        comparison = 0 // Keep original order for now
       }
 
       return sortDirection === "asc" ? comparison : -comparison
     })
 
-  const handleSort = (column: "rank" | "totalDensity") => {
+  const handleSort = (column: "rank" | "totalDensity" | "densityDeck") => {
     if (sortBy === column) {
       setSortDirection(sortDirection === "asc" ? "desc" : "asc")
     } else {
@@ -215,6 +255,81 @@ export default function LeaderboardPage() {
 
   const handleRowClick = (address: string) => {
     router.push(`/profile/${address}`)
+  }
+
+  // Badge Icon Component with Tooltip (like profile page)
+  function BadgeIconWithTooltip({ badge }: { badge: BadgeType }) {
+    const [showCustomTooltip, setShowCustomTooltip] = useState(false)
+    const [tooltipPosition, setTooltipPosition] = useState({ top: 0, left: 0 })
+    const badgeRef = useRef<HTMLDivElement>(null)
+    
+    const updateTooltipPosition = () => {
+      if (badgeRef.current) {
+        const rect = badgeRef.current.getBoundingClientRect()
+        setTooltipPosition({
+          top: rect.top - 8, // Position above the badge
+          left: rect.left + rect.width / 2 // Center horizontally
+        })
+      }
+    }
+    
+    useEffect(() => {
+      if (showCustomTooltip) {
+        updateTooltipPosition()
+        const handleScroll = () => updateTooltipPosition()
+        const handleResize = () => updateTooltipPosition()
+        
+        window.addEventListener('scroll', handleScroll, true)
+        window.addEventListener('resize', handleResize)
+        
+        return () => {
+          window.removeEventListener('scroll', handleScroll, true)
+          window.removeEventListener('resize', handleResize)
+        }
+      }
+    }, [showCustomTooltip])
+    
+    return (
+      <>
+        <div
+          ref={badgeRef}
+          className="relative w-8 h-8 flex items-center justify-center rounded-full bg-gray-800 border border-gray-700 cursor-help"
+          onMouseEnter={() => {
+            setShowCustomTooltip(true)
+            updateTooltipPosition()
+          }}
+          onMouseLeave={() => setShowCustomTooltip(false)}
+          title={!showCustomTooltip ? `${badge.name}${badge.description ? ` - ${badge.description}` : ""}` : undefined}
+        >
+          <Award
+            className={`w-5 h-5 ${
+              badge.unlocked ? "text-white opacity-100" : "text-gray-600 opacity-30"
+            }`}
+          />
+        </div>
+        
+        {/* Custom tooltip on hover - rendered via portal to escape container bounds */}
+        {showCustomTooltip && typeof window !== 'undefined' && createPortal(
+          <div 
+            className="fixed z-[99999] pointer-events-none"
+            style={{ 
+              top: `${tooltipPosition.top}px`,
+              left: `${tooltipPosition.left}px`,
+              transform: 'translate(-50%, -100%)',
+              marginBottom: '8px'
+            }}
+          >
+            <div className="bg-gray-900 text-white text-xs rounded px-2 py-1 whitespace-nowrap border border-gray-700 shadow-lg">
+              <div className="font-semibold">{badge.name}</div>
+              {badge.description && (
+                <div className="text-gray-400 text-xs mt-0.5">{badge.description}</div>
+              )}
+            </div>
+          </div>,
+          document.body
+        )}
+      </>
+    )
   }
 
   return (
@@ -238,16 +353,40 @@ export default function LeaderboardPage() {
             </motion.div>
 
             {/* Search and Filter */}
-            <div className="mb-8">
-              <div className="relative">
+            <div className="mb-8 flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
+              <div className="relative flex-1 md:max-w-md">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
                 <Input
                   type="text"
                   placeholder="Search by name or address..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 bg-gray-800/50 border-gray-700 text-white placeholder-gray-400 w-full md:w-96"
+                  className="pl-10 bg-gray-800/50 border-gray-700 text-white placeholder-gray-400 w-full"
                 />
+              </div>
+              
+              {/* Sort Buttons */}
+              <div className="flex gap-2">
+                <button
+                  onClick={() => handleSort("totalDensity")}
+                  className={`px-4 py-2 rounded-lg font-pt-mono text-sm font-bold transition-colors ${
+                    sortBy === "totalDensity"
+                      ? "bg-purple-600 text-white"
+                      : "bg-gray-800/50 text-gray-300 hover:bg-gray-700/50"
+                  }`}
+                >
+                  Sort by $DENSITY {sortBy === "totalDensity" && (sortDirection === "asc" ? "↑" : "↓")}
+                </button>
+                <button
+                  onClick={() => handleSort("densityDeck")}
+                  className={`px-4 py-2 rounded-lg font-pt-mono text-sm font-bold transition-colors ${
+                    sortBy === "densityDeck"
+                      ? "bg-purple-600 text-white"
+                      : "bg-gray-800/50 text-gray-300 hover:bg-gray-700/50"
+                  }`}
+                >
+                  Sort by DENSITY DECK {sortBy === "densityDeck" && (sortDirection === "asc" ? "↑" : "↓")}
+                </button>
               </div>
             </div>
 
@@ -278,13 +417,29 @@ export default function LeaderboardPage() {
                   </thead>
                   <tbody>
                     {isLoading ? (
-                      Array.from({ length: 5 }).map((_, index) => (
-                        <tr key={index} className="border-b border-gray-800">
-                          <td colSpan={5} className="px-6 py-4">
-                            <div className="h-12 bg-gray-800/50 animate-pulse rounded-md"></div>
-                          </td>
-                        </tr>
-                      ))
+                      <tr>
+                        <td colSpan={5} className="px-6 py-12">
+                          <div className="flex flex-col items-center justify-center gap-4">
+                            <Loader2 className="w-8 h-8 text-purple-400 animate-spin" />
+                            <div className="w-full max-w-xs">
+                              <div className="flex items-center justify-between mb-2">
+                                <p className="text-gray-400 font-pt-mono text-sm">Loading leaderboard...</p>
+                                <p className="text-purple-400 font-pt-mono text-sm font-bold">
+                                  {Math.round(loadingProgress)}%
+                                </p>
+                              </div>
+                              <div className="w-full bg-gray-800 rounded-full h-2 overflow-hidden">
+                                <motion.div
+                                  className="bg-purple-500 h-full rounded-full"
+                                  initial={{ width: 0 }}
+                                  animate={{ width: `${loadingProgress}%` }}
+                                  transition={{ duration: 0.3, ease: "easeOut" }}
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
                     ) : filteredUsers.length > 0 ? (
                       filteredUsers.map((user) => (
                         <tr
@@ -325,20 +480,30 @@ export default function LeaderboardPage() {
                             </div>
                           </td>
                           <td className="px-6 py-4">
-                            <div className="flex items-center space-x-2">
-                              <Image
-                                src="/images/density-white.svg"
-                                alt="DENSITY"
-                                width={20}
-                                height={20}
-                                className="w-5 h-5"
-                              />
-                              <span className="font-bold">
-                                {user.totalDensity.toLocaleString(undefined, {
-                                  minimumFractionDigits: 2,
-                                  maximumFractionDigits: 2,
-                                })}
-                              </span>
+                            <div className="flex flex-col">
+                              <div className="flex items-center space-x-2">
+                                <Image
+                                  src="/images/density-white.svg"
+                                  alt="DENSITY"
+                                  width={20}
+                                  height={20}
+                                  className="w-5 h-5"
+                                />
+                                <span className="font-bold">
+                                  {user.totalDensity.toLocaleString(undefined, {
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 2,
+                                  })}
+                                </span>
+                              </div>
+                              {user.unextractedDensity > 0 && (
+                                <div className="text-xs text-gray-500 mt-1 ml-7">
+                                  {user.unextractedDensity.toLocaleString(undefined, {
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 2,
+                                  })} unextracted
+                                </div>
+                              )}
                             </div>
                           </td>
                           <td className="px-6 py-4">
@@ -351,17 +516,7 @@ export default function LeaderboardPage() {
                             <div className="flex space-x-2">
                               {user.bestBadges.length > 0 ? (
                                 user.bestBadges.map((badge) => (
-                                  <div
-                                    key={badge.id}
-                                    className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-800 border border-gray-700"
-                                    title={`${badge.name}: ${badge.description}`}
-                                  >
-                                    <Award
-                                      className={`w-5 h-5 ${
-                                        badge.unlocked ? "text-white opacity-100" : "text-gray-600 opacity-30"
-                                      }`}
-                                    />
-                                  </div>
+                                  <BadgeIconWithTooltip key={badge.id} badge={badge} />
                                 ))
                               ) : (
                                 <span className="text-gray-500 text-sm">—</span>
