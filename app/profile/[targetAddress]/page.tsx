@@ -12,7 +12,7 @@ import { Header } from "@/components/header"
 import { Sidebar } from "@/components/sidebar"
 import { NFTOverlay } from "@/components/nft-overlay"
 import { setENSAvatar, getConnectedWalletENSName } from "@/lib/ens-utils"
-import { uploadToIPFS, getIPFSGatewayURL, SUPPORTED_IMAGE_TYPES, SUPPORTED_VIDEO_TYPES } from "@/lib/ipfs-utils"
+import { uploadToIPFS, getIPFSGatewayURL, SUPPORTED_IMAGE_TYPES, SUPPORTED_VIDEO_TYPES, MAX_FILE_SIZE } from "@/lib/ipfs-utils"
 import { Upload } from "lucide-react"
 import { ENSConfirmationModal } from "@/components/ens-confirmation-modal"
 
@@ -413,29 +413,45 @@ export default function ProfilePage() {
       
       localStorage.setItem(`header-media-${walletAddress}`, JSON.stringify(headerData))
       
-      // Wait a moment to show completion
-      await new Promise(resolve => setTimeout(resolve, 500))
+      // Show success message
+      setUploadSuccess(true)
       
+      // Wait a moment to show completion and success message
+      await new Promise(resolve => setTimeout(resolve, 1500))
+      
+      // Close edit mode and reset states
       setIsEditingHeader(false)
       setUploadProgress(0)
       setUploadError(null)
+      setUploadSuccess(false)
     } catch (error: any) {
       console.error("Error uploading header media:", error)
       
       // Clear progress interval if still running
       setUploadProgress(0)
+      setUploadSuccess(false)
       
-      // Provide specific error messages
+      // Provide specific, user-friendly error messages
       let errorMessage = "Failed to upload header media."
       
-      if (error?.message?.includes("File size exceeds")) {
+      if (error?.message?.includes("File size exceeds") || error?.message?.includes("too large")) {
         errorMessage = `File too large! Maximum allowed: 2MB. Please choose a smaller file.`
-      } else if (error?.message?.includes("Unsupported file format")) {
+      } else if (error?.message?.includes("Unsupported file format") || error?.message?.includes("Unsupported file type")) {
         errorMessage = `Unsupported file format. Please upload: webp, webm, mp4, gif, jpg, or png`
-      } else if (error?.message?.includes("network") || error?.message?.includes("fetch")) {
-        errorMessage = `Network error. Please check your connection and try again.`
+      } else if (error?.message?.includes("network") || error?.message?.includes("fetch") || error?.message?.includes("Network")) {
+        errorMessage = `Network error. Please check your internet connection and try again.`
+      } else if (error?.message?.includes("IPFS upload service not configured")) {
+        errorMessage = `Upload service is not configured. Please contact support.`
+      } else if (error?.message?.includes("Failed to upload to IPFS")) {
+        errorMessage = `Upload failed. The file may be corrupted or the service is temporarily unavailable. Please try again.`
       } else if (error?.message) {
-        errorMessage = error.message
+        // Clean up technical error messages for users
+        errorMessage = error.message.replace(/Error:|Failed|at .*|\(.*\)/g, "").trim()
+        if (!errorMessage) {
+          errorMessage = "An unexpected error occurred. Please try again."
+        }
+      } else {
+        errorMessage = "An unexpected error occurred. Please try again."
       }
       
       setUploadError(errorMessage)
@@ -693,6 +709,7 @@ export default function ProfilePage() {
                       onClick={() => {
                         setIsEditingHeader(false)
                         setUploadError(null)
+                        setUploadSuccess(false)
                         setUploadProgress(0)
                       }}
                       className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors"
@@ -712,15 +729,30 @@ export default function ProfilePage() {
                     </div>
                   )}
                   
+                  {/* Success Message */}
+                  {uploadSuccess && (
+                    <div className="bg-green-900/50 border border-green-600 text-green-200 px-3 py-2 rounded-lg text-sm max-w-xs font-pt-mono flex items-center gap-2">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      Header uploaded successfully!
+                    </div>
+                  )}
+                  
                   {/* Error Message */}
                   {uploadError && (
                     <div className="bg-red-900/50 border border-red-600 text-red-200 px-3 py-2 rounded-lg text-sm max-w-xs font-pt-mono">
-                      {uploadError}
+                      <div className="flex items-start gap-2">
+                        <svg className="w-4 h-4 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span>{uploadError}</span>
+                      </div>
                     </div>
                   )}
                   
                   {/* File Size Info */}
-                  {!isUploadingHeader && !uploadError && (
+                  {!isUploadingHeader && !uploadError && !uploadSuccess && (
                     <p className="text-xs text-gray-400 text-right font-pt-mono max-w-xs">
                       Max file size: 2MB • Supported: webp, webm, mp4, gif, jpg, png
                     </p>
