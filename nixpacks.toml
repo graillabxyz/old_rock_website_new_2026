@@ -6,7 +6,8 @@ cmds = ["npm ci"]
 
 [phases.build]
 cmds = ["npm run build"]
-# PINATA_JWT is runtime-only, not needed during build
+# Environment variables are available at runtime, not during build
+# PINATA_JWT is only used in API routes (runtime), not needed during build
 
 [start]
 cmd = "npm start"
