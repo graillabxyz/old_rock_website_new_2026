@@ -587,7 +587,7 @@ export default function LeaderboardPage() {
       <>
         <div
           ref={badgeRef}
-          className="relative w-8 h-8 flex items-center justify-center rounded-full bg-gray-800/80 border border-gray-700 cursor-help overflow-visible backdrop-blur-sm"
+          className="relative w-8 h-8 flex items-center justify-center rounded-lg bg-gray-800/80 border border-gray-700 cursor-help overflow-visible backdrop-blur-sm"
           onMouseEnter={() => {
             setShowCustomTooltip(true)
             updateTooltipPosition()
@@ -596,7 +596,7 @@ export default function LeaderboardPage() {
           title={!showCustomTooltip ? `${badge.name}${badge.description ? ` - ${badge.description}` : ""}` : undefined}
         >
           {/* Badge Icon Container - Background */}
-          <div className="absolute inset-0 rounded-full bg-gray-800/80 border border-gray-700 z-0 backdrop-blur-sm" />
+          <div className="absolute inset-0 rounded-lg bg-gray-800/80 border border-gray-700 z-0 backdrop-blur-sm" />
           
           {/* Animation backgrounds for special badges - Between container and icon */}
           {/* Pure badge - Uses actual rock color with soft hexagon-like shape */}
@@ -604,7 +604,7 @@ export default function LeaderboardPage() {
             <>
               {/* Main pulsing hexagon - soft edges with multiple radial gradients */}
               <motion.div
-                className="absolute inset-0 z-[5] rounded-full"
+                className="absolute inset-0 z-[5] rounded-lg"
                 style={{
                   background: `radial-gradient(ellipse 80% 100% at 50% 50%, ${getRockColorRgba(pureColor, 1)} 0%, ${getRockColorRgba(pureColor, 0.8)} 20%, ${getRockColorRgba(pureColor, 0.6)} 40%, ${getRockColorRgba(pureColor, 0.4)} 60%, ${getRockColorRgba(pureColor, 0.2)} 80%, transparent 100%)`,
                   filter: 'blur(0.5px)',
@@ -627,7 +627,7 @@ export default function LeaderboardPage() {
                 return (
                   <motion.div
                     key={i}
-                    className="absolute inset-0 z-[5] rounded-full"
+                    className="absolute inset-0 z-[5] rounded-lg"
                     style={{
                       background: `radial-gradient(ellipse at ${50 + Math.cos(angle) * radius}% ${50 + Math.sin(angle) * radius}%, ${getRockColorRgba(pureColor, 0.6 - i * 0.15)} 0%, ${getRockColorRgba(pureColor, 0.4 - i * 0.1)} 50%, transparent 100%)`,
                       filter: 'blur(1px)',
@@ -647,7 +647,7 @@ export default function LeaderboardPage() {
               })}
               {/* Secondary outer glow layer for more depth */}
               <motion.div
-                className="absolute inset-0 z-[4] rounded-full"
+                className="absolute inset-0 z-[4] rounded-lg"
                 style={{
                   background: `radial-gradient(circle, ${getRockColorRgba(pureColor, 0.5)} 0%, ${getRockColorRgba(pureColor, 0.3)} 40%, ${getRockColorRgba(pureColor, 0.1)} 70%, transparent 100%)`,
                   filter: 'blur(3px)',
@@ -675,7 +675,7 @@ export default function LeaderboardPage() {
                 <>
                   {/* Base fire glow - no scaling, just flickering */}
                   <motion.div
-                    className="absolute inset-0 rounded-full z-[5]"
+                    className="absolute inset-0 rounded-lg z-[5]"
                     style={{
                       background: `radial-gradient(ellipse at center bottom, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.7) 25%, rgba(255, 255, 255, 0.4) 50%, rgba(255, 255, 255, 0.2) 75%, transparent 100%)`,
                     }}
@@ -702,9 +702,9 @@ export default function LeaderboardPage() {
                           width: `${12 + (i % 3) * 4}%`,
                           height: `${baseHeight}%`,
                           transform: 'translateX(-50%)',
-                          background: `radial-gradient(ellipse 120% 100% at center top, rgba(255, 255, 255, ${0.95 - i * 0.08}) 0%, rgba(255, 255, 255, ${0.75 - i * 0.08}) 20%, rgba(255, 255, 255, ${0.5 - i * 0.08}) 40%, rgba(255, 255, 255, ${0.3 - i * 0.08}) 60%, rgba(255, 255, 255, ${0.1 - i * 0.08}) 80%, transparent 100%)`,
-                          filter: 'blur(2px)',
+                          background: `radial-gradient(ellipse at center top, rgba(255, 255, 255, ${0.95 - i * 0.08}) 0%, rgba(255, 255, 255, ${0.7 - i * 0.08}) 25%, rgba(255, 255, 255, ${0.4 - i * 0.08}) 50%, transparent 100%)`,
                           borderRadius: '50% 50% 0 0',
+                          filter: 'blur(1.5px)',
                         }}
                         animate={{
                           x: [0, (i % 2 === 0 ? 1 : -1) * (2 + (i % 2)), 0, (i % 2 === 0 ? -1 : 1) * (1 + (i % 3)), 0],
@@ -713,9 +713,9 @@ export default function LeaderboardPage() {
                           opacity: [0.5, 1, 0.6, 0.9, 0.5],
                         }}
                         transition={{
-                          duration: 0.8 + (i % 3) * 0.2,
+                          duration: (0.8 + (i % 3) * 0.2) * 1.5,
                           repeat: Infinity,
-                          delay: i * 0.1,
+                          delay: i * 0.1 * 1.5,
                           ease: [0.4, 0, 0.6, 1], // More natural fire-like easing
                         }}
                       />
@@ -743,9 +743,9 @@ export default function LeaderboardPage() {
                           opacity: [0.4, 0.95, 0.3, 0.4],
                         }}
                         transition={{
-                          duration: 0.6 + (i % 2) * 0.3,
+                          duration: (0.6 + (i % 2) * 0.3) * 1.5,
                           repeat: Infinity,
-                          delay: i * 0.15,
+                          delay: i * 0.15 * 1.5,
                           ease: [0.4, 0, 0.6, 1],
                         }}
                       />
@@ -756,7 +756,7 @@ export default function LeaderboardPage() {
                 // Black Hole Effect
                 <>
                   <motion.div
-                    className="absolute inset-0 rounded-full z-[5]"
+                    className="absolute inset-0 rounded-lg z-[5]"
                     style={{
                       background: `radial-gradient(circle at center, rgba(0, 0, 0, 1) 0%, rgba(0, 0, 0, 0.8) 25%, rgba(0, 0, 0, 0.5) 50%, rgba(0, 0, 0, 0.2) 75%, transparent 100%)`,
                     }}
@@ -765,14 +765,14 @@ export default function LeaderboardPage() {
                       opacity: [0.8, 1, 0.8],
                     }}
                     transition={{
-                      duration: 3,
+                      duration: 3 * 1.5,
                       repeat: Infinity,
                       ease: "easeInOut",
                     }}
                   />
                   {/* Swirling effect */}
                   <motion.div
-                    className="absolute inset-0 rounded-full z-[5]"
+                    className="absolute inset-0 rounded-lg z-[5]"
                     style={{
                       background: `conic-gradient(from 0deg, transparent 0%, rgba(0, 0, 0, 0.8) 15%, rgba(0, 0, 0, 0.6) 30%, transparent 45%, rgba(0, 0, 0, 0.5) 60%, rgba(0, 0, 0, 0.3) 75%, transparent 90%, rgba(0, 0, 0, 0.2) 100%)`,
                     }}
@@ -780,14 +780,14 @@ export default function LeaderboardPage() {
                       rotate: [0, 360],
                     }}
                     transition={{
-                      duration: 8,
+                      duration: 8 * 1.5,
                       repeat: Infinity,
                       ease: "linear",
                     }}
                   />
                   {/* Inner dark core */}
                   <motion.div
-                    className="absolute inset-0 rounded-full z-[5]"
+                    className="absolute inset-0 rounded-lg z-[5]"
                     style={{
                       background: `radial-gradient(circle at center, rgba(0, 0, 0, 1) 0%, rgba(0, 0, 0, 0.7) 30%, rgba(0, 0, 0, 0.4) 60%, transparent 100%)`,
                     }}
@@ -796,7 +796,7 @@ export default function LeaderboardPage() {
                       opacity: [0.7, 1, 0.7],
                     }}
                     transition={{
-                      duration: 2,
+                      duration: 2 * 1.5,
                       repeat: Infinity,
                       ease: "easeInOut",
                     }}
@@ -805,7 +805,7 @@ export default function LeaderboardPage() {
               ) : (
                 // Default elliptical shape for other colors
                 <motion.div
-                  className="absolute inset-0 rounded-full z-[5]"
+                  className="absolute inset-0 rounded-lg z-[5]"
                   style={{
                     background: `radial-gradient(ellipse at center, ${getRockColorRgba(polarColor, 1)} 0%, ${getRockColorRgba(polarColor, 0.7)} 30%, ${getRockColorRgba(polarColor, 0.4)} 60%, ${getRockColorRgba(polarColor, 0.1)} 85%, transparent 100%)`,
                   }}
@@ -815,7 +815,7 @@ export default function LeaderboardPage() {
                     opacity: [0.8, 1, 0.8],
                   }}
                   transition={{
-                    duration: 2.5,
+                    duration: 2.5 * 1.5,
                     repeat: Infinity,
                     ease: "easeInOut",
                   }}
@@ -828,7 +828,7 @@ export default function LeaderboardPage() {
           {isRecurrentBadge && (
             <>
               <motion.div
-                className="absolute inset-0 rounded-full z-[5] overflow-visible"
+                className="absolute inset-0 rounded-lg z-[5] overflow-visible"
                 style={{
                   background: `radial-gradient(circle, ${getRockColorRgba(recurrentColor, 1)} 0%, ${getRockColorRgba(recurrentColor, 0.7)} 40%, ${getRockColorRgba(recurrentColor, 0.4)} 70%, transparent 100%)`,
                 }}
@@ -837,7 +837,7 @@ export default function LeaderboardPage() {
                   opacity: [0.8, 1, 0.8],
                 }}
                 transition={{
-                  duration: 3,
+                  duration: 3 * 1.5,
                   repeat: Infinity,
                   ease: "easeInOut",
                 }}
@@ -852,11 +852,11 @@ export default function LeaderboardPage() {
                 return (
                   <motion.div
                     key={i}
-                    className="absolute rounded-full z-[5]"
+                    className="absolute rounded-lg z-[5]"
                     style={{
                       width: `${randomSize * 4}px`,
                       height: `${randomSize * 4}px`,
-                      backgroundColor: getRockColorRgba(recurrentColor, 1),
+                      background: `radial-gradient(circle, ${getRockColorRgba(recurrentColor, 1)} 0%, ${getRockColorRgba(recurrentColor, 0.7)} 50%, transparent 100%)`,
                       left: `${Math.max(5, Math.min(95, randomX))}%`,
                       top: `${Math.max(5, Math.min(95, randomY))}%`,
                       boxShadow: `0 0 ${randomSize * 4}px ${getRockColorRgba(recurrentColor, 0.9)}, 0 0 ${randomSize * 8}px ${getRockColorRgba(recurrentColor, 0.6)}`,
@@ -866,9 +866,9 @@ export default function LeaderboardPage() {
                       opacity: [0, 1, 0],
                     }}
                     transition={{
-                      duration: 2.5 + (i % 3) * 0.5,
+                      duration: (2.5 + (i % 3) * 0.5) * 1.5,
                       repeat: Infinity,
-                      delay: i * 0.3,
+                      delay: i * 0.3 * 1.5,
                       ease: "easeInOut",
                     }}
                   />
@@ -884,7 +884,7 @@ export default function LeaderboardPage() {
               {[...Array(3)].map((_, i) => (
                 <motion.div
                   key={i}
-                  className="absolute inset-0 rounded-full z-[5]"
+                  className="absolute inset-0 rounded-lg z-[5]"
                   style={{
                     background: `radial-gradient(circle at ${50 + i * 10}% ${50 + i * 10}%, rgba(139, 92, 246, ${0.8 - i * 0.2}) 0%, rgba(168, 85, 247, ${0.6 - i * 0.15}) 30%, transparent 70%)`,
                     borderRadius: '50%',
@@ -896,16 +896,16 @@ export default function LeaderboardPage() {
                     y: [0, (i % 2 === 0 ? -1 : 1) * 5, 0],
                   }}
                   transition={{
-                    duration: 8 + i * 2,
+                    duration: (8 + i * 2) * 1.5,
                     repeat: Infinity,
                     ease: "easeInOut",
-                    delay: i * 0.5,
+                    delay: i * 0.5 * 1.5,
                   }}
                 />
               ))}
               {/* Pulsing core */}
               <motion.div
-                className="absolute inset-0 rounded-full z-[5]"
+                className="absolute inset-0 rounded-lg z-[5]"
                 style={{
                   background: "radial-gradient(circle, rgba(139, 92, 246, 1) 0%, rgba(168, 85, 247, 0.7) 40%, rgba(192, 132, 252, 0.4) 70%, transparent 100%)",
                 }}
@@ -914,7 +914,7 @@ export default function LeaderboardPage() {
                   opacity: [0.8, 1, 0.9, 0.8],
                 }}
                 transition={{
-                  duration: 3,
+                  duration: 3 * 1.5,
                   repeat: Infinity,
                   ease: "easeInOut",
                 }}
@@ -929,7 +929,7 @@ export default function LeaderboardPage() {
               {[...Array(2)].map((_, i) => (
                 <motion.div
                   key={i}
-                  className="absolute inset-0 rounded-full z-[5]"
+                  className="absolute inset-0 rounded-lg z-[5]"
                   style={{
                     border: `2px solid rgba(139, 92, 246, ${0.6 - i * 0.2})`,
                     borderRadius: '50%',
@@ -949,7 +949,7 @@ export default function LeaderboardPage() {
               ))}
               {/* Pulsing core */}
               <motion.div
-                className="absolute inset-0 rounded-full z-[5]"
+                className="absolute inset-0 rounded-lg z-[5]"
                 style={{
                   background: "radial-gradient(circle, rgba(139, 92, 246, 1) 0%, rgba(168, 85, 247, 0.8) 40%, rgba(192, 132, 252, 0.5) 70%, transparent 100%)",
                 }}
@@ -973,7 +973,7 @@ export default function LeaderboardPage() {
               {[...Array(2)].map((_, i) => (
                 <motion.div
                   key={i}
-                  className="absolute inset-0 rounded-full z-[5]"
+                  className="absolute inset-0 rounded-lg z-[5]"
                   style={{
                     background: `radial-gradient(circle, transparent 45%, ${getRockColorRgba(highDensityColor, 0.4 - i * 0.15)} 48%, ${getRockColorRgba(highDensityColor, 0.6 - i * 0.2)} 50%, ${getRockColorRgba(highDensityColor, 0.4 - i * 0.15)} 52%, transparent 55%)`,
                     borderRadius: '50%',
@@ -997,7 +997,7 @@ export default function LeaderboardPage() {
                 return (
                   <motion.div
                     key={i}
-                    className="absolute inset-0 rounded-full z-[5]"
+                    className="absolute inset-0 rounded-lg z-[5]"
                     style={{
                       background: `radial-gradient(circle at ${50 + Math.cos(angle) * radius}% ${50 + Math.sin(angle) * radius}%, ${getRockColorRgba(highDensityColor, 0.9)} 0%, ${getRockColorRgba(highDensityColor, 0.5)} 30%, transparent 60%)`,
                   }}
@@ -1019,7 +1019,7 @@ export default function LeaderboardPage() {
               })}
               {/* Pulsing core with rock color */}
               <motion.div
-                className="absolute inset-0 rounded-full z-[5]"
+                className="absolute inset-0 rounded-lg z-[5]"
                 style={{
                   background: `radial-gradient(circle, ${getRockColorRgba(highDensityColor, 1)} 0%, ${getRockColorRgba(highDensityColor, 0.8)} 40%, ${getRockColorRgba(highDensityColor, 0.5)} 70%, transparent 100%)`,
                 }}
@@ -1043,7 +1043,7 @@ export default function LeaderboardPage() {
               {[...Array(2)].map((_, i) => (
                 <motion.div
                   key={i}
-                  className="absolute inset-0 rounded-full z-[5]"
+                  className="absolute inset-0 rounded-lg z-[5]"
                   style={{
                     background: `radial-gradient(circle, transparent 45%, ${getRockColorRgba(lowDensityColor, 0.4 - i * 0.15)} 48%, ${getRockColorRgba(lowDensityColor, 0.6 - i * 0.2)} 50%, ${getRockColorRgba(lowDensityColor, 0.4 - i * 0.15)} 52%, transparent 55%)`,
                     borderRadius: '50%',
@@ -1062,7 +1062,7 @@ export default function LeaderboardPage() {
               ))}
               {/* Pulsing core with rock color */}
               <motion.div
-                className="absolute inset-0 rounded-full z-[5]"
+                className="absolute inset-0 rounded-lg z-[5]"
                 style={{
                   background: `radial-gradient(circle, ${getRockColorRgba(lowDensityColor, 1)} 0%, ${getRockColorRgba(lowDensityColor, 0.8)} 40%, ${getRockColorRgba(lowDensityColor, 0.5)} 70%, transparent 100%)`,
                 }}
@@ -1086,7 +1086,7 @@ export default function LeaderboardPage() {
               {[...Array(2)].map((_, i) => (
                 <motion.div
                   key={i}
-                  className="absolute inset-0 rounded-full z-[5]"
+                  className="absolute inset-0 rounded-lg z-[5]"
                   style={{
                     background: `radial-gradient(circle, transparent 45%, ${getRockColorRgba(mediumDensityColor, 0.4 - i * 0.15)} 48%, ${getRockColorRgba(mediumDensityColor, 0.6 - i * 0.2)} 50%, ${getRockColorRgba(mediumDensityColor, 0.4 - i * 0.15)} 52%, transparent 55%)`,
                     borderRadius: '50%',
@@ -1110,7 +1110,7 @@ export default function LeaderboardPage() {
                 return (
                   <motion.div
                     key={i}
-                    className="absolute inset-0 rounded-full z-[5]"
+                    className="absolute inset-0 rounded-lg z-[5]"
                     style={{
                       background: `radial-gradient(circle at ${50 + Math.cos(angle) * radius}% ${50 + Math.sin(angle) * radius}%, ${getRockColorRgba(mediumDensityColor, 0.9)} 0%, ${getRockColorRgba(mediumDensityColor, 0.5)} 30%, transparent 60%)`,
                     }}
@@ -1132,7 +1132,7 @@ export default function LeaderboardPage() {
               })}
               {/* Pulsing core with rock color */}
               <motion.div
-                className="absolute inset-0 rounded-full z-[5]"
+                className="absolute inset-0 rounded-lg z-[5]"
                 style={{
                   background: `radial-gradient(circle, ${getRockColorRgba(mediumDensityColor, 1)} 0%, ${getRockColorRgba(mediumDensityColor, 0.8)} 40%, ${getRockColorRgba(mediumDensityColor, 0.5)} 70%, transparent 100%)`,
                 }}
@@ -1154,7 +1154,7 @@ export default function LeaderboardPage() {
             <>
               {/* Rotating rainbow ring - soft edges with blur and smooth mask */}
               <motion.div
-                className="absolute inset-0 rounded-full z-[5]"
+                className="absolute inset-0 rounded-lg z-[5]"
                 style={{
                   background: "radial-gradient(circle, transparent 38%, rgba(255, 0, 0, 0.3) 42%, rgba(255, 127, 0, 0.4) 45%, rgba(255, 255, 0, 0.5) 48%, rgba(0, 255, 0, 0.4) 51%, rgba(0, 0, 255, 0.3) 54%, rgba(75, 0, 130, 0.4) 57%, rgba(148, 0, 211, 0.3) 60%, transparent 63%)",
                   filter: 'blur(2px)',
@@ -1180,7 +1180,7 @@ export default function LeaderboardPage() {
                 return (
                   <motion.div
                     key={i}
-                    className="absolute inset-0 rounded-full z-[5]"
+                    className="absolute inset-0 rounded-lg z-[5]"
                     style={{
                       background: `radial-gradient(circle, transparent ${40 + i * 5}%, ${colorSet[0]} ${45 + i * 5}%, ${colorSet[1]} ${50 + i * 5}%, ${colorSet[2]} ${55 + i * 5}%, transparent ${60 + i * 5}%)`,
                       filter: `blur(${1 + i * 0.5}px)`,
@@ -1207,7 +1207,7 @@ export default function LeaderboardPage() {
                 return (
                   <motion.div
                     key={i}
-                    className="absolute inset-0 rounded-full z-[5]"
+                    className="absolute inset-0 rounded-lg z-[5]"
                     style={{
                       background: `radial-gradient(circle at ${50 + Math.cos(angle) * radius}% ${50 + Math.sin(angle) * radius}%, ${color} 0%, ${color}80 20%, ${color}40 40%, transparent 70%)`,
                       filter: 'blur(1px)',
@@ -1230,7 +1230,7 @@ export default function LeaderboardPage() {
               })}
               {/* Pulsing rainbow core */}
               <motion.div
-                className="absolute inset-0 rounded-full z-[5]"
+                className="absolute inset-0 rounded-lg z-[5]"
                 style={{
                   background: "radial-gradient(circle, rgba(255, 0, 0, 0.9) 0%, rgba(255, 127, 0, 0.8) 20%, rgba(255, 255, 0, 0.7) 40%, rgba(0, 255, 0, 0.6) 60%, rgba(0, 0, 255, 0.5) 80%, transparent 100%)",
                 }}
@@ -1258,7 +1258,7 @@ export default function LeaderboardPage() {
                 return (
                   <motion.div
                     key={i}
-                    className="absolute inset-0 rounded-full z-[5]"
+                    className="absolute inset-0 rounded-lg z-[5]"
                     style={{
                       background: `radial-gradient(circle at ${50 + Math.cos(angle) * radius}% ${50 + Math.sin(angle) * radius}%, rgba(250, 204, 21, 0.9) 0%, rgba(234, 179, 8, 0.7) 30%, rgba(234, 179, 8, 0.4) 50%, rgba(250, 204, 21, 0.2) 70%, transparent 100%)`,
                       filter: 'blur(1px)',
@@ -1281,7 +1281,7 @@ export default function LeaderboardPage() {
               })}
               {/* Rotating outer ring - soft gradient */}
               <motion.div
-                className="absolute inset-0 rounded-full z-[5]"
+                className="absolute inset-0 rounded-lg z-[5]"
                 style={{
                   background: `radial-gradient(circle, transparent 43%, rgba(250, 204, 21, 0.2) 46%, rgba(250, 204, 21, 0.5) 48%, rgba(250, 204, 21, 0.7) 50%, rgba(250, 204, 21, 0.5) 52%, rgba(250, 204, 21, 0.2) 54%, transparent 57%)`,
                   filter: 'blur(1px)',
@@ -1299,7 +1299,7 @@ export default function LeaderboardPage() {
               />
               {/* Pulsing center core */}
               <motion.div
-                className="absolute inset-0 rounded-full z-[5]"
+                className="absolute inset-0 rounded-lg z-[5]"
                 style={{
                   background: "radial-gradient(circle, rgba(250, 204, 21, 1) 0%, rgba(234, 179, 8, 0.8) 40%, rgba(217, 119, 6, 0.5) 70%, transparent 100%)",
                 }}
@@ -1315,7 +1315,7 @@ export default function LeaderboardPage() {
               />
               {/* Inner rotating gradient - soft with blur */}
               <motion.div
-                className="absolute inset-0 rounded-full z-[5]"
+                className="absolute inset-0 rounded-lg z-[5]"
                 style={{
                   background: `radial-gradient(circle, transparent 30%, rgba(250, 204, 21, 0.3) 40%, rgba(234, 179, 8, 0.5) 50%, rgba(250, 204, 21, 0.3) 60%, transparent 70%)`,
                   filter: 'blur(2px)',
@@ -1340,7 +1340,7 @@ export default function LeaderboardPage() {
               {[...Array(2)].map((_, i) => (
                 <motion.div
                   key={i}
-                  className="absolute inset-0 rounded-full z-[5]"
+                  className="absolute inset-0 rounded-lg z-[5]"
                   style={{
                     background: `radial-gradient(circle, transparent 45%, rgba(249, 115, 22, ${0.4 - i * 0.15}) 48%, rgba(249, 115, 22, ${0.7 - i * 0.3}) 50%, rgba(249, 115, 22, ${0.4 - i * 0.15}) 52%, transparent 55%)`,
                     borderRadius: '50%',
@@ -1359,7 +1359,7 @@ export default function LeaderboardPage() {
               ))}
               {/* Pulsing core */}
               <motion.div
-                className="absolute inset-0 rounded-full z-[5]"
+                className="absolute inset-0 rounded-lg z-[5]"
                 style={{
                   background: "radial-gradient(circle, rgba(249, 115, 22, 1) 0%, rgba(251, 146, 60, 0.8) 40%, rgba(253, 186, 116, 0.5) 70%, transparent 100%)",
                 }}
@@ -1383,7 +1383,7 @@ export default function LeaderboardPage() {
               {[...Array(3)].map((_, i) => (
                 <motion.div
                   key={i}
-                  className="absolute inset-0 rounded-full z-[5] overflow-visible"
+                  className="absolute inset-0 rounded-lg z-[5] overflow-visible"
                   style={{
                     background: `linear-gradient(${i * 60}deg, 
                       rgba(239, 68, 68, ${0.7 - i * 0.15}) 0%, 
@@ -1411,7 +1411,7 @@ export default function LeaderboardPage() {
               ))}
               {/* Pulsing center glow */}
               <motion.div
-                className="absolute inset-0 rounded-full z-[5]"
+                className="absolute inset-0 rounded-lg z-[5]"
                 style={{
                   background: "radial-gradient(circle, rgba(139, 92, 246, 0.6) 0%, rgba(236, 72, 153, 0.4) 50%, transparent 100%)",
                 }}
@@ -1435,7 +1435,7 @@ export default function LeaderboardPage() {
               {[...Array(2)].map((_, i) => (
                 <motion.div
                   key={i}
-                  className="absolute inset-0 rounded-full z-[5]"
+                  className="absolute inset-0 rounded-lg z-[5]"
                   style={{
                     border: `2px solid rgba(139, 92, 246, ${0.6 - i * 0.2})`,
                     borderRadius: '50%',
@@ -1455,7 +1455,7 @@ export default function LeaderboardPage() {
               ))}
               {/* Pulsing core */}
               <motion.div
-                className="absolute inset-0 rounded-full z-[5]"
+                className="absolute inset-0 rounded-lg z-[5]"
                 style={{
                   background: "radial-gradient(circle, rgba(139, 92, 246, 1) 0%, rgba(168, 85, 247, 0.8) 40%, rgba(192, 132, 252, 0.5) 70%, transparent 100%)",
                 }}
@@ -1479,7 +1479,7 @@ export default function LeaderboardPage() {
               {[...Array(2)].map((_, i) => (
                 <motion.div
                   key={i}
-                  className="absolute inset-0 rounded-full z-[5]"
+                  className="absolute inset-0 rounded-lg z-[5]"
                   style={{
                     background: `radial-gradient(circle at ${50 + (i % 2 === 0 ? -10 : 10)}% ${50 + (i % 2 === 0 ? 10 : -10)}%, rgba(147, 51, 234, ${0.8 - i * 0.3}) 0%, rgba(168, 85, 247, ${0.6 - i * 0.2}) 50%, transparent 100%)`,
                   }}
@@ -1488,61 +1488,61 @@ export default function LeaderboardPage() {
                     opacity: [0.6, 1, 0.6],
                   }}
                   transition={{
-                    duration: 3.5 + i * 0.5,
-                    repeat: Infinity,
-                    ease: "easeInOut",
-                    delay: i * 0.5,
-                  }}
-                />
-              ))}
-            </>
-          )}
-          
-          {/* Weight Bearer badge - Slow balancing effect */}
-          {isWeightBearerBadge && (
-            <motion.div
-              className="absolute inset-0 rounded-full z-[5]"
-              style={{
-                background: "radial-gradient(ellipse at center, rgba(168, 85, 247, 1) 0%, rgba(147, 51, 234, 0.7) 50%, transparent 100%)",
-              }}
-              animate={{
-                scaleX: [1, 1.1, 0.95, 1],
-                scaleY: [1, 0.95, 1.1, 1],
-                opacity: [0.8, 1, 0.8],
-              }}
-              transition={{
-                duration: 4,
+                duration: (3.5 + i * 0.5) * 1.5,
                 repeat: Infinity,
                 ease: "easeInOut",
+                delay: i * 0.5 * 1.5,
               }}
             />
-          )}
-          
-          {/* Stonebound badge - Slow earth-like pulsing */}
-          {isStoneboundBadge && (
-            <>
-              {/* Earth-like layers */}
-              {[...Array(2)].map((_, i) => (
-                <motion.div
-                  key={i}
-                  className="absolute inset-0 rounded-full z-[5]"
-                  style={{
-                    background: `radial-gradient(circle, rgba(139, 69, 19, ${0.8 - i * 0.3}) 0%, rgba(160, 82, 45, ${0.6 - i * 0.2}) 50%, transparent 100%)`,
-                  }}
-                  animate={{
-                    scale: [1, 1.08 + i * 0.02, 1],
-                    opacity: [0.7, 1, 0.7],
-                  }}
-                  transition={{
-                    duration: 3.5 + i * 0.8,
-                    repeat: Infinity,
-                    ease: "easeInOut",
-                    delay: i * 0.4,
-                  }}
-                />
-              ))}
-            </>
-          )}
+          ))}
+        </>
+      )}
+      
+      {/* Weight Bearer badge - Slow balancing effect */}
+      {isWeightBearerBadge && (
+        <motion.div
+          className="absolute inset-0 rounded-lg z-[5]"
+          style={{
+            background: "radial-gradient(ellipse at center, rgba(168, 85, 247, 1) 0%, rgba(147, 51, 234, 0.7) 50%, transparent 100%)",
+          }}
+          animate={{
+            scaleX: [1, 1.1, 0.95, 1],
+            scaleY: [1, 0.95, 1.1, 1],
+            opacity: [0.8, 1, 0.8],
+          }}
+          transition={{
+            duration: 4 * 1.5,
+            repeat: Infinity,
+            ease: "easeInOut",
+          }}
+        />
+      )}
+      
+      {/* Stonebound badge - Slow earth-like pulsing */}
+      {isStoneboundBadge && (
+        <>
+          {/* Earth-like layers */}
+          {[...Array(2)].map((_, i) => (
+            <motion.div
+              key={i}
+              className="absolute inset-0 rounded-lg z-[5]"
+              style={{
+                background: `radial-gradient(circle, rgba(139, 69, 19, ${0.8 - i * 0.3}) 0%, rgba(160, 82, 45, ${0.6 - i * 0.2}) 50%, transparent 100%)`,
+              }}
+              animate={{
+                scale: [1, 1.08 + i * 0.02, 1],
+                opacity: [0.7, 1, 0.7],
+              }}
+              transition={{
+                duration: (3.5 + i * 0.8) * 1.5,
+                repeat: Infinity,
+                ease: "easeInOut",
+                delay: i * 0.4 * 1.5,
+              }}
+            />
+          ))}
+        </>
+      )}
           
           {/* Rock Collective badge - Slow gathering effect */}
           {isRockCollectiveBadge && (
@@ -1554,7 +1554,7 @@ export default function LeaderboardPage() {
                 return (
                   <motion.div
                     key={i}
-                    className="absolute inset-0 rounded-full z-[5]"
+                    className="absolute inset-0 rounded-lg z-[5]"
                     style={{
                       background: `radial-gradient(circle at ${50 + Math.cos(angle) * radius}% ${50 + Math.sin(angle) * radius}%, rgba(139, 69, 19, 0.8) 0%, transparent 60%)`,
                     }}
@@ -1577,7 +1577,7 @@ export default function LeaderboardPage() {
           {/* First Goliath badge - Subtle initial awakening glow */}
           {isFirstGoliathBadge && (
             <motion.div
-              className="absolute inset-0 rounded-full z-[5]"
+              className="absolute inset-0 rounded-lg z-[5]"
               style={{
                 background: "radial-gradient(circle, rgba(139, 92, 246, 0.9) 0%, rgba(124, 58, 237, 0.6) 40%, rgba(139, 92, 246, 0.3) 70%, transparent 100%)",
               }}
@@ -1586,7 +1586,7 @@ export default function LeaderboardPage() {
                 opacity: [0.7, 0.95, 0.7],
               }}
               transition={{
-                duration: 3,
+                duration: 3 * 1.5,
                 repeat: Infinity,
                 ease: "easeInOut",
               }}
@@ -1600,27 +1600,26 @@ export default function LeaderboardPage() {
               {[...Array(2)].map((_, i) => (
                 <motion.div
                   key={i}
-                  className="absolute inset-0 rounded-full z-[5]"
+                  className="absolute inset-0 rounded-lg z-[5]"
                   style={{
-                    border: `2px solid rgba(168, 85, 247, ${0.6 - i * 0.2})`,
+                    background: `radial-gradient(ellipse, transparent 40%, rgba(168, 85, 247, ${0.4 - i * 0.15}) 45%, rgba(168, 85, 247, ${0.6 - i * 0.2}) 50%, rgba(168, 85, 247, ${0.4 - i * 0.15}) 55%, transparent 60%)`,
                     borderRadius: '50%',
-                    borderStyle: 'dashed',
                   }}
                   animate={{
                     scale: [1 + i * 0.1, 1.15 + i * 0.1, 1 + i * 0.1],
                     opacity: [0.5, 0.8, 0.5],
                   }}
                   transition={{
-                    duration: 3.5 + i * 0.5,
+                    duration: (3.5 + i * 0.5) * 1.5,
                     repeat: Infinity,
                     ease: "easeInOut",
-                    delay: i * 0.4,
+                    delay: i * 0.4 * 1.5,
                   }}
                 />
               ))}
               {/* Pulsing core */}
               <motion.div
-                className="absolute inset-0 rounded-full z-[5]"
+                className="absolute inset-0 rounded-lg z-[5]"
                 style={{
                   background: "radial-gradient(circle, rgba(168, 85, 247, 0.8) 0%, rgba(139, 92, 246, 0.5) 50%, transparent 100%)",
                 }}
@@ -1629,7 +1628,7 @@ export default function LeaderboardPage() {
                   opacity: [0.7, 1, 0.7],
                 }}
                 transition={{
-                  duration: 3,
+                  duration: 3 * 1.5,
                   repeat: Infinity,
                   ease: "easeInOut",
                 }}
@@ -1644,11 +1643,10 @@ export default function LeaderboardPage() {
               {[...Array(2)].map((_, i) => (
                 <motion.div
                   key={i}
-                  className="absolute inset-0 rounded-full z-[5]"
+                  className="absolute inset-0 rounded-lg z-[5]"
                   style={{
-                    border: `3px solid rgba(168, 85, 247, ${0.7 - i * 0.3})`,
-                    borderRadius: '50%',
-                    borderStyle: i % 2 === 0 ? 'solid' : 'dashed',
+                background: `radial-gradient(circle, transparent 45%, rgba(168, 85, 247, ${0.4 - i * 0.15}) 48%, rgba(168, 85, 247, ${0.7 - i * 0.3}) 50%, rgba(168, 85, 247, ${0.4 - i * 0.15}) 52%, transparent 55%)`,
+                borderRadius: '50%',
                   }}
                   animate={{
                     scale: [0.8 + i * 0.1, 1.35, 0.8 + i * 0.1],
@@ -1656,16 +1654,16 @@ export default function LeaderboardPage() {
                     rotate: [0, i % 2 === 0 ? 180 : -180, 360],
                   }}
                   transition={{
-                    duration: 4.5 + i * 0.8,
+                    duration: (4.5 + i * 0.8) * 1.5,
                     repeat: Infinity,
                     ease: "easeInOut",
-                    delay: i * 0.6,
+                    delay: i * 0.6 * 1.5,
                   }}
                 />
               ))}
               {/* Pulsing core with purple gradient */}
               <motion.div
-                className="absolute inset-0 rounded-full z-[5]"
+                className="absolute inset-0 rounded-lg z-[5]"
                 style={{
                   background: "radial-gradient(circle, rgba(168, 85, 247, 1) 0%, rgba(147, 51, 234, 0.8) 40%, rgba(192, 132, 252, 0.5) 70%, transparent 100%)",
                 }}
@@ -1674,7 +1672,7 @@ export default function LeaderboardPage() {
                   opacity: [0.8, 1, 0.8],
                 }}
                 transition={{
-                  duration: 3,
+                  duration: 3 * 1.5,
                   repeat: Infinity,
                   ease: "easeInOut",
                 }}
@@ -1686,9 +1684,9 @@ export default function LeaderboardPage() {
                 return (
                   <motion.div
                     key={`particle-${i}`}
-                    className="absolute inset-0 rounded-full z-[5]"
+                    className="absolute inset-0 rounded-lg z-[5]"
                     style={{
-                      background: `radial-gradient(circle at ${50 + Math.cos(angle) * radius}% ${50 + Math.sin(angle) * radius}%, rgba(192, 132, 252, 0.8) 0%, transparent 50%)`,
+                      background: `radial-gradient(circle at ${50 + Math.cos(angle) * radius}% ${50 + Math.sin(angle) * radius}%, rgba(192, 132, 252, 0.8) 0%, rgba(192, 132, 252, 0.4) 40%, transparent 60%)`,
                     }}
                     animate={{
                       x: [0, Math.cos(angle) * 6, 0],
@@ -1698,10 +1696,10 @@ export default function LeaderboardPage() {
                       rotate: [0, 360],
                     }}
                     transition={{
-                      duration: 5 + i * 0.5,
+                      duration: (5 + i * 0.5) * 1.5,
                       repeat: Infinity,
                       ease: "easeInOut",
-                      delay: i * 0.4,
+                      delay: i * 0.4 * 1.5,
                     }}
                   />
                 )
@@ -1858,9 +1856,9 @@ export default function LeaderboardPage() {
                                   {Math.round(loadingProgress)}%
                                 </p>
                               </div>
-                              <div className="w-full bg-gray-800 rounded-full h-2 overflow-hidden">
+                              <div className="w-full bg-gray-800 rounded-lg h-2 overflow-hidden">
                                 <motion.div
-                                  className="bg-purple-500 h-full rounded-full"
+                                  className="bg-purple-500 h-full rounded-lg"
                                   initial={{ width: 0 }}
                                   animate={{ width: `${loadingProgress}%` }}
                                   transition={{ duration: 0.3, ease: "easeOut" }}
@@ -1888,7 +1886,7 @@ export default function LeaderboardPage() {
                           </td>
                           <td className="px-6 py-4">
                             <div className="flex items-center space-x-3">
-                              <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-800">
+                              <div className="w-10 h-10 rounded-lg overflow-hidden bg-gray-800">
                                 <Image
                                   src={user.avatar || "/images/rock-logo.png"}
                                   alt={user.displayName}
@@ -1992,7 +1990,7 @@ export default function LeaderboardPage() {
               <h2 className="text-2xl md:text-3xl font-black font-montserrat text-white mb-6">HOW TO RANK UP</h2>
               <div className="grid md:grid-cols-3 gap-8">
                 <div className="space-y-4">
-                  <div className="w-12 h-12 rounded-full bg-purple-500/20 flex items-center justify-center text-purple-400 text-2xl">
+                  <div className="w-12 h-12 rounded-lg bg-purple-500/20 flex items-center justify-center text-purple-400 text-2xl">
                     🎮
                   </div>
                   <h3 className="text-xl font-bold font-montserrat text-white">Play Games</h3>
@@ -2002,7 +2000,7 @@ export default function LeaderboardPage() {
                   </p>
                 </div>
                 <div className="space-y-4">
-                  <div className="w-12 h-12 rounded-full bg-purple-500/20 flex items-center justify-center text-purple-400 text-2xl">
+                  <div className="w-12 h-12 rounded-lg bg-purple-500/20 flex items-center justify-center text-purple-400 text-2xl">
                     🏆
                   </div>
                   <h3 className="text-xl font-bold font-montserrat text-white">Win Consistently</h3>
@@ -2011,7 +2009,7 @@ export default function LeaderboardPage() {
                   </p>
                 </div>
                 <div className="space-y-4">
-                  <div className="w-12 h-12 rounded-full bg-purple-500/20 flex items-center justify-center text-purple-400 text-2xl">
+                  <div className="w-12 h-12 rounded-lg bg-purple-500/20 flex items-center justify-center text-purple-400 text-2xl">
                     💎
                   </div>
                   <h3 className="text-xl font-bold font-montserrat text-white">Collect NFTs</h3>

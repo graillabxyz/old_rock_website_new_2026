@@ -3642,16 +3642,35 @@ export default function StoneboundSoulsPage() {
       <div className="ml-0 md:ml-20 min-h-screen flex flex-col pt-[72px]">
         {/* Main Content Area */}
         <div className="flex-1 relative overflow-y-auto">
-          {/* Conditional Background Image - Show for overview and requirements */}
+          {/* Conditional Background Video/Image - Show for overview and requirements */}
           {(activeSection === "overview" || activeSection === "requirements") && (
             <>
+              {/* Video background with fallback image */}
+              <video
+                autoPlay
+                loop
+                muted
+                playsInline
+                className="absolute inset-0 w-full h-full object-cover z-0"
+                poster="/SBSbg.webp"
+                onError={(e) => {
+                  // If video fails to load, show fallback image
+                  const video = e.currentTarget
+                  video.style.display = 'none'
+                  const fallback = video.nextElementSibling as HTMLElement
+                  if (fallback) fallback.style.display = 'block'
+                }}
+              >
+                <source src="/sbsbg.mp4" type="video/mp4" />
+              </video>
+              {/* Fallback image (hidden by default, shown if video fails) */}
               <div
-                className="absolute inset-0 bg-cover bg-center"
+                className="absolute inset-0 bg-cover bg-center z-0 hidden"
                 style={{
                   backgroundImage: `url('/SBSbg.webp')`,
                 }}
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-black/30" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-black/30 z-10" />
             </>
           )}
 
