@@ -34,6 +34,10 @@ export async function POST(request: NextRequest) {
     // Use NFT.Storage for IPFS uploads
     const NFT_STORAGE_TOKEN = process.env.NFT_STORAGE_TOKEN
     
+    // Debug logging (remove in production)
+    console.log("NFT_STORAGE_TOKEN exists:", !!NFT_STORAGE_TOKEN)
+    console.log("NFT_STORAGE_TOKEN length:", NFT_STORAGE_TOKEN?.length || 0)
+    
     if (!NFT_STORAGE_TOKEN) {
       console.error("NFT_STORAGE_TOKEN is missing from environment variables. Please ensure .env.local contains NFT_STORAGE_TOKEN and restart the Next.js server.")
       return NextResponse.json(
@@ -59,8 +63,24 @@ export async function POST(request: NextRequest) {
 
       if (!response.ok) {
         const errorText = await response.text()
-        console.error("NFT.Storage upload failed:", response.status, errorText)
-        throw new Error(`NFT.Storage upload failed: ${response.statusText}`)
+        console.error("NFT.Storage upload failed:", {
+          status: response.status,
+          statusText: response.statusText,
+          error: errorText,
+          tokenLength: NFT_STORAGE_TOKEN.length,
+          tokenPrefix: NFT_STORAGE_TOKEN.substring(0, 10) + "..."
+        })
+        
+        // Provide more specific error messages
+        if (response.status === 401 || response.status === 403) {
+          throw new Error("Authentication failed. Please check the API key configuration.")
+        } else if (response.status === 413) {
+          throw new Error("File too large for upload service.")
+        } else if (response.status >= 500) {
+          throw new Error("Upload service is temporarily unavailable. Please try again later.")
+        } else {
+          throw new Error(`Upload failed: ${response.statusText}`)
+        }
       }
 
       const data = await response.json()
