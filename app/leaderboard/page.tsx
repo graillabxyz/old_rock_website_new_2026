@@ -89,12 +89,21 @@ export default function LeaderboardPage() {
         // Use fast mode to get top 50 quickly
         const response = await fetch("/api/leaderboard?fast=true&limit=50")
         if (!response.ok) {
-          throw new Error("Failed to fetch leaderboard data")
+          const errorText = await response.text()
+          console.error("Leaderboard API error:", response.status, errorText)
+          throw new Error(`Failed to fetch leaderboard data: ${response.status}`)
         }
 
         const result = await response.json()
+        console.log("Leaderboard API response:", { success: result.success, dataLength: result.data?.length, total: result.total })
+        
         if (!result.success || !result.data) {
+          console.error("Invalid leaderboard data:", result)
           throw new Error("Invalid leaderboard data")
+        }
+        
+        if (result.data.length === 0) {
+          console.warn("Leaderboard API returned empty data")
         }
 
         // Process and enrich user data (lightweight - no NFT fetching for initial load)
@@ -384,47 +393,21 @@ export default function LeaderboardPage() {
           onMouseLeave={() => setShowCustomTooltip(false)}
           title={!showCustomTooltip ? `${badge.name}${badge.description ? ` - ${badge.description}` : ""}` : undefined}
         >
-          {/* Badge Icon - On top */}
-          <div className="relative z-10">
-            <Award
-              className={`w-5 h-5 ${
-                badge.unlocked ? "text-white opacity-100" : "text-gray-600 opacity-30"
-              }`}
-            />
-          </div>
+          {/* Badge Icon Container - Background */}
+          <div className="absolute inset-0 rounded-full bg-gray-800/80 border border-gray-700 z-0 backdrop-blur-sm" />
           
-          {/* Animation backgrounds for special badges - Behind icon but visible */}
+          {/* Animation backgrounds for special badges - Between container and icon */}
           {/* Pure badge - Uses actual rock color with hexagon shape */}
           {isPureBadge && (
             <motion.div
-              className="absolute inset-0 z-0"
+              className="absolute inset-0 z-[5]"
               style={{
                 clipPath: "polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)",
-                background: `radial-gradient(circle, ${getRockColorRgba(pureColor, 0.6)} 0%, ${getRockColorRgba(pureColor, 0.2)} 50%, transparent 80%)`,
+                background: `radial-gradient(circle, ${getRockColorRgba(pureColor, 0.25)} 0%, ${getRockColorRgba(pureColor, 0.15)} 40%, ${getRockColorRgba(pureColor, 0.05)} 70%, transparent 90%)`,
               }}
               animate={{
-                scale: [1, 1.3, 1],
-                opacity: [0.5, 0.9, 0.5],
-              }}
-              transition={{
-                duration: 2,
-                repeat: Infinity,
-                ease: "easeInOut",
-              }}
-            />
-          )}
-          
-          {/* Polar badge - Uses actual rock color with elliptical shape */}
-          {isPolarBadge && (
-            <motion.div
-              className="absolute inset-0 rounded-full z-0"
-              style={{
-                background: `radial-gradient(ellipse at center, ${getRockColorRgba(polarColor, 0.6)} 0%, ${getRockColorRgba(polarColor, 0.2)} 50%, transparent 80%)`,
-              }}
-              animate={{
-                scaleX: [1, 1.4, 1],
-                scaleY: [1, 1.2, 1],
-                opacity: [0.5, 0.9, 0.5],
+                scale: [1, 1.2, 1],
+                opacity: [0.3, 0.5, 0.3],
               }}
               transition={{
                 duration: 2.5,
@@ -434,34 +417,153 @@ export default function LeaderboardPage() {
             />
           )}
           
+          {/* Polar badge - White fire or black hole effect based on color */}
+          {isPolarBadge && (
+            <>
+              {/* Check if white or black */}
+              {polarColor === "#F8F8FF" || polarColor === "#FFFFFF" || polarColor.toLowerCase() === "#ffffff" || polarColor.toLowerCase() === "#f8f8ff" ? (
+                // White Fire Effect
+                <>
+                  <motion.div
+                    className="absolute inset-0 rounded-full z-[5] overflow-hidden"
+                    style={{
+                      background: `radial-gradient(ellipse at center bottom, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0.15) 30%, rgba(255, 255, 255, 0.05) 60%, transparent 85%)`,
+                    }}
+                    animate={{
+                      scaleY: [1, 1.3, 1],
+                      opacity: [0.25, 0.4, 0.25],
+                    }}
+                    transition={{
+                      duration: 1.5,
+                      repeat: Infinity,
+                      ease: "easeInOut",
+                    }}
+                  />
+                  {/* Fire flicker effect */}
+                  {[...Array(3)].map((_, i) => (
+                    <motion.div
+                      key={i}
+                      className="absolute bottom-0 left-1/2 z-[5]"
+                      style={{
+                        width: `${30 + i * 10}%`,
+                        height: `${40 + i * 15}%`,
+                        transform: 'translateX(-50%)',
+                        background: `radial-gradient(ellipse at center, rgba(255, 255, 255, ${0.2 - i * 0.05}) 0%, transparent 70%)`,
+                        clipPath: `polygon(${20 + i * 10}% 100%, ${50 - i * 5}% ${60 - i * 10}%, ${50 + i * 5}% ${60 - i * 10}%, ${80 - i * 10}% 100%)`,
+                      }}
+                      animate={{
+                        scaleX: [1, 1.2 + i * 0.1, 0.9 - i * 0.05, 1],
+                        opacity: [0.15, 0.3, 0.1, 0.15],
+                      }}
+                      transition={{
+                        duration: 1.2 + i * 0.3,
+                        repeat: Infinity,
+                        delay: i * 0.2,
+                        ease: "easeInOut",
+                      }}
+                    />
+                  ))}
+                </>
+              ) : polarColor === "#000000" || polarColor.toLowerCase() === "#000000" ? (
+                // Black Hole Effect
+                <>
+                  <motion.div
+                    className="absolute inset-0 rounded-full z-[5]"
+                    style={{
+                      background: `radial-gradient(circle at center, rgba(0, 0, 0, 0.4) 0%, rgba(0, 0, 0, 0.25) 30%, rgba(0, 0, 0, 0.1) 60%, transparent 85%)`,
+                    }}
+                    animate={{
+                      scale: [1, 0.95, 1],
+                      opacity: [0.3, 0.5, 0.3],
+                    }}
+                    transition={{
+                      duration: 3,
+                      repeat: Infinity,
+                      ease: "easeInOut",
+                    }}
+                  />
+                  {/* Swirling effect */}
+                  <motion.div
+                    className="absolute inset-0 rounded-full z-[5]"
+                    style={{
+                      background: `conic-gradient(from 0deg, transparent 0%, rgba(0, 0, 0, 0.2) 20%, transparent 40%, rgba(0, 0, 0, 0.15) 60%, transparent 80%, rgba(0, 0, 0, 0.1) 100%)`,
+                    }}
+                    animate={{
+                      rotate: [0, 360],
+                    }}
+                    transition={{
+                      duration: 8,
+                      repeat: Infinity,
+                      ease: "linear",
+                    }}
+                  />
+                  {/* Inner dark core */}
+                  <motion.div
+                    className="absolute inset-0 rounded-full z-[5]"
+                    style={{
+                      background: `radial-gradient(circle at center, rgba(0, 0, 0, 0.6) 0%, rgba(0, 0, 0, 0.3) 40%, transparent 70%)`,
+                    }}
+                    animate={{
+                      scale: [0.8, 0.9, 0.8],
+                      opacity: [0.4, 0.6, 0.4],
+                    }}
+                    transition={{
+                      duration: 2,
+                      repeat: Infinity,
+                      ease: "easeInOut",
+                    }}
+                  />
+                </>
+              ) : (
+                // Default elliptical shape for other colors
+                <motion.div
+                  className="absolute inset-0 rounded-full z-[5]"
+                  style={{
+                    background: `radial-gradient(ellipse at center, ${getRockColorRgba(polarColor, 0.25)} 0%, ${getRockColorRgba(polarColor, 0.15)} 40%, ${getRockColorRgba(polarColor, 0.05)} 70%, transparent 90%)`,
+                  }}
+                  animate={{
+                    scaleX: [1, 1.3, 1],
+                    scaleY: [1, 1.15, 1],
+                    opacity: [0.3, 0.5, 0.3],
+                  }}
+                  transition={{
+                    duration: 2.5,
+                    repeat: Infinity,
+                    ease: "easeInOut",
+                  }}
+                />
+              )}
+            </>
+          )}
+          
           {/* Recurrent badge - Uses actual rock color with sparkle effect */}
           {isRecurrentBadge && (
             <>
               <motion.div
-                className="absolute inset-0 rounded-full overflow-hidden z-0"
+                className="absolute inset-0 rounded-full overflow-hidden z-[5]"
                 style={{
-                  background: `radial-gradient(circle, ${getRockColorRgba(recurrentColor, 0.4)} 0%, transparent 70%)`,
+                  background: `radial-gradient(circle, ${getRockColorRgba(recurrentColor, 0.2)} 0%, ${getRockColorRgba(recurrentColor, 0.1)} 50%, transparent 80%)`,
                 }}
               />
-              {/* Sparkle effect with actual rock color */}
+              {/* Sparkle effect with actual rock color - more subtle */}
               {[...Array(6)].map((_, i) => (
                 <motion.div
                   key={i}
-                  className="absolute w-1.5 h-1.5 rounded-full z-0"
+                  className="absolute w-1 h-1 rounded-full z-[5]"
                   style={{
-                    backgroundColor: getRockColorRgba(recurrentColor, 1),
+                    backgroundColor: getRockColorRgba(recurrentColor, 0.8),
                     left: `${20 + (i * 15)}%`,
                     top: `${20 + (i % 3) * 30}%`,
-                    boxShadow: `0 0 4px ${getRockColorRgba(recurrentColor, 0.8)}`,
+                    boxShadow: `0 0 3px ${getRockColorRgba(recurrentColor, 0.6)}`,
                   }}
                   animate={{
-                    scale: [0, 2, 0],
-                    opacity: [0, 1, 0],
+                    scale: [0, 1.5, 0],
+                    opacity: [0, 0.7, 0],
                   }}
                   transition={{
-                    duration: 1.5,
+                    duration: 1.8,
                     repeat: Infinity,
-                    delay: i * 0.25,
+                    delay: i * 0.3,
                     ease: "easeInOut",
                   }}
                 />
@@ -469,23 +571,32 @@ export default function LeaderboardPage() {
             </>
           )}
           
-          {/* Singularity badge - Rotating conic gradient */}
+          {/* Singularity badge - Rotating conic gradient - more subtle */}
           {isSingularityBadge && (
             <motion.div
-              className="absolute inset-0 rounded-full z-0"
+              className="absolute inset-0 rounded-full z-[5]"
               style={{
-                background: "conic-gradient(from 0deg, rgba(139, 92, 246, 0.5), rgba(168, 85, 247, 0.7), rgba(139, 92, 246, 0.5))",
+                background: "conic-gradient(from 0deg, rgba(139, 92, 246, 0.25), rgba(168, 85, 247, 0.35), rgba(139, 92, 246, 0.25))",
               }}
               animate={{
                 rotate: [0, 360],
               }}
               transition={{
-                duration: 4,
+                duration: 5,
                 repeat: Infinity,
                 ease: "linear",
               }}
             />
           )}
+          
+          {/* Badge Icon - On top of everything */}
+          <div className="relative z-10">
+            <Award
+              className={`w-5 h-5 ${
+                badge.unlocked ? "text-white opacity-100" : "text-gray-600 opacity-30"
+              }`}
+            />
+          </div>
         </div>
         
         {/* Custom tooltip on hover - rendered via portal to escape container bounds */}

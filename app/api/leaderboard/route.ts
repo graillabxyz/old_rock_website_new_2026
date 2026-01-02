@@ -510,47 +510,60 @@ export async function GET(request: NextRequest) {
 
     // Fast mode: Use optimized query for top N users
     if (fastMode && limit > 0) {
-      const amplifyApiUrl = process.env.NEXT_PUBLIC_AMPLIFY_API_URL
-      if (!amplifyApiUrl) {
-        throw new Error("Amplify API URL not configured")
-      }
-      
-      const topUsers = await fetchTopUsersFast(limit, amplifyApiUrl)
-      
-      // Add rank, ENS names, and badges (lightweight)
-      const enrichedUsers = await Promise.all(
-        topUsers.map(async (user, index) => {
-          // Fetch ENS name (lightweight)
-          let ensName: string | undefined
-          try {
-            const ensResponse = await fetch(`https://api.ensideas.com/ens/resolve/${user.address}`)
-            if (ensResponse.ok) {
-              const ensData = await ensResponse.json()
-              ensName = ensData?.name || undefined
-            }
-          } catch (e) {
-            // Ignore ENS errors
-          }
+      try {
+        const amplifyApiUrl = process.env.NEXT_PUBLIC_AMPLIFY_API_URL
+        if (!amplifyApiUrl) {
+          console.error("❌ Amplify API URL not configured")
+          throw new Error("Amplify API URL not configured")
+        }
+        
+        console.log(`🚀 Fast mode: Fetching top ${limit} users...`)
+        const topUsers = await fetchTopUsersFast(limit, amplifyApiUrl)
+        console.log(`✅ Fast mode: Got ${topUsers.length} users`)
+        
+        if (topUsers.length === 0) {
+          console.warn("⚠️ Fast mode returned 0 users, falling back to full query")
+          // Fall through to regular query
+        } else {
+          // Add rank, ENS names, and badges (lightweight)
+          const enrichedUsers = await Promise.all(
+            topUsers.map(async (user, index) => {
+              // Fetch ENS name (lightweight)
+              let ensName: string | undefined
+              try {
+                const ensResponse = await fetch(`https://api.ensideas.com/ens/resolve/${user.address}`)
+                if (ensResponse.ok) {
+                  const ensData = await ensResponse.json()
+                  ensName = ensData?.name || undefined
+                }
+              } catch (e) {
+                // Ignore ENS errors
+              }
+              
+              return {
+                ...user,
+                rank: index + 1,
+                ensName: ensName || null,
+                displayName: ensName || `${user.address.slice(0, 6)}...${user.address.slice(-4)}`,
+                badges: [], // Will be calculated on frontend if needed
+                bestBadges: [],
+                avatar: null,
+              }
+            })
+          )
           
-          return {
-            ...user,
-            rank: index + 1,
-            ensName: ensName || null,
-            displayName: ensName || `${user.address.slice(0, 6)}...${user.address.slice(-4)}`,
-            badges: [], // Will be calculated on frontend if needed
-            bestBadges: [],
-            avatar: null,
-          }
-        })
-      )
-      
-      return NextResponse.json({
-        success: true,
-        data: enrichedUsers,
-        cached: false,
-        fast: true,
-        total: enrichedUsers.length,
-      })
+          return NextResponse.json({
+            success: true,
+            data: enrichedUsers,
+            cached: false,
+            fast: true,
+            total: enrichedUsers.length,
+          })
+        }
+      } catch (error) {
+        console.error("❌ Fast mode error:", error)
+        // Fall through to regular query if fast mode fails
+      }
     }
     
     // Check cache first
