@@ -8,6 +8,7 @@ import { Badge, getBestBadges } from "@/lib/badge-utils"
 
 interface BadgeDisplayProps {
   badges: Badge[]
+  onExpandedChange?: (isExpanded: boolean) => void
 }
 
 export function BadgeDisplay({ badges }: BadgeDisplayProps) {
@@ -177,14 +178,14 @@ export function BadgeDisplay({ badges }: BadgeDisplayProps) {
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
             className="relative w-full"
-            style={{ minHeight: '176px', overflow: 'visible' }} // Profile picture height (224px) minus badge row height (48px)
+            style={{ overflow: 'visible' }}
           >
-            <div className="pt-4 border-t border-gray-800 relative z-20 mt-2" style={{ width: 'calc(100% + 12rem)', marginRight: '-12rem', overflow: 'visible' }}>
+            <div className="pt-4 border-t border-gray-800 relative z-20 -mt-32 pb-4" style={{ width: 'calc(100% + 12rem)', marginRight: '-12rem', overflow: 'visible' }}>
               <div 
                 ref={scrollContainerRef}
                 className="space-y-6 pr-2 scrollbar-hide"
                 style={{ 
-                  maxHeight: '176px', // 224px (profile pic) - 48px (badge row height)
+                  maxHeight: '500px',
                   overflowY: 'auto',
                   overflowX: 'visible'
                 }}

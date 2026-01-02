@@ -875,15 +875,17 @@ export default function ProfilePage() {
 
               {/* User Info */}
               <div className="pb-4 flex-1">
-                <h1 className="text-4xl font-bold text-white mb-2">{ensName}</h1>
-                <p className="text-gray-400 font-mono mb-4">
-                  {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}
-                </p>
+                <div className={isBadgeExpanded ? 'opacity-0 pointer-events-none' : ''}>
+                  <h1 className="text-4xl font-bold text-white mb-2">{ensName}</h1>
+                  <p className="text-gray-400 font-mono mb-4">
+                    {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}
+                  </p>
+                </div>
                 
                 {/* Badges Display */}
                 {userBadges.length > 0 && (
                   <div className="mt-4">
-                    <BadgeDisplay badges={userBadges} />
+                    <BadgeDisplay badges={userBadges} onExpandedChange={setIsBadgeExpanded} />
                   </div>
                 )}
 
