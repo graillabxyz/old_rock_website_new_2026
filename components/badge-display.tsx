@@ -116,15 +116,16 @@ export function BadgeDisplay({ badges }: BadgeDisplayProps) {
   }, {} as Record<string, Badge[]>)
 
   return (
-    <div ref={containerRef} className="flex flex-col gap-4 relative z-10">
+    <div ref={containerRef} className="flex flex-col gap-4 relative">
       {/* Best 4 Badges - Always Visible */}
-      <div className="flex items-center gap-3 flex-wrap">
+      <div className="flex items-center gap-4 flex-wrap">
         {bestBadges.map((badge) => (
-          <BadgeIcon
-            key={badge.id}
-            badge={badge}
-            size="md"
-          />
+          <div key={badge.id} className="flex-shrink-0">
+            <BadgeIcon
+              badge={badge}
+              size="md"
+            />
+          </div>
         ))}
         
         {/* Expand Button */}
@@ -148,17 +149,16 @@ export function BadgeDisplay({ badges }: BadgeDisplayProps) {
         )}
       </div>
 
-      {/* Expanded View - Overlay */}
+      {/* Expanded View - Inline but overlays content below */}
       <AnimatePresence>
         {isExpanded && (
           <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            className="absolute top-0 left-0 right-0 z-20 bg-gray-900/95 backdrop-blur-sm rounded-lg border border-gray-700/50 shadow-2xl"
-            style={{ maxHeight: '400px', marginTop: '-8px' }}
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            className="relative"
           >
-            <div className="p-4">
+            <div className="pt-4 border-t border-gray-800 relative z-20 bg-gray-900/95 backdrop-blur-sm rounded-lg border border-gray-700/50 shadow-2xl mt-2 p-4">
               <div 
                 ref={scrollContainerRef}
                 className="max-h-96 overflow-y-auto space-y-6 pr-2 scrollbar-hide"
@@ -176,9 +176,9 @@ export function BadgeDisplay({ badges }: BadgeDisplayProps) {
                       <h4 className="text-xs font-pt-mono font-bold text-gray-500 uppercase tracking-wider">
                         {category}
                       </h4>
-                      <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-8 gap-3">
+                      <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-8 gap-4">
                         {sortedBadges.map((badge) => (
-                          <div key={badge.id} className="relative" style={{ overflow: 'visible' }}>
+                          <div key={badge.id} className="relative flex items-center justify-center" style={{ overflow: 'visible', minWidth: '40px', minHeight: '40px' }}>
                             <BadgeIcon
                               badge={badge}
                               size="sm"
@@ -198,7 +198,7 @@ export function BadgeDisplay({ badges }: BadgeDisplayProps) {
                     initial={{ opacity: 0, y: -10 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -10 }}
-                    className="absolute bottom-4 left-1/2 transform -translate-x-1/2 pointer-events-none"
+                    className="absolute bottom-4 left-1/2 transform -translate-x-1/2 pointer-events-none z-30"
                   >
                     <motion.div
                       animate={{ y: [0, 8, 0] }}
@@ -231,7 +231,7 @@ function BadgeIcon({ badge, size = "md" }: BadgeIconProps) {
   
   return (
     <div
-      className={`relative ${sizeClasses} ${opacity} transition-opacity group cursor-help`}
+      className={`relative ${sizeClasses} ${opacity} transition-opacity group cursor-help flex-shrink-0`}
       onMouseEnter={() => setShowCustomTooltip(true)}
       onMouseLeave={() => setShowCustomTooltip(false)}
       title={!showCustomTooltip ? `${badge.name}${badge.description ? ` - ${badge.description}` : ""}` : undefined}
