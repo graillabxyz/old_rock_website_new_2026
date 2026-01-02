@@ -237,8 +237,7 @@ export function Sidebar() {
     {
       name: "Leaderboard",
       icon: <BarChart3 className="w-5 h-5" />,
-      href: "#",
-      disabled: true
+      href: "/leaderboard",
     },
     {
       name: "Documentation",
