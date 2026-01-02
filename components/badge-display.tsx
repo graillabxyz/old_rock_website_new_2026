@@ -137,9 +137,9 @@ export function BadgeDisplay({ badges }: BadgeDisplayProps) {
   }, {} as Record<string, Badge[]>)
 
   return (
-    <div ref={containerRef} className="flex flex-col gap-4 relative">
+    <div ref={containerRef} className="flex flex-col gap-4 relative" style={{ zIndex: 1 }}>
       {/* Best 4 Badges - Always Visible */}
-      <div className="flex items-center gap-4 flex-wrap">
+      <div className="flex items-center gap-4 flex-wrap relative z-40">
         {bestBadges.map((badge) => (
           <div key={badge.id} className="flex-shrink-0">
             <BadgeIcon
@@ -153,7 +153,7 @@ export function BadgeDisplay({ badges }: BadgeDisplayProps) {
         {allBadgesForExpanded.length > 4 && (
           <button
             onClick={() => setIsExpanded(!isExpanded)}
-            className="flex items-center gap-1 text-gray-400 hover:text-white transition-colors text-sm font-pt-mono"
+            className="flex items-center gap-1 text-gray-400 hover:text-white transition-colors text-sm font-pt-mono relative z-40"
           >
             {isExpanded ? (
               <>
@@ -174,18 +174,31 @@ export function BadgeDisplay({ badges }: BadgeDisplayProps) {
       <AnimatePresence>
         {isExpanded && (
           <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
-            className="relative w-full"
-            style={{ overflow: 'visible' }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute z-30 pointer-events-none"
+            style={{ 
+              top: '-160px', // Extend upward to cover user details but not badges
+              left: '-24px', // Account for container padding
+              right: '-24px', // Account for container padding
+              bottom: '-68px', // 48px (hero pb-12) + 20px gap from bottom
+            }}
           >
-            <div className="pt-4 border-t border-gray-800 relative z-20 -mt-32 pb-4" style={{ width: 'calc(100% + 12rem)', marginRight: '-12rem', overflow: 'visible' }}>
+            <div 
+              className="absolute top-0 left-0 right-0 bottom-0 pt-4 border-t border-gray-800 pointer-events-auto"
+              style={{ 
+                width: 'calc(100% + 12rem)', 
+                marginRight: '-12rem', 
+                overflow: 'visible',
+                paddingTop: '25px', // Top padding inside expanded area
+                marginTop: '20px' // 20px space from top of hero section
+              }}
+            >
               <div 
                 ref={scrollContainerRef}
-                className="space-y-6 pr-2 scrollbar-hide"
+                className="space-y-6 pr-2 scrollbar-hide h-full"
                 style={{ 
-                  maxHeight: '500px',
                   overflowY: 'auto',
                   overflowX: 'visible'
                 }}
