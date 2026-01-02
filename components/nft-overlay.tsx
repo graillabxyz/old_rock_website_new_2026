@@ -35,7 +35,7 @@ export function NFTOverlay({ nft, isOpen, onClose, onSetAsProfilePicture, isSett
           onClick={onClose}
         >
           {/* Blurred background with NFT image */}
-          <div className="absolute inset-0 overflow-hidden rounded-xl">
+          <div className="absolute inset-0 overflow-hidden rounded-t-xl">
             <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
             <Image
               src={nft.image || "/placeholder.svg"}
