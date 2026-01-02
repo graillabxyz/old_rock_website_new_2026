@@ -3580,26 +3580,26 @@ export default function StoneboundSoulsPage() {
 
       case "progression":
         return (
-          <div className="max-w-4xl mx-auto w-full px-4 sm:px-6 md:px-8">
+          <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 md:px-8">
             <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white mb-4 sm:mb-6 font-['Montserrat'] px-4 sm:px-0">Leveling and Progression</h2>
             <p className="text-gray-300 text-lg leading-relaxed font-['PT_Mono'] mb-6">
               As you play Stonebound Souls, your character gains experience points (XP) and levels up.
             </p>
             <div className="bg-black/60 backdrop-blur-sm rounded-xl border border-white/20 overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-700">
+              <div className="w-full">
+                <table className="w-full divide-y divide-gray-700">
                   <thead className="bg-gray-800">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider font-['Montserrat']">
+                      <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider font-['Montserrat']">
                         Level
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider font-['Montserrat']">
+                      <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider font-['Montserrat']">
                         XP Range
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider font-['Montserrat']">
+                      <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider font-['Montserrat']">
                         Title
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider font-['Montserrat']">
+                      <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider font-['Montserrat']">
                         Reward
                       </th>
                     </tr>
@@ -3607,16 +3607,16 @@ export default function StoneboundSoulsPage() {
                   <tbody className="bg-gray-900 divide-y divide-gray-700">
                     {levelingData.map((level) => (
                       <tr key={level.level} className="hover:bg-gray-800/50">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300 font-['PT_Mono']">
+                        <td className="px-4 sm:px-6 py-4 text-sm text-gray-300 font-['PT_Mono'] break-words">
                           {level.level}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300 font-['PT_Mono']">
+                        <td className="px-4 sm:px-6 py-4 text-sm text-gray-300 font-['PT_Mono'] break-words">
                           {level.xp}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300 font-['PT_Mono']">
+                        <td className="px-4 sm:px-6 py-4 text-sm text-gray-300 font-['PT_Mono'] break-words">
                           {level.title}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300 font-['PT_Mono']">
+                        <td className="px-4 sm:px-6 py-4 text-sm text-gray-300 font-['PT_Mono'] break-words">
                           {level.reward}
                         </td>
                       </tr>
@@ -3680,14 +3680,14 @@ export default function StoneboundSoulsPage() {
           )}
 
           {/* Dynamic Content Overlay */}
-          <div className="relative z-10 w-full p-4 sm:p-6 md:p-8 flex flex-col min-h-[calc(100vh-72px-80px)] pb-20 sm:pb-24 md:pb-28">
+          <div className={`relative z-10 w-full p-4 sm:p-6 md:p-8 flex flex-col min-h-[calc(100vh-72px-80px)] pb-20 sm:pb-24 md:pb-28 ${(activeSection === "overview" || activeSection === "requirements") ? "justify-center" : ""}`}>
             <AnimatePresence mode="wait">
               <motion.div
                 key={`${activeSection}-${selectedClass?.id}-${selectedSubclass?.id}-${selectedAugmentation?.id}`}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -20 }}
-                className="flex-1 flex flex-col h-full"
+                className={(activeSection === "overview" || activeSection === "requirements") ? "w-full" : "flex-1 flex flex-col h-full"}
               >
                 {renderCurrentView()}
               </motion.div>
