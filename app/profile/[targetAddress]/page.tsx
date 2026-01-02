@@ -80,6 +80,8 @@ export default function ProfilePage() {
   const [headerMediaType, setHeaderMediaType] = useState<"image" | "video" | null>(null)
   const [isUploadingHeader, setIsUploadingHeader] = useState(false)
   const [isEditingHeader, setIsEditingHeader] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState(0)
+  const [uploadError, setUploadError] = useState<string | null>(null)
 
   // ENS confirmation modal state
   const [showENSConfirm, setShowENSConfirm] = useState(false)
@@ -344,19 +346,24 @@ export default function ProfilePage() {
     const file = event.target.files?.[0]
     if (!file) return
 
+    // Reset error state
+    setUploadError(null)
+    setUploadProgress(0)
+
     // Validate file extension
     const fileName = file.name.toLowerCase()
     const validExtensions = [".webp", ".webm", ".mp4", ".gif", ".jpg", ".jpeg", ".png"]
     const hasValidExtension = validExtensions.some(ext => fileName.endsWith(ext))
     
     if (!hasValidExtension) {
-      alert(`Unsupported file format. Please upload a file in one of these formats: webp, webm, mp4, gif, jpg, or png`)
+      setUploadError(`Unsupported file format. Please upload: webp, webm, mp4, gif, jpg, or png`)
       return
     }
 
     // Validate file size (2MB limit)
     if (file.size > MAX_FILE_SIZE) {
-      alert(`File size exceeds the 2MB limit. Please choose a smaller file.\n\nCurrent file size: ${(file.size / 1024 / 1024).toFixed(2)}MB`)
+      const fileSizeMB = (file.size / 1024 / 1024).toFixed(2)
+      setUploadError(`File too large! Current size: ${fileSizeMB}MB. Maximum allowed: 2MB. Please choose a smaller file.`)
       return
     }
 
@@ -365,18 +372,34 @@ export default function ProfilePage() {
     const isVideo = SUPPORTED_VIDEO_TYPES.includes(file.type)
     
     if (!isImage && !isVideo) {
-      alert(`Unsupported file type. Please upload an image (webp, gif, jpg, png) or video (webm, mp4)`)
+      setUploadError(`Unsupported file type. Please upload an image (webp, gif, jpg, png) or video (webm, mp4)`)
       return
     }
 
     setIsUploadingHeader(true)
+    setUploadProgress(10) // Start progress
+    
     try {
+      // Simulate progress for better UX
+      const progressInterval = setInterval(() => {
+        setUploadProgress((prev) => {
+          if (prev >= 90) return prev
+          return prev + Math.random() * 10
+        })
+      }, 200)
+
       // Upload to IPFS
+      setUploadProgress(30)
       const ipfsHash = await uploadToIPFS(file)
       
+      clearInterval(progressInterval)
+      setUploadProgress(90)
+      
       if (!ipfsHash) {
-        throw new Error("Failed to upload to IPFS")
+        throw new Error("Failed to upload to IPFS - no hash returned")
       }
+
+      setUploadProgress(100)
 
       // Save to state and localStorage
       setHeaderMedia(ipfsHash)
@@ -390,11 +413,32 @@ export default function ProfilePage() {
       
       localStorage.setItem(`header-media-${walletAddress}`, JSON.stringify(headerData))
       
+      // Wait a moment to show completion
+      await new Promise(resolve => setTimeout(resolve, 500))
+      
       setIsEditingHeader(false)
-      alert("Header media uploaded successfully!")
+      setUploadProgress(0)
+      setUploadError(null)
     } catch (error: any) {
       console.error("Error uploading header media:", error)
-      alert(`Failed to upload header media: ${error?.message || "Unknown error"}`)
+      
+      // Clear progress interval if still running
+      setUploadProgress(0)
+      
+      // Provide specific error messages
+      let errorMessage = "Failed to upload header media."
+      
+      if (error?.message?.includes("File size exceeds")) {
+        errorMessage = `File too large! Maximum allowed: 2MB. Please choose a smaller file.`
+      } else if (error?.message?.includes("Unsupported file format")) {
+        errorMessage = `Unsupported file format. Please upload: webp, webm, mp4, gif, jpg, or png`
+      } else if (error?.message?.includes("network") || error?.message?.includes("fetch")) {
+        errorMessage = `Network error. Please check your connection and try again.`
+      } else if (error?.message) {
+        errorMessage = error.message
+      }
+      
+      setUploadError(errorMessage)
     } finally {
       setIsUploadingHeader(false)
       // Reset file input
@@ -504,6 +548,27 @@ export default function ProfilePage() {
       setIsOverlayOpen(false)
       setSelectedNFT(null)
 
+      // Wait for the new image to load before hiding the loading animation
+      const img = new window.Image()
+      img.onload = () => {
+        // Image loaded successfully, hide loading after a brief moment
+        setTimeout(() => {
+          setIsSettingAvatar(false)
+        }, 500)
+      }
+      img.onerror = () => {
+        // Image failed to load, still hide loading after a delay
+        setTimeout(() => {
+          setIsSettingAvatar(false)
+        }, 2000)
+      }
+      img.src = imageUrl
+
+      // Fallback: hide loading after max 5 seconds even if image doesn't load
+      setTimeout(() => {
+        setIsSettingAvatar(false)
+      }, 5000)
+
       if (result.upgradedResolver) {
         alert(`Resolver upgraded and profile picture set successfully for ${result.ensName}! It may take a few minutes to propagate across all services.`)
       } else {
@@ -572,7 +637,7 @@ export default function ProfilePage() {
 
       <div className="min-h-screen bg-black pt-[72px]">
         {/* Hero Section with Profile Info */}
-        <div className="relative h-[400px] bg-gradient-to-b from-purple-900/20 to-black border-b border-gray-800 overflow-hidden">
+        <div className="relative h-[500px] bg-gradient-to-b from-purple-900/20 to-black border-b border-gray-800 overflow-hidden">
           {/* Header Media (Image or Video) */}
           {headerMedia ? (
             <>
@@ -605,7 +670,7 @@ export default function ProfilePage() {
               {isEditingHeader ? (
                 <div className="flex flex-col items-end gap-2">
                   <div className="flex items-center gap-2">
-                    <label className="cursor-pointer bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2">
+                    <label className="cursor-pointer bg-purple-600 hover:bg-purple-700 disabled:bg-purple-800 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2">
                       <Upload className="w-4 h-4" />
                       {isUploadingHeader ? "Uploading..." : "Upload Header"}
                       <input
@@ -616,7 +681,7 @@ export default function ProfilePage() {
                         disabled={isUploadingHeader}
                       />
                     </label>
-                    {headerMedia && (
+                    {headerMedia && !isUploadingHeader && (
                       <button
                         onClick={handleRemoveHeaderMedia}
                         className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition-colors"
@@ -625,29 +690,41 @@ export default function ProfilePage() {
                       </button>
                     )}
                     <button
-                      onClick={() => setIsEditingHeader(false)}
+                      onClick={() => {
+                        setIsEditingHeader(false)
+                        setUploadError(null)
+                        setUploadProgress(0)
+                      }}
                       className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors"
+                      disabled={isUploadingHeader}
                     >
                       Cancel
                     </button>
                   </div>
-                  <p className="text-xs text-gray-400 text-right font-pt-mono max-w-xs">
-                    Max file size: 2MB • Supported: webp, webm, mp4, gif, jpg, png
-                  </p>
-                  {headerMedia && (
-                    <button
-                      onClick={handleRemoveHeaderMedia}
-                      className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition-colors"
-                    >
-                      Remove
-                    </button>
+                  
+                  {/* Upload Progress Bar */}
+                  {isUploadingHeader && (
+                    <div className="w-full max-w-xs bg-gray-800 rounded-full h-2 overflow-hidden">
+                      <div
+                        className="bg-purple-600 h-2 transition-all duration-300 ease-out"
+                        style={{ width: `${uploadProgress}%` }}
+                      />
+                    </div>
                   )}
-                  <button
-                    onClick={() => setIsEditingHeader(false)}
-                    className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors"
-                  >
-                    Cancel
-                  </button>
+                  
+                  {/* Error Message */}
+                  {uploadError && (
+                    <div className="bg-red-900/50 border border-red-600 text-red-200 px-3 py-2 rounded-lg text-sm max-w-xs font-pt-mono">
+                      {uploadError}
+                    </div>
+                  )}
+                  
+                  {/* File Size Info */}
+                  {!isUploadingHeader && !uploadError && (
+                    <p className="text-xs text-gray-400 text-right font-pt-mono max-w-xs">
+                      Max file size: 2MB • Supported: webp, webm, mp4, gif, jpg, png
+                    </p>
+                  )}
                 </div>
               ) : (
                 <button
@@ -666,16 +743,45 @@ export default function ProfilePage() {
               {/* Profile NFT */}
               <div className="relative group">
                 <div
-                  className="w-48 h-48 rounded-xl overflow-hidden border-4 border-purple-500 shadow-2xl"
+                  className="w-56 h-56 rounded-xl overflow-hidden shadow-2xl relative"
                   style={{ backgroundColor: selectedProfileNFT?.backgroundColor || "#6B46C1" }}
                 >
                   <Image
                     src={ensAvatar}
                     alt="Profile"
-                    width={192}
-                    height={192}
+                    width={224}
+                    height={224}
                     className="w-full h-full object-cover"
                   />
+                  
+                  {/* Loading Overlay */}
+                  {isSettingAvatar && (
+                    <div className="absolute inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-10 rounded-xl">
+                      <div className="flex flex-col items-center gap-3">
+                        <svg
+                          className="animate-spin h-8 w-8 text-purple-400"
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                        >
+                          <circle
+                            className="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            strokeWidth="4"
+                          ></circle>
+                          <path
+                            className="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                          ></path>
+                        </svg>
+                        <p className="text-white text-sm font-pt-mono">Updating...</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
                 {/*}
                   {isOwnProfile && (
