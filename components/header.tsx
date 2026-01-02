@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion"
 import Image from "next/image"
 import { SimpleWalletButton } from "@/components/simple-wallet-button"
 import { SearchBar } from "@/components/search-bar"
-import { useRouter } from "next/navigation"
+import { useRouter, usePathname } from "next/navigation"
 import { fetchUserDensity } from "@/app/actions/fetch-user-density"
 
 export function Header() {
@@ -22,6 +22,7 @@ export function Header() {
   const [isMobile, setIsMobile] = useState(false)
 
   const router = useRouter()
+  const pathname = usePathname()
 
 
   // Load saved profile NFT on mount
@@ -85,6 +86,28 @@ export function Header() {
     window.addEventListener("resize", checkMobile)
     return () => window.removeEventListener("resize", checkMobile)
   }, [])
+
+  // Refetch density when wallet is connected (on mount and route changes)
+  useEffect(() => {
+    const refetchDensity = async () => {
+      if (walletAddress && isConnected) {
+        try {
+          const result = await fetchUserDensity(walletAddress)
+          if (result.success && result.data) {
+            setDensityAmount(result.data.amount || 0)
+            setDensityWalletAmount(0.00)
+            setDensityAllocated(result.data.amountAllocated || 0)
+            setDensityLocked(result.data.amountLocked || 0)
+            setDensityUnclaimed(result.data.amountUnclaimed || 0)
+          }
+        } catch (error) {
+          console.error("Error refetching density:", error)
+        }
+      }
+    }
+
+    refetchDensity()
+  }, [walletAddress, isConnected, pathname])
 
   return (
     <motion.header

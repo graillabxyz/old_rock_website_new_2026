@@ -296,24 +296,43 @@ async function fetchTopUsersFast(limit: number, amplifyApiUrl: string): Promise<
         try {
           const addressLower = address.toLowerCase()
           
-          // Quick parallel fetch of NFTs and DENSITY
-          const [nftResponse, densityResponse] = await Promise.all([
-            fetch(`${amplifyApiUrl}/nfts/${address}`),
-            fetch(`${amplifyApiUrl}/density/${address}`, { cache: "no-store" }),
-          ])
-          
+          // Quick parallel fetch of NFTs and DENSITY with retry for DENSITY
+          const nftResponse = await fetch(`${amplifyApiUrl}/nfts/${address}`)
           if (!nftResponse.ok) return null
           
           const nftData = await nftResponse.json()
           const oldRockNFTs = nftData?.data?.OldRocks || []
           const goliathNFTs = nftData?.data?.Goliath || []
           
+          // Fetch DENSITY with retry logic (important for accuracy)
           let density = 0
           let unextractedDensity = 0
-          if (densityResponse.ok) {
-            const densityData = await densityResponse.json()
-            density = parseFloat(densityData?.data?.amount || "0") || 0
-            unextractedDensity = parseFloat(densityData?.data?.amountUnclaimed || "0") || 0
+          const maxRetries = 2
+          for (let retry = 0; retry < maxRetries; retry++) {
+            try {
+              if (retry > 0) {
+                await new Promise((resolve) => setTimeout(resolve, 500 * retry))
+              }
+              const densityResponse = await fetch(`${amplifyApiUrl}/density/${address}`, { 
+                cache: "no-store",
+                headers: { "Accept": "application/json" },
+              })
+              if (densityResponse.ok) {
+                const densityData = await densityResponse.json()
+                density = parseFloat(densityData?.data?.amount || "0") || 0
+                unextractedDensity = parseFloat(densityData?.data?.amountUnclaimed || "0") || 0
+                break
+              } else if (densityResponse.status === 404) {
+                // No density for this address
+                break
+              } else if (densityResponse.status === 429 || densityResponse.status === 503) {
+                // Rate limited - retry
+                if (retry < maxRetries - 1) continue
+              }
+            } catch (e) {
+              // Retry on error
+              if (retry < maxRetries - 1) continue
+            }
           }
           
           // Quick ranking score calculation
@@ -370,7 +389,11 @@ async function fetchTopUsersFast(limit: number, amplifyApiUrl: string): Promise<
     
     batchResults.forEach((result) => {
       if (result.status === "fulfilled" && result.value) {
-        topUsers.set(result.value.address, result.value)
+        const existing = topUsers.get(result.value.address)
+        // Keep the entry with higher ranking score if duplicate
+        if (!existing || result.value.rankingScore > existing.rankingScore) {
+          topUsers.set(result.value.address, result.value)
+        }
       }
     })
     
@@ -380,9 +403,9 @@ async function fetchTopUsersFast(limit: number, amplifyApiUrl: string): Promise<
     }
   }
   
-  // Step 3: Sort and return top N
+  // Step 3: Sort and return top N (deduplicated)
   const sorted = Array.from(topUsers.values()).sort((a, b) => b.rankingScore - a.rankingScore)
-  console.log(`✅ Fast query returned ${sorted.length} users`)
+  console.log(`✅ Fast query returned ${sorted.length} unique users`)
   return sorted.slice(0, limit)
 }
 
