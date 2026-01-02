@@ -212,28 +212,19 @@ function calculateRockBadges(oldRockNFTs: any[]): Badge[] {
   const badges: Badge[] = []
   const count = oldRockNFTs.length
 
-  // A. Rock Ownership Count
-  if (count >= 10) {
+  // A. Rock Ownership Count - Show all tiers unlocked
+  if (count >= 1) {
     badges.push({
-      id: "rock-lithic-council",
-      name: "Lithic Council",
+      id: "rock-pebble-keeper",
+      name: "Pebble Keeper",
       category: "Rock Ownership",
-      tier: 4,
+      tier: 1,
       unlocked: true,
-      description: "10+ Rocks",
-      icon: "lithic-council",
+      description: "1 Rock",
+      icon: "pebble-keeper",
     })
-  } else if (count >= 5) {
-    badges.push({
-      id: "rock-collective",
-      name: "Rock Collective",
-      category: "Rock Ownership",
-      tier: 3,
-      unlocked: true,
-      description: "5 Rocks",
-      icon: "rock-collective",
-    })
-  } else if (count >= 3) {
+  }
+  if (count >= 3) {
     badges.push({
       id: "rock-stonebound",
       name: "Stonebound",
@@ -243,15 +234,27 @@ function calculateRockBadges(oldRockNFTs: any[]): Badge[] {
       description: "3 Rocks",
       icon: "stonebound",
     })
-  } else if (count >= 1) {
+  }
+  if (count >= 5) {
     badges.push({
-      id: "rock-pebble-keeper",
-      name: "Pebble Keeper",
+      id: "rock-collective",
+      name: "Rock Collective",
       category: "Rock Ownership",
-      tier: 1,
+      tier: 3,
       unlocked: true,
-      description: "1 Rock",
-      icon: "pebble-keeper",
+      description: "5 Rocks",
+      icon: "rock-collective",
+    })
+  }
+  if (count >= 10) {
+    badges.push({
+      id: "rock-lithic-council",
+      name: "Lithic Council",
+      category: "Rock Ownership",
+      tier: 4,
+      unlocked: true,
+      description: "10+ Rocks",
+      icon: "lithic-council",
     })
   }
 
@@ -280,6 +283,40 @@ function calculateRockBadges(oldRockNFTs: any[]): Badge[] {
   const hasPolar = reactiveTypes.has("Polar") || Array.from(reactiveTypes).some(r => r.includes("Polar"))
   const hasRecurrent = reactiveTypes.has("Recurrent") || Array.from(reactiveTypes).some(r => r.includes("Recurrent"))
 
+  // Show all reactive tiers unlocked
+  if (hasPure) {
+    badges.push({
+      id: "rock-pure-reactor",
+      name: "Pure Reactor",
+      category: "Rock Reactive",
+      tier: 1,
+      unlocked: true,
+      description: "Owns Pure reactive",
+      icon: "pure-reactor",
+    })
+  }
+  if (hasPolar) {
+    badges.push({
+      id: "rock-polar-reactor",
+      name: "Polar Reactor",
+      category: "Rock Reactive",
+      tier: 2,
+      unlocked: true,
+      description: "Owns Polar reactive",
+      icon: "polar-reactor",
+    })
+  }
+  if (hasRecurrent) {
+    badges.push({
+      id: "rock-recurrent-reactor",
+      name: "Recurrent Reactor",
+      category: "Rock Reactive",
+      tier: 3,
+      unlocked: true,
+      description: "Owns Recurrent reactive",
+      icon: "recurrent-reactor",
+    })
+  }
   if (hasPure && hasPolar && hasRecurrent) {
     badges.push({
       id: "rock-tri-reactive-core",
@@ -290,38 +327,6 @@ function calculateRockBadges(oldRockNFTs: any[]): Badge[] {
       description: "Owns all three reactive types",
       icon: "tri-reactive-core",
     })
-  } else {
-    if (hasRecurrent) {
-      badges.push({
-        id: "rock-recurrent-reactor",
-        name: "Recurrent Reactor",
-        category: "Rock Reactive",
-        tier: 3,
-        unlocked: true,
-        description: "Highest reactive tier owned",
-        icon: "recurrent-reactor",
-      })
-    } else if (hasPolar) {
-      badges.push({
-        id: "rock-polar-reactor",
-        name: "Polar Reactor",
-        category: "Rock Reactive",
-        tier: 2,
-        unlocked: true,
-        description: "Highest reactive tier owned",
-        icon: "polar-reactor",
-      })
-    } else if (hasPure) {
-      badges.push({
-        id: "rock-pure-reactor",
-        name: "Pure Reactor",
-        category: "Rock Reactive",
-        tier: 1,
-        unlocked: true,
-        description: "Highest reactive tier owned",
-        icon: "pure-reactor",
-      })
-    }
   }
 
   // C. Rock DENSITY Rarity
@@ -349,6 +354,40 @@ function calculateRockBadges(oldRockNFTs: any[]): Badge[] {
   const hasMedium = densityTypes.has("Medium") || Array.from(densityTypes).some(d => d.includes("Medium"))
   const hasHigh = densityTypes.has("High") || Array.from(densityTypes).some(d => d.includes("High"))
 
+  // Show all density tiers unlocked
+  if (hasLow) {
+    badges.push({
+      id: "rock-low-density-core",
+      name: "Low Density Core",
+      category: "Rock Density",
+      tier: 1,
+      unlocked: true,
+      description: "Owns Low density",
+      icon: "low-density-core",
+    })
+  }
+  if (hasMedium) {
+    badges.push({
+      id: "rock-medium-density-core",
+      name: "Medium Density Core",
+      category: "Rock Density",
+      tier: 2,
+      unlocked: true,
+      description: "Owns Medium density",
+      icon: "medium-density-core",
+    })
+  }
+  if (hasHigh) {
+    badges.push({
+      id: "rock-high-density-core",
+      name: "High Density Core",
+      category: "Rock Density",
+      tier: 3,
+      unlocked: true,
+      description: "Owns High density",
+      icon: "high-density-core",
+    })
+  }
   if (hasLow && hasMedium && hasHigh) {
     badges.push({
       id: "rock-full-spectrum-core",
@@ -359,38 +398,6 @@ function calculateRockBadges(oldRockNFTs: any[]): Badge[] {
       description: "LOW + MEDIUM + HIGH",
       icon: "full-spectrum-core",
     })
-  } else {
-    if (hasHigh) {
-      badges.push({
-        id: "rock-high-density-core",
-        name: "High Density Core",
-        category: "Rock Density",
-        tier: 3,
-        unlocked: true,
-        description: "Highest density tier owned",
-        icon: "high-density-core",
-      })
-    } else if (hasMedium) {
-      badges.push({
-        id: "rock-medium-density-core",
-        name: "Medium Density Core",
-        category: "Rock Density",
-        tier: 2,
-        unlocked: true,
-        description: "Highest density tier owned",
-        icon: "medium-density-core",
-      })
-    } else if (hasLow) {
-      badges.push({
-        id: "rock-low-density-core",
-        name: "Low Density Core",
-        category: "Rock Density",
-        tier: 1,
-        unlocked: true,
-        description: "Highest density tier owned",
-        icon: "low-density-core",
-      })
-    }
   }
 
   // D. Rock Color Badges
@@ -438,7 +445,18 @@ function calculateRockBadges(oldRockNFTs: any[]): Badge[] {
     }
   })
 
-  // Advanced color badges
+  // Advanced color badges - Show all tiers unlocked
+  if (rockColors.size >= 5) {
+    badges.push({
+      id: "rock-chromatic-rock",
+      name: "Chromatic Rock",
+      category: "Rock Color",
+      tier: 1,
+      unlocked: true,
+      description: "5+ colors",
+      icon: "chromatic-rock",
+    })
+  }
   if (rockColors.size >= 10) {
     badges.push({
       id: "rock-prismatic-rock",
@@ -448,16 +466,6 @@ function calculateRockBadges(oldRockNFTs: any[]): Badge[] {
       unlocked: true,
       description: "All 10 colors",
       icon: "prismatic-rock",
-    })
-  } else if (rockColors.size >= 5) {
-    badges.push({
-      id: "rock-chromatic-rock",
-      name: "Chromatic Rock",
-      category: "Rock Color",
-      tier: 1,
-      unlocked: true,
-      description: "5+ colors",
-      icon: "chromatic-rock",
     })
   }
 
@@ -471,18 +479,30 @@ function calculateGoliathBadges(goliathNFTs: any[]): Badge[] {
   const badges: Badge[] = []
   const count = goliathNFTs.length
 
-  // A. Goliath Ownership Count
-  if (count >= 10) {
+  // A. Goliath Ownership Count - Show all tiers unlocked
+  if (count >= 1) {
     badges.push({
-      id: "goliath-legion-holder",
-      name: "Legion Holder",
+      id: "goliath-first-goliath",
+      name: "First Goliath",
       category: "Goliath Ownership",
-      tier: 4,
+      tier: 1,
       unlocked: true,
-      description: "10+ Goliaths",
-      icon: "legion-holder",
+      description: "1 Goliath",
+      icon: "first-goliath",
     })
-  } else if (count >= 5) {
+  }
+  if (count >= 3) {
+    badges.push({
+      id: "goliath-goliath-guardian",
+      name: "Goliath Guardian",
+      category: "Goliath Ownership",
+      tier: 2,
+      unlocked: true,
+      description: "3 Goliaths",
+      icon: "goliath-guardian",
+    })
+  }
+  if (count >= 5) {
     badges.push({
       id: "goliath-titan-host",
       name: "Titan Host",
@@ -492,25 +512,16 @@ function calculateGoliathBadges(goliathNFTs: any[]): Badge[] {
       description: "5 Goliaths",
       icon: "titan-host",
     })
-  } else if (count >= 3) {
+  }
+  if (count >= 10) {
     badges.push({
-      id: "goliath-warbound",
-      name: "Warbound",
+      id: "goliath-legion-holder",
+      name: "Legion Holder",
       category: "Goliath Ownership",
-      tier: 2,
+      tier: 4,
       unlocked: true,
-      description: "3 Goliaths",
-      icon: "warbound",
-    })
-  } else if (count >= 1) {
-    badges.push({
-      id: "goliath-awakened",
-      name: "Awakened",
-      category: "Goliath Ownership",
-      tier: 1,
-      unlocked: true,
-      description: "1 Goliath",
-      icon: "awakened",
+      description: "10+ Goliaths",
+      icon: "legion-holder",
     })
   }
 
@@ -542,45 +553,54 @@ function calculateGoliathBadges(goliathNFTs: any[]): Badge[] {
       }
     })
 
-    if (densityTypes.has("High") || Array.from(densityTypes).some(d => d.includes("High"))) {
+    // Show all density tiers unlocked
+    const hasUninfected = densityTypes.has("Uninfected") || Array.from(densityTypes).some(d => d.includes("Uninfected"))
+    const hasLow = densityTypes.has("Low") || Array.from(densityTypes).some(d => d.includes("Low"))
+    const hasMedium = densityTypes.has("Medium") || Array.from(densityTypes).some(d => d.includes("Medium"))
+    const hasHigh = densityTypes.has("High") || Array.from(densityTypes).some(d => d.includes("High"))
+    
+    if (hasUninfected) {
       badges.push({
-        id: "goliath-high-density",
-        name: "High Density Goliath",
+        id: "goliath-uninfected",
+        name: "Uninfected Goliath",
         category: "Goliath Density",
-        tier: 4,
+        tier: 1,
         unlocked: true,
-        description: "Highest density tier owned",
-        icon: "high-density-goliath",
+        description: "Owns Uninfected density",
+        icon: "uninfected-goliath",
       })
-    } else if (densityTypes.has("Medium") || Array.from(densityTypes).some(d => d.includes("Medium"))) {
-      badges.push({
-        id: "goliath-medium-density",
-        name: "Medium Density Goliath",
-        category: "Goliath Density",
-        tier: 3,
-        unlocked: true,
-        description: "Highest density tier owned",
-        icon: "medium-density-goliath",
-      })
-    } else if (densityTypes.has("Low") || Array.from(densityTypes).some(d => d.includes("Low"))) {
+    }
+    if (hasLow) {
       badges.push({
         id: "goliath-low-density",
         name: "Low Density Goliath",
         category: "Goliath Density",
         tier: 2,
         unlocked: true,
-        description: "Highest density tier owned",
+        description: "Owns Low density",
         icon: "low-density-goliath",
       })
-    } else {
+    }
+    if (hasMedium) {
       badges.push({
-        id: "goliath-common",
-        name: "Common Goliath",
+        id: "goliath-medium-density",
+        name: "Medium Density Goliath",
         category: "Goliath Density",
-        tier: 1,
+        tier: 3,
         unlocked: true,
-        description: "Highest density tier owned",
-        icon: "common-goliath",
+        description: "Owns Medium density",
+        icon: "medium-density-goliath",
+      })
+    }
+    if (hasHigh) {
+      badges.push({
+        id: "goliath-high-density",
+        name: "High Density Goliath",
+        category: "Goliath Density",
+        tier: 4,
+        unlocked: true,
+        description: "Owns High density",
+        icon: "high-density-goliath",
       })
     }
   }
@@ -634,7 +654,18 @@ function calculateGoliathBadges(goliathNFTs: any[]): Badge[] {
     }
   })
 
-  // Prestige bounty badges
+  // Prestige bounty badges - Show all tiers unlocked
+  if (bountyTypes.size >= 3) {
+    badges.push({
+      id: "goliath-multi-bounty-operator",
+      name: "Multi-Bounty Operator",
+      category: "Goliath Bounty",
+      tier: 1,
+      unlocked: true,
+      description: "Owns 3+",
+      icon: "multi-bounty-operator",
+    })
+  }
   if (bountyTypes.size >= 5) {
     badges.push({
       id: "goliath-all-bounties-claimed",
@@ -644,16 +675,6 @@ function calculateGoliathBadges(goliathNFTs: any[]): Badge[] {
       unlocked: true,
       description: "Owns all 5",
       icon: "all-bounties-claimed",
-    })
-  } else if (bountyTypes.size >= 3) {
-    badges.push({
-      id: "goliath-multi-bounty-operator",
-      name: "Multi-Bounty Operator",
-      category: "Goliath Bounty",
-      tier: 1,
-      unlocked: true,
-      description: "Owns 3+",
-      icon: "multi-bounty-operator",
     })
   }
 
@@ -702,7 +723,18 @@ function calculateGoliathBadges(goliathNFTs: any[]): Badge[] {
     }
   })
 
-  // Advanced color badges
+  // Advanced color badges - Show all tiers unlocked
+  if (goliathColors.size >= 5) {
+    badges.push({
+      id: "goliath-chromatic-goliath",
+      name: "Chromatic Goliath",
+      category: "Goliath Color",
+      tier: 1,
+      unlocked: true,
+      description: "5+ colors",
+      icon: "chromatic-goliath",
+    })
+  }
   if (goliathColors.size >= 10) {
     badges.push({
       id: "goliath-primal-spectrum",
@@ -712,16 +744,6 @@ function calculateGoliathBadges(goliathNFTs: any[]): Badge[] {
       unlocked: true,
       description: "All 10 colors",
       icon: "primal-spectrum",
-    })
-  } else if (goliathColors.size >= 5) {
-    badges.push({
-      id: "goliath-chromatic-goliath",
-      name: "Chromatic Goliath",
-      category: "Goliath Color",
-      tier: 1,
-      unlocked: true,
-      description: "5+ colors",
-      icon: "chromatic-goliath",
     })
   }
 

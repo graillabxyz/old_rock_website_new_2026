@@ -91,7 +91,8 @@ export function SearchBar() {
   const [contentSuggestions, setContentSuggestions] = useState<ContentSuggestion[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [goliathCollectionLimit, setGoliathCollectionLimit] = useState(3717)
-  const [nftOwnersList, setNftOwnersList] = useState([])
+  const [nftOwnersList, setNftOwnersList] = useState<any[]>([])
+  const [userWalletData, setUserWalletData] = useState<Map<string, { oldRock: boolean; goliath: boolean; density: number; ensName?: string }>>(new Map())
   const searchRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const router = useRouter()
@@ -111,7 +112,7 @@ export function SearchBar() {
       id: "comic",
       type: "page",
       title: "Old Rock Comic",
-      description: "Read the epic Old Rock saga with 31+ pages across 2 chapters",
+      description: "Read the epic Old Rock saga with 37+ pages across 3 chapters",
       url: "/comic",
       icon: <FileText className="w-4 h-4" />,
       category: "Entertainment",
@@ -181,6 +182,64 @@ export function SearchBar() {
     },
   ]
 
+  // Function to fetch user wallet data (cached)
+  const fetchUserWalletData = async (address: string): Promise<{ oldRock: boolean; goliath: boolean; density: number; ensName?: string } | null> => {
+    const addressLower = address.toLowerCase();
+    
+    // Check cache first
+    if (userWalletData.has(addressLower)) {
+      return userWalletData.get(addressLower)!;
+    }
+    
+    try {
+      // Fetch user NFTs
+      const nftResponse = await fetch(`${process.env.NEXT_PUBLIC_AMPLIFY_API_URL}/nfts/${address}`);
+      if (!nftResponse.ok) return null;
+      
+      const nftData = await nftResponse.json();
+      const hasOldRock = (nftData?.data?.OldRocks?.length || 0) > 0;
+      const hasGoliath = (nftData?.data?.Goliath?.length || 0) > 0;
+      
+      // Fetch DENSITY balance
+      let density = 0;
+      try {
+        const densityResponse = await fetch(`${process.env.NEXT_PUBLIC_AMPLIFY_API_URL}/density/${address}`);
+        if (densityResponse.ok) {
+          const densityData = await densityResponse.json();
+          density = parseFloat(densityData?.data?.amount || "0") || 0;
+        }
+      } catch (e) {
+        // Ignore density fetch errors
+      }
+      
+      // Fetch ENS name
+      let ensName: string | undefined;
+      try {
+        const ensResponse = await fetch(`https://api.ensideas.com/ens/resolve/${address}`);
+        if (ensResponse.ok) {
+          const ensData = await ensResponse.json();
+          ensName = ensData?.name || undefined;
+        }
+      } catch (e) {
+        // Ignore ENS fetch errors
+      }
+      
+      const walletData = {
+        oldRock: hasOldRock,
+        goliath: hasGoliath,
+        density,
+        ensName,
+      };
+      
+      // Cache the result
+      setUserWalletData(prev => new Map(prev).set(addressLower, walletData));
+      
+      return walletData;
+    } catch (e) {
+      return null;
+    }
+  };
+
   // Close search when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -217,7 +276,7 @@ export function SearchBar() {
 
         const data = await response.json();
 
-        setNftOwnersList(data.data);
+        setNftOwnersList(data.data || []);
       } catch (e) {
         console.dir(e);
       }
@@ -262,6 +321,7 @@ export function SearchBar() {
   const performSearch = async (query: string) => {
     setIsLoading(true)
 
+    const originalQuery = query;
     query = query.toLowerCase();
 
     try {
@@ -278,19 +338,120 @@ export function SearchBar() {
       // Simulate network delay
       await new Promise((resolve) => setTimeout(resolve, 300))
 
-      // Append wallet address list of NFT owners
+      // Search by ENS name
+      if (query.includes('.eth') || (query.length >= 3 && !queryTrimmedNumber)) {
+        try {
+          // Try to resolve ENS name to address
+          const ensResponse = await fetch(`https://api.ensideas.com/ens/resolve/${query}`);
+          if (ensResponse.ok) {
+            const ensData = await ensResponse.json();
+            if (ensData?.address) {
+              const address = ensData.address.toLowerCase();
+              const walletData = await fetchUserWalletData(address);
+              if (walletData) {
+                const descriptionParts: string[] = [];
+                if (walletData.oldRock) descriptionParts.push("Old Rock holder");
+                if (walletData.goliath) descriptionParts.push("Goliath holder");
+                if (walletData.density > 0) descriptionParts.push(`${walletData.density.toLocaleString()} $DENSITY`);
+                
+                mockResults.push({
+                  id: address,
+                  type: "profile",
+                  name: ensData.name || shortenAddress(address),
+                  address: address,
+                  description: descriptionParts.length > 0 ? descriptionParts.join(" • ") : "Profile",
+                  image: "/placeholder.svg?height=100&width=100",
+                  collection: "Profile",
+                });
+              }
+            }
+          }
+        } catch (e) {
+          // Ignore ENS resolution errors
+        }
+      }
+
+      // Search wallet addresses and filter by NFT holdings and DENSITY balance
       if (queryTrimmed.length >= 3) {
-        nftOwnersList.forEach((owner) => {
-          if (owner.includes(query.replace('0x', ''))) {
+        const queryLower = query.toLowerCase();
+        const queryWithoutPrefix = query.replace('0x', '').toLowerCase();
+        
+        // Filter based on search criteria
+        const searchForOldRock = originalQuery.toLowerCase().includes('old rock') || originalQuery.toLowerCase().includes('oldrock');
+        const searchForGoliath = originalQuery.toLowerCase().includes('goliath');
+        const searchForDensity = originalQuery.toLowerCase().includes('density') || originalQuery.toLowerCase().includes('$density');
+        
+        // Search through cached wallet data first
+        userWalletData.forEach((data, address) => {
+          const addressLower = address.toLowerCase();
+          const addressWithoutPrefix = address.replace('0x', '').toLowerCase();
+          const ensNameLower = data.ensName?.toLowerCase() || '';
+          
+          // Match by address or ENS name
+          const matchesAddress = addressLower.includes(queryLower) || addressWithoutPrefix.includes(queryWithoutPrefix);
+          const matchesENS = ensNameLower.includes(queryLower);
+          
+          if (matchesAddress || matchesENS) {
+            // If specific collection is searched, only show if they have it
+            if (searchForOldRock && !data.oldRock) return;
+            if (searchForGoliath && !data.goliath) return;
+            if (searchForDensity && data.density === 0) return;
+            
+            const descriptionParts: string[] = [];
+            if (data.oldRock) descriptionParts.push("Old Rock holder");
+            if (data.goliath) descriptionParts.push("Goliath holder");
+            if (data.density > 0) descriptionParts.push(`${data.density.toLocaleString()} $DENSITY`);
+            
             mockResults.push({
-              id: owner,
+              id: address,
               type: "profile",
-              name: shortenAddress(owner),
+              name: data.ensName || shortenAddress(address),
+              address: address,
+              description: descriptionParts.length > 0 ? descriptionParts.join(" • ") : "Profile",
               image: "/placeholder.svg?height=100&width=100",
               collection: "Profile",
             });
           }
-        })
+        });
+        
+        // Search through the owners list and fetch data for matching addresses
+        const matchingOwners = nftOwnersList.filter((owner: string) => {
+          const ownerLower = owner.toLowerCase();
+          const ownerWithoutPrefix = owner.replace('0x', '').toLowerCase();
+          return (ownerLower.includes(queryLower) || ownerWithoutPrefix.includes(queryWithoutPrefix)) && 
+                 !userWalletData.has(ownerLower);
+        }).slice(0, 10); // Limit to first 10 matches to avoid too many API calls
+        
+        // Fetch data for matching owners in parallel
+        const ownerDataPromises = matchingOwners.map(async (owner: string) => {
+          const walletData = await fetchUserWalletData(owner);
+          if (!walletData) return null;
+          
+          // Filter based on search criteria
+          if (searchForOldRock && !walletData.oldRock) return null;
+          if (searchForGoliath && !walletData.goliath) return null;
+          if (searchForDensity && walletData.density === 0) return null;
+          
+          const descriptionParts: string[] = [];
+          if (walletData.oldRock) descriptionParts.push("Old Rock holder");
+          if (walletData.goliath) descriptionParts.push("Goliath holder");
+          if (walletData.density > 0) descriptionParts.push(`${walletData.density.toLocaleString()} $DENSITY`);
+          
+          return {
+            id: owner,
+            type: "profile" as const,
+            name: walletData.ensName || shortenAddress(owner),
+            address: owner,
+            description: descriptionParts.length > 0 ? descriptionParts.join(" • ") : "Profile",
+            image: "/placeholder.svg?height=100&width=100",
+            collection: "Profile",
+          };
+        });
+        
+        const ownerResults = await Promise.all(ownerDataPromises);
+        ownerResults.forEach(result => {
+          if (result) mockResults.push(result);
+        });
       }
 
       // Append results for Old Rock NFT assets
