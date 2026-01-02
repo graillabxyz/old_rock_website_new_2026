@@ -13,6 +13,7 @@ export function BadgeDisplay({ badges }: BadgeDisplayProps) {
   const [isExpanded, setIsExpanded] = useState(false)
   const [showScrollIndicator, setShowScrollIndicator] = useState(false)
   const [hasScrolled, setHasScrolled] = useState(false)
+  const [hasSeenScrollIndicator, setHasSeenScrollIndicator] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const scrollIndicatorTimeoutRef = useRef<NodeJS.Timeout | null>(null)
@@ -47,17 +48,26 @@ export function BadgeDisplay({ badges }: BadgeDisplayProps) {
       return
     }
 
-    // Reset scroll state when expanded
+    // Reset scroll state when expanded (but keep hasSeenScrollIndicator)
     setHasScrolled(false)
     setShowScrollIndicator(false)
+
+    // Check if user has already seen the indicator in this session
+    if (hasSeenScrollIndicator) {
+      return
+    }
 
     // Show scroll indicator after delay if user hasn't scrolled
     scrollIndicatorTimeoutRef.current = setTimeout(() => {
       if (!hasScrolled && scrollContainerRef.current) {
         const container = scrollContainerRef.current
-        // Only show if content is scrollable
-        if (container.scrollHeight > container.clientHeight) {
+        // Only show if content is scrollable AND user is not at the bottom
+        const isScrollable = container.scrollHeight > container.clientHeight
+        const isAtBottom = container.scrollHeight - container.scrollTop <= container.clientHeight + 5 // 5px threshold
+        
+        if (isScrollable && !isAtBottom) {
           setShowScrollIndicator(true)
+          setHasSeenScrollIndicator(true) // Mark as seen
         }
       }
     }, 2000) // 2 second delay
@@ -68,6 +78,15 @@ export function BadgeDisplay({ badges }: BadgeDisplayProps) {
       setShowScrollIndicator(false)
       if (scrollIndicatorTimeoutRef.current) {
         clearTimeout(scrollIndicatorTimeoutRef.current)
+      }
+      
+      // Check if user scrolled to bottom
+      if (scrollContainerRef.current) {
+        const container = scrollContainerRef.current
+        const isAtBottom = container.scrollHeight - container.scrollTop <= container.clientHeight + 5
+        if (isAtBottom) {
+          setHasSeenScrollIndicator(true) // Mark as seen if they scrolled to bottom
+        }
       }
     }
 
@@ -84,7 +103,7 @@ export function BadgeDisplay({ badges }: BadgeDisplayProps) {
         scrollContainer.removeEventListener('scroll', handleScroll)
       }
     }
-  }, [isExpanded, hasScrolled])
+  }, [isExpanded, hasScrolled, hasSeenScrollIndicator])
   
   const bestBadges = getBestBadges(badges)
   
@@ -156,12 +175,18 @@ export function BadgeDisplay({ badges }: BadgeDisplayProps) {
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
-            className="relative"
+            className="relative w-full"
+            style={{ minHeight: '176px' }} // Profile picture height (224px) minus badge row height (48px)
           >
-            <div className="pt-4 border-t border-gray-800 relative z-20 bg-gray-900/95 backdrop-blur-sm rounded-lg border border-gray-700/50 shadow-2xl mt-2 p-4">
+            <div className="pt-4 border-t border-gray-800 relative z-20 mt-2" style={{ width: 'calc(100% + 3rem)', marginLeft: '-1.5rem', paddingRight: '1.5rem' }}>
               <div 
                 ref={scrollContainerRef}
-                className="max-h-96 overflow-y-auto space-y-6 pr-2 scrollbar-hide"
+                className="overflow-y-auto space-y-6 pr-2 scrollbar-hide"
+                style={{ 
+                  maxHeight: '176px', // 224px (profile pic) - 48px (badge row height)
+                  overflowX: 'visible',
+                  overflowY: 'auto'
+                }}
               >
                 {Object.entries(badgesByCategory).map(([category, categoryBadges]) => {
                   // Sort badges by tier (highest first), then by unlocked status
@@ -172,11 +197,11 @@ export function BadgeDisplay({ badges }: BadgeDisplayProps) {
                   })
                   
                   return (
-                    <div key={category} className="space-y-2 relative">
+                    <div key={category} className="space-y-2 relative" style={{ overflow: 'visible' }}>
                       <h4 className="text-xs font-pt-mono font-bold text-gray-500 uppercase tracking-wider">
                         {category}
                       </h4>
-                      <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-8 gap-4">
+                      <div className="grid grid-cols-5 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 xl:grid-cols-12 gap-4" style={{ overflow: 'visible' }}>
                         {sortedBadges.map((badge) => (
                           <div key={badge.id} className="relative flex items-center justify-center" style={{ overflow: 'visible', minWidth: '40px', minHeight: '40px' }}>
                             <BadgeIcon
@@ -249,7 +274,15 @@ function BadgeIcon({ badge, size = "md" }: BadgeIconProps) {
       
       {/* Custom tooltip on hover - only show if custom tooltip is working */}
       {showCustomTooltip && (
-        <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 z-[9999] pointer-events-none">
+        <div 
+          className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 z-[99999] pointer-events-none"
+          style={{ 
+            position: 'absolute',
+            willChange: 'transform',
+            isolation: 'isolate',
+            contain: 'layout style paint'
+          }}
+        >
           <div className="bg-gray-900 text-white text-xs rounded px-2 py-1 whitespace-nowrap border border-gray-700 shadow-lg">
             <div className="font-semibold">{badge.name}</div>
             {badge.description && (
