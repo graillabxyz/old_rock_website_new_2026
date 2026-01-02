@@ -35,8 +35,9 @@ export async function POST(request: NextRequest) {
     const NFT_STORAGE_TOKEN = process.env.NFT_STORAGE_TOKEN
     
     if (!NFT_STORAGE_TOKEN) {
+      console.error("NFT_STORAGE_TOKEN is missing from environment variables. Please ensure .env.local contains NFT_STORAGE_TOKEN and restart the Next.js server.")
       return NextResponse.json(
-        { success: false, error: "IPFS upload service not configured. NFT_STORAGE_TOKEN is missing." },
+        { success: false, error: "Upload service is temporarily unavailable. Please try again in a moment. If the issue persists, contact support." },
         { status: 500 }
       )
     }
