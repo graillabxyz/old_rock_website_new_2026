@@ -39,12 +39,8 @@ export async function POST(request: NextRequest) {
     // Use Pinata for IPFS uploads
     const PINATA_JWT = process.env.PINATA_JWT
     
-    // Debug logging (remove in production)
-    console.log("PINATA_JWT exists:", !!PINATA_JWT)
-    console.log("PINATA_JWT length:", PINATA_JWT?.length || 0)
-    
     if (!PINATA_JWT) {
-      console.error("PINATA_JWT is missing from environment variables. Please ensure .env.local contains PINATA_JWT and restart the Next.js server.")
+      console.error("PINATA_JWT is missing from environment variables. Please ensure PINATA_JWT is set in your deployment environment variables.")
       return NextResponse.json(
         { success: false, error: "Upload service is temporarily unavailable. Please try again in a moment. If the issue persists, contact support." },
         { status: 500 }
