@@ -645,7 +645,7 @@ export default function ProfilePage() {
                   key={`${nft.collection}-${nft.tokenId}`}
                   className={`bg-gray-900 rounded-xl overflow-hidden border border-gray-800 hover:border-purple-500 transition-all group ${
                     isOwnProfile ? "cursor-pointer" : ""
-                  }`}
+                  } relative`}
                   onClick={() => isOwnProfile && handleNFTClick(nft)}
                 >
                   <div className="relative aspect-square" style={{ backgroundColor: nft.backgroundColor }}>
@@ -657,7 +657,7 @@ export default function ProfilePage() {
                           e.stopPropagation()
                           handleAddFeaturedNFT(nft)
                         }}
-                        className="absolute top-2 right-2 bg-purple-600 hover:bg-purple-700 text-white p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                        className="absolute top-2 right-2 bg-purple-600 hover:bg-purple-700 text-white p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity z-20"
                       >
                         <Plus className="w-4 h-4" />
                       </button>
@@ -668,11 +668,24 @@ export default function ProfilePage() {
                         e.stopPropagation()
                         window.open(nft.image?.replace('.webp', '.gif'), '_blank')
                       }}
-                      className="absolute top-2 right-2 bg-purple-600 hover:bg-purple-700 text-white p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity text-xs"
+                      className="absolute top-2 right-2 bg-purple-600 hover:bg-purple-700 text-white p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity text-xs z-20"
                       title="View GIF asset for sharing on social"
                     >
                       GIF
                     </button>
+                    {/* Inline overlay menu - only show when this NFT is selected */}
+                    {isOwnProfile && selectedNFT?.tokenId === nft.tokenId && selectedNFT?.collection === nft.collection && isOverlayOpen && (
+                      <NFTOverlay
+                        nft={selectedNFT}
+                        isOpen={isOverlayOpen}
+                        onClose={() => {
+                          setIsOverlayOpen(false)
+                          setSelectedNFT(null)
+                        }}
+                        onSetAsProfilePicture={handleSetAsProfilePicture}
+                        isSettingAvatar={isSettingAvatar}
+                      />
+                    )}
                   </div>
                   <div className="p-3">
                     <h3 className="text-sm font-semibold text-white truncate">{nft.name}</h3>
@@ -793,17 +806,6 @@ export default function ProfilePage() {
           )}
         </AnimatePresence>
 
-        {/* NFT Overlay */}
-        <NFTOverlay
-          nft={selectedNFT}
-          isOpen={isOverlayOpen}
-          onClose={() => {
-            setIsOverlayOpen(false)
-            setSelectedNFT(null)
-          }}
-          onSetAsProfilePicture={handleSetAsProfilePicture}
-          isSettingAvatar={isSettingAvatar}
-        />
       </div>
     </>
   )

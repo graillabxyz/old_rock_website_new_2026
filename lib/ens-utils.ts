@@ -46,23 +46,51 @@ export async function setENSAvatar(
   const resolverAddress = await resolver.getAddress()
   
   // Create contract instance with the Public Resolver ABI
-  // Note: This will work even if the resolver is not the Public Resolver,
-  // as long as it implements the setText function
   const resolverContract = new ethers.Contract(resolverAddress, PUBLIC_RESOLVER_ABI, signer)
 
-  // Set the avatar text record
-  // The namehash is already computed, but we can also use the resolver's setText directly
-  // Some resolvers might require the namehash, others might accept the name
+  // Check if the resolver supports setText by checking if the function exists
+  // We'll try to call it and handle the error if it doesn't exist
   let tx
   try {
-    // Try with namehash first (most common)
+    // First, verify the resolver supports text records by checking if we can read
+    try {
+      await resolver.getText("avatar")
+    } catch (readError) {
+      // If we can't read, the resolver might not support text records
+      // But we'll still try to write in case it's a write-only resolver
+    }
+
+    // Try to set the avatar text record using namehash
     tx = await resolverContract.setText(namehash, "avatar", imageUrl)
   } catch (error: any) {
-    // If that fails, try using the resolver's setText method directly
-    // Some resolvers might handle this differently
-    if (error?.code === "CALL_EXCEPTION" || error?.message?.includes("function")) {
-      throw new Error(`The resolver for ${ensName} does not support setting text records. Please ensure you're using a compatible resolver.`)
+    // Provide more helpful error messages based on the error type
+    if (error?.code === "CALL_EXCEPTION" || error?.message?.includes("function") || error?.message?.includes("not supported")) {
+      const publicResolverAddress = ENS_PUBLIC_RESOLVER_ADDRESS.toLowerCase()
+      const currentResolverAddress = resolverAddress.toLowerCase()
+      
+      if (currentResolverAddress !== publicResolverAddress) {
+        throw new Error(
+          `Your ENS name "${ensName}" is using a resolver that doesn't support text records. ` +
+          `Please update your resolver to the Public Resolver using the ENS Manager app: ` +
+          `https://app.ens.domains/name/${ensName}/details`
+        )
+      } else {
+        throw new Error(
+          `Failed to set avatar. The resolver may not support text records. ` +
+          `Please try again or contact support if the issue persists.`
+        )
+      }
     }
+    
+    if (error?.code === 4001 || error?.message?.includes("user rejected") || error?.message?.includes("denied")) {
+      throw new Error("Transaction was rejected by user.")
+    }
+    
+    if (error?.message?.includes("insufficient funds")) {
+      throw new Error("Insufficient funds to complete the transaction.")
+    }
+    
+    // Re-throw with original message if it's a different error
     throw error
   }
   
