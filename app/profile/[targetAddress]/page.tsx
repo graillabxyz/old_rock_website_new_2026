@@ -6,6 +6,7 @@ import Image from "next/image"
 import { motion, AnimatePresence } from "framer-motion"
 import { Edit2, X, Plus, Trash2 } from "lucide-react"
 import { fetchUserNFTs, fetchUserStats } from "@/app/actions/fetch-user-nfts"
+import { fetchUserDensity } from "@/app/actions/fetch-user-density"
 import { saveProfileNFT } from "@/app/actions/save-profile-nft"
 import { UserBadge } from "@/components/user-badge"
 import { Header } from "@/components/header"
@@ -15,6 +16,8 @@ import { setENSAvatar, getConnectedWalletENSName } from "@/lib/ens-utils"
 import { uploadToIPFS, getIPFSGatewayURL, SUPPORTED_IMAGE_TYPES, MAX_FILE_SIZE } from "@/lib/ipfs-utils"
 import { Upload } from "lucide-react"
 import { ENSConfirmationModal } from "@/components/ens-confirmation-modal"
+import { BadgeDisplay } from "@/components/badge-display"
+import { calculateAllBadges, Badge } from "@/lib/badge-utils"
 
 interface NFT {
   tokenId: string
@@ -66,6 +69,7 @@ export default function ProfilePage() {
   // Badges state
   const [selectedBadges, setSelectedBadges] = useState<number[]>([])
   const [isEditingBadges, setIsEditingBadges] = useState(false)
+  const [userBadges, setUserBadges] = useState<Badge[]>([])
 
   // Filter state
   const [selectedFilter, setSelectedFilter] = useState<"all" | "oldrock" | "goliath">("all")
@@ -178,6 +182,22 @@ export default function ProfilePage() {
         if (statsResult.success) {
           setUserStats(statsResult.stats)
         }
+
+        // Fetch actual $DENSITY ecosystem balance (same as shown in header)
+        const densityResult = await fetchUserDensity(address)
+        let totalDensity = 0
+        if (densityResult.success && densityResult.data) {
+          // Use the ecosystem balance amount (same as header displays)
+          totalDensity = parseFloat(densityResult.data.amount?.toString() || "0") || 0
+        }
+
+        // Calculate badges using actual data
+        const badges = calculateAllBadges({
+          totalDensity,
+          oldRockNFTs: nftResult.oldRockNFTs || [],
+          goliathNFTs: nftResult.goliathNFTs || [],
+        })
+        setUserBadges(badges)
       }
 
       // Load saved profile NFT
@@ -854,11 +874,18 @@ export default function ProfilePage() {
               </div>
 
               {/* User Info */}
-              <div className="pb-4">
+              <div className="pb-4 flex-1">
                 <h1 className="text-4xl font-bold text-white mb-2">{ensName}</h1>
                 <p className="text-gray-400 font-mono mb-4">
                   {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}
                 </p>
+                
+                {/* Badges Display */}
+                {userBadges.length > 0 && (
+                  <div className="mt-4">
+                    <BadgeDisplay badges={userBadges} />
+                  </div>
+                )}
 
                 {/* Social Connections */}
                 {/*}
