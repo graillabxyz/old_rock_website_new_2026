@@ -216,10 +216,10 @@ export async function setENSAvatar(
   }
 
   // Create resolver contract instance to check interface support
-  const resolverContract = new ethers.Contract(resolverAddress, PUBLIC_RESOLVER_ABI, ethersProvider)
+  let resolverContract = new ethers.Contract(resolverAddress, PUBLIC_RESOLVER_ABI, ethersProvider)
   
   // Create a resolver-like object that has the methods we need
-  const resolver = {
+  let resolver = {
     getAddress: async () => resolverAddress,
     getText: async (key: string) => {
       return await resolverContract.text(namehash, key)
@@ -258,11 +258,11 @@ export async function setENSAvatar(
     resolverAddress = newResolverAddress
     
     // Create new resolver contract instance for reading
-    const newResolverContract = new ethers.Contract(resolverAddress, PUBLIC_RESOLVER_ABI, ethersProvider)
+    resolverContract = new ethers.Contract(resolverAddress, PUBLIC_RESOLVER_ABI, ethersProvider)
     resolver = {
       getAddress: async () => resolverAddress,
       getText: async (key: string) => {
-        return await newResolverContract.text(namehash, key)
+        return await resolverContract.text(namehash, key)
       },
     } as ethers.Resolver
 
