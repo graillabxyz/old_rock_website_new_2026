@@ -117,24 +117,41 @@ export async function POST(request: NextRequest) {
       })
 
       if (!response.ok) {
-        const errorText = await response.text()
+        let errorText: string
+        let errorData: any
+        
+        try {
+          errorText = await response.text()
+          try {
+            errorData = JSON.parse(errorText)
+          } catch {
+            errorData = { message: errorText }
+          }
+        } catch {
+          errorText = "Unknown error"
+          errorData = {}
+        }
+        
         console.error("Pinata upload failed:", {
           status: response.status,
           statusText: response.statusText,
-          error: errorText,
+          error: errorData,
+          errorText: errorText,
           tokenLength: PINATA_JWT.length,
-          tokenPrefix: PINATA_JWT.substring(0, 10) + "..."
+          tokenPrefix: PINATA_JWT.substring(0, 15) + "...",
+          hasToken: !!PINATA_JWT
         })
         
         // Provide more specific error messages
         if (response.status === 401 || response.status === 403) {
-          throw new Error("Authentication failed. Please check the API key configuration.")
+          const pinataError = errorData?.error?.details || errorData?.error?.reason || errorData?.message || errorText
+          throw new Error(`Pinata authentication failed: ${pinataError || "Invalid or expired JWT token. Please check your PINATA_JWT in Railway variables."}`)
         } else if (response.status === 413) {
           throw new Error("File too large for upload service.")
         } else if (response.status >= 500) {
           throw new Error("Upload service is temporarily unavailable. Please try again later.")
         } else {
-          throw new Error(`Upload failed: ${response.statusText}`)
+          throw new Error(`Upload failed: ${errorData?.message || response.statusText}`)
         }
       }
 
