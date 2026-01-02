@@ -42,11 +42,6 @@ export default function LeaderboardPage() {
   const [currentOffset, setCurrentOffset] = useState(0)
   const [totalUsers, setTotalUsers] = useState(0)
   const loadMoreTriggerRef = useRef<HTMLDivElement>(null)
-  const [hasMore, setHasMore] = useState(true)
-  const [isLoadingMore, setIsLoadingMore] = useState(false)
-  const [currentOffset, setCurrentOffset] = useState(0)
-  const [totalUsers, setTotalUsers] = useState(0)
-  const loadMoreTriggerRef = useRef<HTMLDivElement>(null)
 
   // Check wallet connection status
   useEffect(() => {
