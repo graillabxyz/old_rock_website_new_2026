@@ -12,7 +12,7 @@ import { Header } from "@/components/header"
 import { Sidebar } from "@/components/sidebar"
 import { NFTOverlay } from "@/components/nft-overlay"
 import { setENSAvatar, getConnectedWalletENSName } from "@/lib/ens-utils"
-import { uploadToIPFS, getIPFSGatewayURL, SUPPORTED_IMAGE_TYPES, SUPPORTED_VIDEO_TYPES, MAX_FILE_SIZE } from "@/lib/ipfs-utils"
+import { uploadToIPFS, getIPFSGatewayURL, SUPPORTED_IMAGE_TYPES, MAX_FILE_SIZE } from "@/lib/ipfs-utils"
 import { Upload } from "lucide-react"
 import { ENSConfirmationModal } from "@/components/ens-confirmation-modal"
 
@@ -77,7 +77,7 @@ export default function ProfilePage() {
 
   // Header image/video state
   const [headerMedia, setHeaderMedia] = useState<string>("")
-  const [headerMediaType, setHeaderMediaType] = useState<"image" | "video" | null>(null)
+  const [headerMediaType, setHeaderMediaType] = useState<"image" | null>(null)
   const [isUploadingHeader, setIsUploadingHeader] = useState(false)
   const [isEditingHeader, setIsEditingHeader] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
@@ -353,29 +353,28 @@ export default function ProfilePage() {
 
     // Validate file extension
     const fileName = file.name.toLowerCase()
-    const validExtensions = [".webp", ".webm", ".mp4", ".gif", ".jpg", ".jpeg", ".png"]
+    const validExtensions = [".png", ".jpg", ".jpeg", ".webp"]
     const hasValidExtension = validExtensions.some(ext => fileName.endsWith(ext))
     
     if (!hasValidExtension) {
-      setUploadError(`Unsupported file format. Please upload: webp, webm, mp4, gif, jpg, or png`)
+      setUploadError(`Unsupported file format. Please upload: PNG, JPG, or WebP`)
       return
     }
 
-    // Validate file size (2MB limit)
-    if (file.size > MAX_FILE_SIZE) {
-      const fileSizeMB = (file.size / 1024 / 1024).toFixed(2)
-      setUploadError(`File too large! Current size: ${fileSizeMB}MB. Maximum allowed: 2MB. Please choose a smaller file.`)
-      return
-    }
-
-    // Validate file type
+    // Validate file type - only images allowed
     const isImage = SUPPORTED_IMAGE_TYPES.includes(file.type)
-    const isVideo = SUPPORTED_VIDEO_TYPES.includes(file.type)
     
-    if (!isImage && !isVideo) {
-      setUploadError(`Unsupported file type. Please upload an image (webp, gif, jpg, png) or video (webm, mp4)`)
+    if (!isImage) {
+      setUploadError(`Unsupported file type. Please upload an image file (PNG, JPG, or WebP)`)
       return
     }
+
+    // Note: File size validation happens on the server
+    // PNG/JPG files will be automatically converted to WebP for optimal storage
+
+    // Get old banner CID before uploading new one
+    const oldHeaderData = localStorage.getItem(`header-media-${walletAddress}`)
+    const oldCid = oldHeaderData ? JSON.parse(oldHeaderData).hash : null
 
     setIsUploadingHeader(true)
     setUploadProgress(10) // Start progress
@@ -400,15 +399,32 @@ export default function ProfilePage() {
         throw new Error("Failed to upload to IPFS - no hash returned")
       }
 
+      // Unpin old banner from IPFS (non-blocking - don't fail if this errors)
+      if (oldCid && oldCid !== ipfsHash) {
+        try {
+          await fetch("/api/ipfs/unpin", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ cid: oldCid }),
+          })
+          console.log(`Unpinned old banner: ${oldCid}`)
+        } catch (unpinError) {
+          // Non-critical error - log but don't fail the upload
+          console.warn("Failed to unpin old banner (non-critical):", unpinError)
+        }
+      }
+
       setUploadProgress(100)
 
       // Save to state and localStorage
       setHeaderMedia(ipfsHash)
-      setHeaderMediaType(isImage ? "image" : "video")
+      setHeaderMediaType("image")
       
       const headerData = {
         hash: ipfsHash,
-        type: isImage ? "image" : "video",
+        type: "image",
         uploadedAt: new Date().toISOString(),
       }
       
@@ -435,10 +451,10 @@ export default function ProfilePage() {
       // Provide specific, user-friendly error messages
       let errorMessage = "Failed to upload header media."
       
-      if (error?.message?.includes("File size exceeds") || error?.message?.includes("too large")) {
-        errorMessage = `File too large! Maximum allowed: 2MB. Please choose a smaller file.`
+      if (error?.message?.includes("too large") || error?.message?.includes("Image is too large")) {
+        errorMessage = `Image is too large. Please try a smaller or less detailed image. PNG and JPG files are automatically converted to WebP for optimal storage.`
       } else if (error?.message?.includes("Unsupported file format") || error?.message?.includes("Unsupported file type")) {
-        errorMessage = `Unsupported file format. Please upload: webp, webm, mp4, gif, jpg, or png`
+        errorMessage = `Unsupported file format. Please upload: PNG, JPG, or WebP`
       } else if (error?.message?.includes("network") || error?.message?.includes("fetch") || error?.message?.includes("Network")) {
         errorMessage = `Network error. Please check your internet connection and try again.`
       } else if (error?.message?.includes("IPFS upload service not configured")) {
@@ -465,12 +481,34 @@ export default function ProfilePage() {
     }
   }
 
-  const handleRemoveHeaderMedia = () => {
+  const handleRemoveHeaderMedia = async () => {
     if (confirm("Are you sure you want to remove your header media?")) {
+      // Get the current banner CID before removing
+      const currentHeaderData = localStorage.getItem(`header-media-${walletAddress}`)
+      const currentCid = currentHeaderData ? JSON.parse(currentHeaderData).hash : null
+
+      // Remove from UI and localStorage
       setHeaderMedia("")
       setHeaderMediaType(null)
       localStorage.removeItem(`header-media-${walletAddress}`)
       setIsEditingHeader(false)
+
+      // Unpin from IPFS (non-blocking)
+      if (currentCid) {
+        try {
+          await fetch("/api/ipfs/unpin", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ cid: currentCid }),
+          })
+          console.log(`Unpinned removed banner: ${currentCid}`)
+        } catch (unpinError) {
+          // Non-critical error - log but don't fail
+          console.warn("Failed to unpin removed banner (non-critical):", unpinError)
+        }
+      }
     }
   }
 
@@ -655,28 +693,15 @@ export default function ProfilePage() {
       <div className="min-h-screen bg-black pt-[72px]">
         {/* Hero Section with Profile Info */}
         <div className="relative h-[500px] bg-gradient-to-b from-purple-900/20 to-black border-b border-gray-800 overflow-hidden">
-          {/* Header Media (Image or Video) */}
+          {/* Header Media (Image) */}
           {headerMedia ? (
-            <>
-              {headerMediaType === "image" ? (
-                <Image
-                  src={getIPFSGatewayURL(headerMedia)}
-                  alt="Profile header"
-                  fill
-                  className="object-cover opacity-30"
-                  unoptimized
-                />
-              ) : (
-                <video
-                  src={getIPFSGatewayURL(headerMedia)}
-                  className="absolute inset-0 w-full h-full object-cover opacity-30"
-                  autoPlay
-                  loop
-                  muted
-                  playsInline
-                />
-              )}
-            </>
+            <Image
+              src={getIPFSGatewayURL(headerMedia)}
+              alt="Profile header"
+              fill
+              className="object-cover opacity-30"
+              unoptimized
+            />
           ) : (
             <div className="absolute inset-0 bg-[url('/images/stonebound-souls-overview-bg.jpg')] bg-cover bg-center opacity-20" />
           )}
@@ -752,10 +777,10 @@ export default function ProfilePage() {
                     </div>
                   )}
                   
-                  {/* File Size Info */}
+                  {/* File Info */}
                   {!isUploadingHeader && !uploadError && !uploadSuccess && (
                     <p className="text-xs text-gray-400 text-right font-pt-mono max-w-xs">
-                      Max file size: 2MB • Supported: webp, webm, mp4, gif, jpg, png
+                      Supported: PNG, JPG, WebP • PNG/JPG files are automatically converted to WebP for optimal storage
                     </p>
                   )}
                 </div>
