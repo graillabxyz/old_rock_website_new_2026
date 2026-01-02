@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { ChevronDown, ChevronUp, Award } from "lucide-react"
+import { ChevronDown, ChevronUp, Award, ChevronDown as ScrollIndicator } from "lucide-react"
 import { Badge, getBestBadges } from "@/lib/badge-utils"
 
 interface BadgeDisplayProps {
@@ -11,13 +11,19 @@ interface BadgeDisplayProps {
 
 export function BadgeDisplay({ badges }: BadgeDisplayProps) {
   const [isExpanded, setIsExpanded] = useState(false)
+  const [showScrollIndicator, setShowScrollIndicator] = useState(false)
+  const [hasScrolled, setHasScrolled] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
+  const scrollIndicatorTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   // Close on outside click
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (isExpanded && containerRef.current && !containerRef.current.contains(event.target as Node)) {
         setIsExpanded(false)
+        setHasScrolled(false)
+        setShowScrollIndicator(false)
       }
     }
 
@@ -29,6 +35,56 @@ export function BadgeDisplay({ badges }: BadgeDisplayProps) {
       document.removeEventListener("mousedown", handleClickOutside)
     }
   }, [isExpanded])
+
+  // Handle scroll indicator
+  useEffect(() => {
+    if (!isExpanded) {
+      setShowScrollIndicator(false)
+      setHasScrolled(false)
+      if (scrollIndicatorTimeoutRef.current) {
+        clearTimeout(scrollIndicatorTimeoutRef.current)
+      }
+      return
+    }
+
+    // Reset scroll state when expanded
+    setHasScrolled(false)
+    setShowScrollIndicator(false)
+
+    // Show scroll indicator after delay if user hasn't scrolled
+    scrollIndicatorTimeoutRef.current = setTimeout(() => {
+      if (!hasScrolled && scrollContainerRef.current) {
+        const container = scrollContainerRef.current
+        // Only show if content is scrollable
+        if (container.scrollHeight > container.clientHeight) {
+          setShowScrollIndicator(true)
+        }
+      }
+    }, 2000) // 2 second delay
+
+    // Handle scroll events
+    const handleScroll = () => {
+      setHasScrolled(true)
+      setShowScrollIndicator(false)
+      if (scrollIndicatorTimeoutRef.current) {
+        clearTimeout(scrollIndicatorTimeoutRef.current)
+      }
+    }
+
+    const scrollContainer = scrollContainerRef.current
+    if (scrollContainer) {
+      scrollContainer.addEventListener('scroll', handleScroll)
+    }
+
+    return () => {
+      if (scrollIndicatorTimeoutRef.current) {
+        clearTimeout(scrollIndicatorTimeoutRef.current)
+      }
+      if (scrollContainer) {
+        scrollContainer.removeEventListener('scroll', handleScroll)
+      }
+    }
+  }, [isExpanded, hasScrolled])
   
   const bestBadges = getBestBadges(badges)
   
@@ -92,35 +148,69 @@ export function BadgeDisplay({ badges }: BadgeDisplayProps) {
         )}
       </div>
 
-      {/* Expanded View */}
+      {/* Expanded View - Overlay */}
       <AnimatePresence>
         {isExpanded && (
           <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
-            className="overflow-visible"
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="absolute top-0 left-0 right-0 z-20 bg-gray-900/95 backdrop-blur-sm rounded-lg border border-gray-700/50 shadow-2xl"
+            style={{ maxHeight: '400px', marginTop: '-8px' }}
           >
-            <div className="pt-4 border-t border-gray-800 relative">
-              <div className="max-h-96 overflow-y-auto pr-2 space-y-6">
-                {Object.entries(badgesByCategory).map(([category, categoryBadges]) => (
-                  <div key={category} className="space-y-2 relative">
-                    <h4 className="text-xs font-pt-mono font-bold text-gray-500 uppercase tracking-wider">
-                      {category}
-                    </h4>
-                    <div className="flex items-center gap-3 flex-wrap">
-                      {categoryBadges.map((badge) => (
-                        <div key={badge.id} className="relative" style={{ overflow: 'visible' }}>
-                          <BadgeIcon
-                            badge={badge}
-                            size="sm"
-                          />
-                        </div>
-                      ))}
+            <div className="p-4">
+              <div 
+                ref={scrollContainerRef}
+                className="max-h-96 overflow-y-auto space-y-6 pr-2 scrollbar-hide"
+              >
+                {Object.entries(badgesByCategory).map(([category, categoryBadges]) => {
+                  // Sort badges by tier (highest first), then by unlocked status
+                  const sortedBadges = [...categoryBadges].sort((a, b) => {
+                    const tierDiff = (b.tier || 0) - (a.tier || 0)
+                    if (tierDiff !== 0) return tierDiff
+                    return a.unlocked === b.unlocked ? 0 : a.unlocked ? -1 : 1
+                  })
+                  
+                  return (
+                    <div key={category} className="space-y-2 relative">
+                      <h4 className="text-xs font-pt-mono font-bold text-gray-500 uppercase tracking-wider">
+                        {category}
+                      </h4>
+                      <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-8 gap-3">
+                        {sortedBadges.map((badge) => (
+                          <div key={badge.id} className="relative" style={{ overflow: 'visible' }}>
+                            <BadgeIcon
+                              badge={badge}
+                              size="sm"
+                            />
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
+              
+              {/* Scroll Indicator */}
+              <AnimatePresence>
+                {showScrollIndicator && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    className="absolute bottom-4 left-1/2 transform -translate-x-1/2 pointer-events-none"
+                  >
+                    <motion.div
+                      animate={{ y: [0, 8, 0] }}
+                      transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
+                      className="flex flex-col items-center gap-1"
+                    >
+                      <span className="text-xs text-gray-400 font-pt-mono">Scroll for more</span>
+                      <ScrollIndicator className="w-5 h-5 text-gray-400" />
+                    </motion.div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           </motion.div>
         )}
