@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
+import sharp from "sharp"
 
-const MAX_FILE_SIZE = 2 * 1024 * 1024 // 2MB for banner uploads
+const MAX_FILE_SIZE = 500 * 1024 // 500KB for banner uploads
 
 export async function POST(request: NextRequest) {
   try {
@@ -11,35 +12,39 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: "No file provided" }, { status: 400 })
     }
 
-    // Validate file extension
+    // Validate file extension - only images allowed
     const fileName = file.name.toLowerCase()
-    const validExtensions = [".webp", ".webm", ".mp4", ".gif", ".jpg", ".jpeg", ".png"]
+    const validExtensions = [".png", ".jpg", ".jpeg", ".webp"]
     const hasValidExtension = validExtensions.some(ext => fileName.endsWith(ext))
     
     if (!hasValidExtension) {
       return NextResponse.json(
-        { success: false, error: `Unsupported file format. Supported formats: ${validExtensions.join(", ")}` },
+        { success: false, error: `Unsupported file format. Supported formats: PNG, JPG, WebP` },
         { status: 400 }
       )
     }
 
-    // Validate file size
-    if (file.size > MAX_FILE_SIZE) {
+    // Validate file type
+    const validMimeTypes = ["image/png", "image/jpeg", "image/jpg", "image/webp"]
+    if (!validMimeTypes.includes(file.type)) {
       return NextResponse.json(
-        { success: false, error: `File size exceeds maximum of ${MAX_FILE_SIZE / 1024 / 1024}MB` },
+        { success: false, error: `Unsupported file type. Only image files (PNG, JPG, WebP) are allowed.` },
         { status: 400 }
       )
     }
 
-    // Use NFT.Storage for IPFS uploads
-    const NFT_STORAGE_TOKEN = process.env.NFT_STORAGE_TOKEN
+    // Note: We don't check file size here - PNG/JPG files will be converted to WebP
+    // which should be much smaller. We only validate the final WebP file size.
+
+    // Use Pinata for IPFS uploads
+    const PINATA_JWT = process.env.PINATA_JWT
     
     // Debug logging (remove in production)
-    console.log("NFT_STORAGE_TOKEN exists:", !!NFT_STORAGE_TOKEN)
-    console.log("NFT_STORAGE_TOKEN length:", NFT_STORAGE_TOKEN?.length || 0)
+    console.log("PINATA_JWT exists:", !!PINATA_JWT)
+    console.log("PINATA_JWT length:", PINATA_JWT?.length || 0)
     
-    if (!NFT_STORAGE_TOKEN) {
-      console.error("NFT_STORAGE_TOKEN is missing from environment variables. Please ensure .env.local contains NFT_STORAGE_TOKEN and restart the Next.js server.")
+    if (!PINATA_JWT) {
+      console.error("PINATA_JWT is missing from environment variables. Please ensure .env.local contains PINATA_JWT and restart the Next.js server.")
       return NextResponse.json(
         { success: false, error: "Upload service is temporarily unavailable. Please try again in a moment. If the issue persists, contact support." },
         { status: 500 }
@@ -47,28 +52,82 @@ export async function POST(request: NextRequest) {
     }
 
     try {
-      // NFT.Storage API endpoint
-      // The API key format is: {key}.{secret}
-      // We'll use it directly as the bearer token
-      const uploadFormData = new FormData()
-      uploadFormData.append("file", file)
+      // Convert PNG/JPG to WebP for space savings
+      let fileToUpload = file
+      let fileName = file.name
+      
+      const isPngOrJpg = file.type === "image/png" || 
+                        file.type === "image/jpeg" || 
+                        file.type === "image/jpg" ||
+                        fileName.toLowerCase().endsWith(".png") ||
+                        fileName.toLowerCase().endsWith(".jpg") ||
+                        fileName.toLowerCase().endsWith(".jpeg")
+      
+      if (isPngOrJpg) {
+        // Convert PNG/JPG to WebP for space savings
+        const arrayBuffer = await file.arrayBuffer()
+        const buffer = Buffer.from(arrayBuffer)
+        
+        // Try multiple quality levels to get under the size limit
+        let webpBuffer: Buffer | null = null
+        let quality = 85
+        
+        for (let attempt = 0; attempt < 3; attempt++) {
+          webpBuffer = await sharp(buffer)
+            .webp({ quality })
+            .toBuffer()
+          
+          if (webpBuffer.length <= MAX_FILE_SIZE) {
+            break
+          }
+          
+          // Reduce quality for next attempt
+          quality = Math.max(50, quality - 15)
+        }
+        
+        // Final check - if still too large, reject
+        if (!webpBuffer || webpBuffer.length > MAX_FILE_SIZE) {
+          return NextResponse.json(
+            { success: false, error: `Image is too large. Please try a smaller or less detailed image.` },
+            { status: 400 }
+          )
+        }
+        
+        fileToUpload = new File([webpBuffer], fileName.replace(/\.(png|jpg|jpeg)$/i, ".webp"), {
+          type: "image/webp",
+        })
+        
+        console.log(`Converted ${file.name} (${(file.size / 1024).toFixed(2)}KB) to WebP (${(fileToUpload.size / 1024).toFixed(2)}KB)`)
+      } else if (file.type === "image/webp") {
+        // For WebP files, check size directly
+        if (file.size > MAX_FILE_SIZE) {
+          return NextResponse.json(
+            { success: false, error: `WebP file is too large. Please use a smaller image or convert PNG/JPG files which will be automatically optimized.` },
+            { status: 400 }
+          )
+        }
+      }
 
-      const response = await fetch("https://api.nft.storage/upload", {
+      // Pinata API endpoint for file uploads
+      const uploadFormData = new FormData()
+      uploadFormData.append("file", fileToUpload)
+
+      const response = await fetch("https://api.pinata.cloud/pinning/pinFileToIPFS", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${NFT_STORAGE_TOKEN}`,
+          Authorization: `Bearer ${PINATA_JWT}`,
         },
         body: uploadFormData,
       })
 
       if (!response.ok) {
         const errorText = await response.text()
-        console.error("NFT.Storage upload failed:", {
+        console.error("Pinata upload failed:", {
           status: response.status,
           statusText: response.statusText,
           error: errorText,
-          tokenLength: NFT_STORAGE_TOKEN.length,
-          tokenPrefix: NFT_STORAGE_TOKEN.substring(0, 10) + "..."
+          tokenLength: PINATA_JWT.length,
+          tokenPrefix: PINATA_JWT.substring(0, 10) + "..."
         })
         
         // Provide more specific error messages
@@ -84,22 +143,16 @@ export async function POST(request: NextRequest) {
       }
 
       const data = await response.json()
-      // NFT.Storage returns the CID in data.value.cid (v1 format)
-      // or directly as data.cid (v0 format)
-      let cid = data.value?.cid || data.cid
-      
-      // If cid is an object, extract the string value
-      if (cid && typeof cid === 'object') {
-        cid = cid['/'] || cid.toString()
-      }
+      // Pinata returns the CID in data.IpfsHash
+      const cid = data.IpfsHash
       
       if (!cid) {
-        throw new Error("No CID returned from NFT.Storage")
+        throw new Error("No CID returned from Pinata")
       }
 
       return NextResponse.json({ success: true, cid: String(cid) })
     } catch (error: any) {
-      console.error("NFT.Storage upload error:", error)
+      console.error("Pinata upload error:", error)
       return NextResponse.json(
         { success: false, error: error?.message || "Failed to upload to IPFS" },
         { status: 500 }

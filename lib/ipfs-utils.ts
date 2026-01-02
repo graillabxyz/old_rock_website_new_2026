@@ -1,28 +1,22 @@
 /**
  * IPFS Upload Utility
- * Uses web3.storage for IPFS uploads
+ * Uses Pinata for IPFS uploads
  */
 
-// Supported file types for IPFS - visual formats only
+// Supported file types for IPFS - images only
 export const SUPPORTED_IMAGE_TYPES = [
   "image/jpeg", // jpg
   "image/jpg",  // jpg
   "image/png",  // png
-  "image/gif",  // gif
   "image/webp", // webp
 ]
 
-export const SUPPORTED_VIDEO_TYPES = [
-  "video/mp4",  // mp4
-  "video/webm", // webm
-]
-
-export const SUPPORTED_TYPES = [...SUPPORTED_IMAGE_TYPES, ...SUPPORTED_VIDEO_TYPES]
+export const SUPPORTED_TYPES = [...SUPPORTED_IMAGE_TYPES]
 
 // File extensions for validation
-export const SUPPORTED_EXTENSIONS = [".webp", ".webm", ".mp4", ".gif", ".jpg", ".jpeg", ".png"]
+export const SUPPORTED_EXTENSIONS = [".png", ".jpg", ".jpeg", ".webp"]
 
-export const MAX_FILE_SIZE = 2 * 1024 * 1024 // 2MB for banner uploads
+export const MAX_FILE_SIZE = 500 * 1024 // 500KB for banner uploads
 
 /**
  * Uploads a file to IPFS via the API route
@@ -41,13 +35,11 @@ export async function uploadToIPFS(file: File): Promise<string | null> {
 
     // Validate file type
     if (!SUPPORTED_TYPES.includes(file.type)) {
-      throw new Error(`Unsupported file type: ${file.type}. Supported types: webp, webm, mp4, gif, jpg, png`)
+      throw new Error(`Unsupported file type: ${file.type}. Supported types: PNG, JPG, WebP`)
     }
 
-    // Validate file size
-    if (file.size > MAX_FILE_SIZE) {
-      throw new Error(`File size exceeds maximum of ${MAX_FILE_SIZE / 1024 / 1024}MB`)
-    }
+    // Note: File size validation happens on the server after conversion
+    // Users can upload PNG/JPG files of any size - they'll be converted to WebP
 
     // Upload via API route (server-side handles IPFS upload)
     const formData = new FormData()
