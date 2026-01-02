@@ -12,6 +12,8 @@ import { Header } from "@/components/header"
 import { Sidebar } from "@/components/sidebar"
 import { NFTOverlay } from "@/components/nft-overlay"
 import { setENSAvatar } from "@/lib/ens-utils"
+import { uploadToIPFS, getIPFSGatewayURL, SUPPORTED_IMAGE_TYPES, SUPPORTED_VIDEO_TYPES } from "@/lib/ipfs-utils"
+import { Upload } from "lucide-react"
 
 interface NFT {
   tokenId: string
@@ -71,6 +73,12 @@ export default function ProfilePage() {
   const [selectedNFT, setSelectedNFT] = useState<NFT | null>(null)
   const [isOverlayOpen, setIsOverlayOpen] = useState(false)
   const [isSettingAvatar, setIsSettingAvatar] = useState(false)
+
+  // Header image/video state
+  const [headerMedia, setHeaderMedia] = useState<string>("")
+  const [headerMediaType, setHeaderMediaType] = useState<"image" | "video" | null>(null)
+  const [isUploadingHeader, setIsUploadingHeader] = useState(false)
+  const [isEditingHeader, setIsEditingHeader] = useState(false)
 
   useEffect(() => {
     // Suppress harmless wallet extension errors in console
@@ -199,6 +207,14 @@ export default function ProfilePage() {
       if (savedBadges) {
         setSelectedBadges(JSON.parse(savedBadges))
       }
+
+      // Load saved header media
+      const savedHeaderMedia = localStorage.getItem(`header-media-${address}`)
+      if (savedHeaderMedia) {
+        const headerData = JSON.parse(savedHeaderMedia)
+        setHeaderMedia(headerData.hash || "")
+        setHeaderMediaType(headerData.type || null)
+      }
     } catch (error) {
       console.error("Error loading profile data:", error)
     } finally {
@@ -317,6 +333,73 @@ export default function ProfilePage() {
     }
   }
 
+  const handleHeaderMediaUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    // Validate file extension
+    const fileName = file.name.toLowerCase()
+    const validExtensions = [".webp", ".webm", ".mp4", ".gif", ".jpg", ".jpeg", ".png"]
+    const hasValidExtension = validExtensions.some(ext => fileName.endsWith(ext))
+    
+    if (!hasValidExtension) {
+      alert(`Unsupported file format. Please upload a file in one of these formats: webp, webm, mp4, gif, jpg, or png`)
+      return
+    }
+
+    // Validate file type
+    const isImage = SUPPORTED_IMAGE_TYPES.includes(file.type)
+    const isVideo = SUPPORTED_VIDEO_TYPES.includes(file.type)
+    
+    if (!isImage && !isVideo) {
+      alert(`Unsupported file type. Please upload an image (webp, gif, jpg, png) or video (webm, mp4)`)
+      return
+    }
+
+    setIsUploadingHeader(true)
+    try {
+      // Upload to IPFS
+      const ipfsHash = await uploadToIPFS(file)
+      
+      if (!ipfsHash) {
+        throw new Error("Failed to upload to IPFS")
+      }
+
+      // Save to state and localStorage
+      setHeaderMedia(ipfsHash)
+      setHeaderMediaType(isImage ? "image" : "video")
+      
+      const headerData = {
+        hash: ipfsHash,
+        type: isImage ? "image" : "video",
+        uploadedAt: new Date().toISOString(),
+      }
+      
+      localStorage.setItem(`header-media-${walletAddress}`, JSON.stringify(headerData))
+      
+      setIsEditingHeader(false)
+      alert("Header media uploaded successfully!")
+    } catch (error: any) {
+      console.error("Error uploading header media:", error)
+      alert(`Failed to upload header media: ${error?.message || "Unknown error"}`)
+    } finally {
+      setIsUploadingHeader(false)
+      // Reset file input
+      if (event.target) {
+        event.target.value = ""
+      }
+    }
+  }
+
+  const handleRemoveHeaderMedia = () => {
+    if (confirm("Are you sure you want to remove your header media?")) {
+      setHeaderMedia("")
+      setHeaderMediaType(null)
+      localStorage.removeItem(`header-media-${walletAddress}`)
+      setIsEditingHeader(false)
+    }
+  }
+
   const handleSetAsProfilePicture = async (nft: NFT) => {
     if (!window.ethereum) {
       alert("Please connect your wallet to set a profile picture.")
@@ -339,8 +422,42 @@ export default function ProfilePage() {
         imageUrl = imageUrl.replace("-300.webp", ".webp")
       }
 
+      // Check if we've already upgraded this resolver (cache check)
+      const resolverUpgradeCache = localStorage.getItem(`ens-resolver-upgraded-${ensName}`)
+      const needsUpgrade = resolverUpgradeCache !== "true"
+
       // Call the ENS setText function to set the avatar
-      await setENSAvatar(window.ethereum, ensName, imageUrl)
+      // This will automatically upgrade the resolver if needed
+      const result = await setENSAvatar(
+        window.ethereum,
+        ensName,
+        imageUrl,
+        async (needsUpgrade: boolean) => {
+          if (needsUpgrade) {
+            // Show confirmation dialog explaining what's happening
+            const confirmed = confirm(
+              `Setting ENS Avatar: ${ensName}\n\n` +
+              `Your ENS resolver needs to be upgraded to support profile pictures.\n\n` +
+              `This will change your ENS avatar and requires:\n` +
+              `1. Upgrade resolver to Public Resolver (one-time transaction)\n` +
+              `2. Set ENS avatar to: ${nft.name}\n\n` +
+              `You'll need to approve two transactions in your wallet.\n\n` +
+              `Continue?`
+            )
+            
+            if (confirmed) {
+              return true
+            }
+            return false
+          }
+          return true
+        }
+      )
+
+      // Cache that we've upgraded the resolver
+      if (result.upgradedResolver) {
+        localStorage.setItem(`ens-resolver-upgraded-${ensName}`, "true")
+      }
 
       // Update local state
       setEnsAvatar(imageUrl)
@@ -358,13 +475,19 @@ export default function ProfilePage() {
       setIsOverlayOpen(false)
       setSelectedNFT(null)
 
-      alert("Profile picture updated successfully! It may take a few minutes to propagate across all services.")
+      if (result.upgradedResolver) {
+        alert("Resolver upgraded and profile picture set successfully! It may take a few minutes to propagate across all services.")
+      } else {
+        alert("Profile picture updated successfully! It may take a few minutes to propagate across all services.")
+      }
     } catch (error: any) {
       console.error("Error setting ENS avatar:", error)
       
       let errorMessage = "Failed to set profile picture. "
-      if (error?.message?.includes("user rejected") || error?.code === 4001) {
+      if (error?.message?.includes("user rejected") || error?.code === 4001 || error?.message?.includes("rejected")) {
         errorMessage += "Transaction was rejected."
+      } else if (error?.message?.includes("cancelled")) {
+        errorMessage += "Operation was cancelled."
       } else if (error?.message?.includes("No resolver")) {
         errorMessage += "You must own this ENS name and have a resolver set."
       } else if (error?.message) {
@@ -416,8 +539,75 @@ export default function ProfilePage() {
 
       <div className="min-h-screen bg-black pt-[72px]">
         {/* Hero Section with Profile Info */}
-        <div className="relative h-[400px] bg-gradient-to-b from-purple-900/20 to-black border-b border-gray-800">
-          <div className="absolute inset-0 bg-[url('/images/stonebound-souls-overview-bg.jpg')] bg-cover bg-center opacity-20" />
+        <div className="relative h-[400px] bg-gradient-to-b from-purple-900/20 to-black border-b border-gray-800 overflow-hidden">
+          {/* Header Media (Image or Video) */}
+          {headerMedia ? (
+            <>
+              {headerMediaType === "image" ? (
+                <Image
+                  src={getIPFSGatewayURL(headerMedia)}
+                  alt="Profile header"
+                  fill
+                  className="object-cover opacity-30"
+                  unoptimized
+                />
+              ) : (
+                <video
+                  src={getIPFSGatewayURL(headerMedia)}
+                  className="absolute inset-0 w-full h-full object-cover opacity-30"
+                  autoPlay
+                  loop
+                  muted
+                  playsInline
+                />
+              )}
+            </>
+          ) : (
+            <div className="absolute inset-0 bg-[url('/images/stonebound-souls-overview-bg.jpg')] bg-cover bg-center opacity-20" />
+          )}
+          
+          {/* Edit Header Button (only for own profile) */}
+          {isOwnProfile && (
+            <div className="absolute top-4 right-4 z-10">
+              {isEditingHeader ? (
+                <div className="flex items-center gap-2">
+                  <label className="cursor-pointer bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2">
+                    <Upload className="w-4 h-4" />
+                    {isUploadingHeader ? "Uploading..." : "Upload Header"}
+                    <input
+                      type="file"
+                      accept=".webp,.webm,.mp4,.gif,.jpg,.jpeg,.png"
+                      onChange={handleHeaderMediaUpload}
+                      className="hidden"
+                      disabled={isUploadingHeader}
+                    />
+                  </label>
+                  {headerMedia && (
+                    <button
+                      onClick={handleRemoveHeaderMedia}
+                      className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition-colors"
+                    >
+                      Remove
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setIsEditingHeader(false)}
+                    className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setIsEditingHeader(true)}
+                  className="bg-gray-900/80 hover:bg-gray-800/80 backdrop-blur-sm text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2"
+                >
+                  <Edit2 className="w-4 h-4" />
+                  Edit Header
+                </button>
+              )}
+            </div>
+          )}
 
           <div className="relative container mx-auto px-6 h-full flex items-end pb-12">
             <div className="flex items-end space-x-8">
