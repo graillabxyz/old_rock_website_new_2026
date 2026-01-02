@@ -170,35 +170,28 @@ export function BadgeDisplay({ badges }: BadgeDisplayProps) {
         )}
       </div>
 
-      {/* Expanded View - Inline but overlays content below */}
+      {/* Expanded View - Inline expansion below badges */}
       <AnimatePresence>
         {isExpanded && (
           <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="absolute z-30 pointer-events-none"
-            style={{ 
-              top: '-160px', // Extend upward to cover user details but not badges
-              left: '-24px', // Account for container padding
-              right: '-24px', // Account for container padding
-              bottom: '-68px', // 48px (hero pb-12) + 20px gap from bottom
-            }}
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            className="relative w-full mt-4"
+            style={{ overflow: 'visible' }}
           >
             <div 
-              className="absolute top-0 left-0 right-0 bottom-0 pt-4 border-t border-gray-800 pointer-events-auto"
+              className="pt-4 border-t border-gray-800 relative"
               style={{ 
-                width: 'calc(100% + 12rem)', 
-                marginRight: '-12rem', 
-                overflow: 'visible',
-                paddingTop: '25px', // Top padding inside expanded area
-                marginTop: '20px' // 20px space from top of hero section
+                width: '100%',
+                overflow: 'visible'
               }}
             >
               <div 
                 ref={scrollContainerRef}
-                className="space-y-6 pr-2 scrollbar-hide h-full"
+                className="space-y-6 pr-2 scrollbar-hide"
                 style={{ 
+                  maxHeight: '350px',
                   overflowY: 'auto',
                   overflowX: 'visible'
                 }}
