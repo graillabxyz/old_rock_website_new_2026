@@ -9,25 +9,21 @@ import { Footer } from "@/components/footer"
 import Image from "next/image"
 import { Search } from "lucide-react"
 import { Input } from "@/components/ui/input"
+import { useRouter } from "next/navigation"
+import { calculateAllBadges, getBestBadges, Badge as BadgeType } from "@/lib/badge-utils"
+import { Award } from "lucide-react"
 
 interface LeaderboardUser {
-  id: string
-  name: string
-  avatar: string
   address: string
-  totalDensity: string
-  gamesPlayed: number
-  winRate: number
-  rank: string
-  badges: Badge[]
-  selectedBadges: Badge[]
-}
-
-interface Badge {
-  id: number
-  name: string
-  description: string
-  icon: string
+  ensName: string | null
+  displayName: string
+  totalDensity: number
+  hasOldRock: boolean
+  hasGoliath: boolean
+  rank: number
+  badges: BadgeType[]
+  bestBadges: BadgeType[]
+  avatar: string
 }
 
 export default function LeaderboardPage() {
@@ -36,7 +32,7 @@ export default function LeaderboardPage() {
   const [leaderboardUsers, setLeaderboardUsers] = useState<LeaderboardUser[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
-  const [sortBy, setSortBy] = useState<"rank" | "totalDensity" | "winRate" | "gamesPlayed">("rank")
+  const [sortBy, setSortBy] = useState<"rank" | "totalDensity">("rank")
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc")
 
   // Check wallet connection status
@@ -64,198 +60,81 @@ export default function LeaderboardPage() {
     checkWalletConnection()
   }, [])
 
+  const router = useRouter()
+
   // Fetch leaderboard data
   useEffect(() => {
     const fetchLeaderboardData = async () => {
       setIsLoading(true)
       try {
-        // In a real app, this would be an API call to your backend
-        // For now, we'll use mock data
-        const mockUsers: LeaderboardUser[] = [
-          {
-            id: "1",
-            name: "CryptoKing.eth",
-            avatar: "/placeholder.svg?height=100&width=100",
-            address: "0x1234...5678",
-            totalDensity: "143,023.32",
-            gamesPlayed: 327,
-            winRate: 78.5,
-            rank: "#1",
-            badges: [
-              { id: 1, name: "First Win", description: "Win your first game", icon: "🏆" },
-              { id: 2, name: "Streak Master", description: "Win 5 games in a row", icon: "🔥" },
-              { id: 3, name: "Collector", description: "Own 10+ NFTs", icon: "💎" },
-            ],
-            selectedBadges: [
-              { id: 1, name: "First Win", description: "Win your first game", icon: "🏆" },
-              { id: 2, name: "Streak Master", description: "Win 5 games in a row", icon: "🔥" },
-              { id: 3, name: "Collector", description: "Own 10+ NFTs", icon: "💎" },
-            ],
-          },
-          {
-            id: "2",
-            name: "DensityWhale",
-            avatar: "/placeholder.svg?height=100&width=100",
-            address: "0xabcd...efgh",
-            totalDensity: "98,456.12",
-            gamesPlayed: 245,
-            winRate: 72.3,
-            rank: "#2",
-            badges: [
-              { id: 2, name: "Streak Master", description: "Win 5 games in a row", icon: "🔥" },
-              { id: 4, name: "High Roller", description: "Win a 100+ USDC game", icon: "💰" },
-              { id: 7, name: "Mystic Owner", description: "Own a Mystic Goliath", icon: "✨" },
-            ],
-            selectedBadges: [
-              { id: 2, name: "Streak Master", description: "Win 5 games in a row", icon: "🔥" },
-              { id: 7, name: "Mystic Owner", description: "Own a Mystic Goliath", icon: "✨" },
-            ],
-          },
-          {
-            id: "3",
-            name: "GoliathMaster",
-            avatar: "/placeholder.svg?height=100&width=100",
-            address: "0x9876...5432",
-            totalDensity: "87,321.45",
-            gamesPlayed: 198,
-            winRate: 68.9,
-            rank: "#3",
-            badges: [
-              { id: 3, name: "Collector", description: "Own 10+ NFTs", icon: "💎" },
-              { id: 5, name: "Veteran", description: "Play 100+ games", icon: "⚔️" },
-              { id: 8, name: "Rainbow Collection", description: "Own all Old Rock colors", icon: "🌈" },
-            ],
-            selectedBadges: [{ id: 8, name: "Rainbow Collection", description: "Own all Old Rock colors", icon: "🌈" }],
-          },
-          {
-            id: "4",
-            name: "RockLegend",
-            avatar: "/placeholder.svg?height=100&width=100",
-            address: "0xfedc...ba98",
-            totalDensity: "76,543.21",
-            gamesPlayed: 176,
-            winRate: 65.2,
-            rank: "#4",
-            badges: [
-              { id: 1, name: "First Win", description: "Win your first game", icon: "🏆" },
-              { id: 4, name: "High Roller", description: "Win a 100+ USDC game", icon: "💰" },
-              { id: 6, name: "Legendary", description: "Reach top 100 ranking", icon: "👑" },
-            ],
-            selectedBadges: [
-              { id: 4, name: "High Roller", description: "Win a 100+ USDC game", icon: "💰" },
-              { id: 6, name: "Legendary", description: "Reach top 100 ranking", icon: "👑" },
-            ],
-          },
-          {
-            id: "5",
-            name: "OldRockFan",
-            avatar: "/placeholder.svg?height=100&width=100",
-            address: "0x7531...9024",
-            totalDensity: "65,432.10",
-            gamesPlayed: 154,
-            winRate: 61.8,
-            rank: "#5",
-            badges: [
-              { id: 2, name: "Streak Master", description: "Win 5 games in a row", icon: "🔥" },
-              { id: 3, name: "Collector", description: "Own 10+ NFTs", icon: "💎" },
-              { id: 5, name: "Veteran", description: "Play 100+ games", icon: "⚔️" },
-            ],
-            selectedBadges: [
-              { id: 3, name: "Collector", description: "Own 10+ NFTs", icon: "💎" },
-              { id: 5, name: "Veteran", description: "Play 100+ games", icon: "⚔️" },
-            ],
-          },
-          {
-            id: "6",
-            name: "DensityDeckPro",
-            avatar: "/placeholder.svg?height=100&width=100",
-            address: "0x2468...1357",
-            totalDensity: "54,321.98",
-            gamesPlayed: 132,
-            winRate: 58.4,
-            rank: "#6",
-            badges: [
-              { id: 1, name: "First Win", description: "Win your first game", icon: "🏆" },
-              { id: 3, name: "Collector", description: "Own 10+ NFTs", icon: "💎" },
-              { id: 7, name: "Mystic Owner", description: "Own a Mystic Goliath", icon: "✨" },
-            ],
-            selectedBadges: [{ id: 7, name: "Mystic Owner", description: "Own a Mystic Goliath", icon: "✨" }],
-          },
-          {
-            id: "7",
-            name: "StoneboundHero",
-            avatar: "/placeholder.svg?height=100&width=100",
-            address: "0x1357...2468",
-            totalDensity: "43,210.87",
-            gamesPlayed: 110,
-            winRate: 55.1,
-            rank: "#7",
-            badges: [
-              { id: 2, name: "Streak Master", description: "Win 5 games in a row", icon: "🔥" },
-              { id: 4, name: "High Roller", description: "Win a 100+ USDC game", icon: "💰" },
-              { id: 5, name: "Veteran", description: "Play 100+ games", icon: "⚔️" },
-            ],
-            selectedBadges: [
-              { id: 2, name: "Streak Master", description: "Win 5 games in a row", icon: "🔥" },
-              { id: 4, name: "High Roller", description: "Win a 100+ USDC game", icon: "💰" },
-            ],
-          },
-          {
-            id: "8",
-            name: "AmplifyKing",
-            avatar: "/placeholder.svg?height=100&width=100",
-            address: "0x8642...9753",
-            totalDensity: "32,109.76",
-            gamesPlayed: 88,
-            winRate: 51.7,
-            rank: "#8",
-            badges: [
-              { id: 1, name: "First Win", description: "Win your first game", icon: "🏆" },
-              { id: 3, name: "Collector", description: "Own 10+ NFTs", icon: "💎" },
-              { id: 8, name: "Rainbow Collection", description: "Own all Old Rock colors", icon: "🌈" },
-            ],
-            selectedBadges: [
-              { id: 1, name: "First Win", description: "Win your first game", icon: "🏆" },
-              { id: 8, name: "Rainbow Collection", description: "Own all Old Rock colors", icon: "🌈" },
-            ],
-          },
-          {
-            id: "9",
-            name: "BountyHunter",
-            avatar: "/placeholder.svg?height=100&width=100",
-            address: "0x9753...8642",
-            totalDensity: "21,098.65",
-            gamesPlayed: 66,
-            winRate: 48.3,
-            rank: "#9",
-            badges: [
-              { id: 1, name: "First Win", description: "Win your first game", icon: "🏆" },
-              { id: 2, name: "Streak Master", description: "Win 5 games in a row", icon: "🔥" },
-              { id: 6, name: "Legendary", description: "Reach top 100 ranking", icon: "👑" },
-            ],
-            selectedBadges: [{ id: 6, name: "Legendary", description: "Reach top 100 ranking", icon: "👑" }],
-          },
-          {
-            id: "10",
-            name: "NFTCollector",
-            avatar: "/placeholder.svg?height=100&width=100",
-            address: "0x3579...8642",
-            totalDensity: "10,987.54",
-            gamesPlayed: 44,
-            winRate: 45.0,
-            rank: "#10",
-            badges: [
-              { id: 1, name: "First Win", description: "Win your first game", icon: "🏆" },
-              { id: 3, name: "Collector", description: "Own 10+ NFTs", icon: "💎" },
-              { id: 7, name: "Mystic Owner", description: "Own a Mystic Goliath", icon: "✨" },
-            ],
-            selectedBadges: [{ id: 3, name: "Collector", description: "Own 10+ NFTs", icon: "💎" }],
-          },
-        ]
+        const response = await fetch("/api/leaderboard")
+        if (!response.ok) {
+          throw new Error("Failed to fetch leaderboard data")
+        }
 
-        setLeaderboardUsers(mockUsers)
+        const result = await response.json()
+        if (!result.success || !result.data) {
+          throw new Error("Invalid leaderboard data")
+        }
+
+        // Fetch NFTs and calculate badges for each user
+        const usersWithBadges = await Promise.all(
+          result.data.map(async (user: any, index: number) => {
+            try {
+              // Fetch user NFTs
+              const nftResponse = await fetch(
+                `${process.env.NEXT_PUBLIC_AMPLIFY_API_URL}/nfts/${user.address}`
+              )
+              if (!nftResponse.ok) {
+                return {
+                  ...user,
+                  rank: index + 1,
+                  badges: [],
+                  bestBadges: [],
+                  avatar: await fetchENSAvatar(user.address),
+                }
+              }
+
+              const nftData = await nftResponse.json()
+              const oldRockNFTs = nftData?.data?.OldRocks || []
+              const goliathNFTs = nftData?.data?.Goliath || []
+
+              // Calculate badges
+              const badges = calculateAllBadges({
+                totalDensity: user.totalDensity,
+                oldRockNFTs,
+                goliathNFTs,
+              })
+
+              const bestBadges = getBestBadges(badges).slice(0, 4)
+
+              // Fetch avatar
+              const avatar = await fetchENSAvatar(user.address)
+
+              return {
+                ...user,
+                rank: index + 1,
+                badges,
+                bestBadges,
+                avatar,
+              }
+            } catch (error) {
+              console.error(`Error processing user ${user.address}:`, error)
+              return {
+                ...user,
+                rank: index + 1,
+                badges: [],
+                bestBadges: [],
+                avatar: await fetchENSAvatar(user.address),
+              }
+            }
+          })
+        )
+
+        setLeaderboardUsers(usersWithBadges)
       } catch (error) {
         console.error("Error fetching leaderboard data:", error)
+        setLeaderboardUsers([])
       } finally {
         setIsLoading(false)
       }
@@ -306,41 +185,36 @@ export default function LeaderboardPage() {
   const filteredUsers = leaderboardUsers
     .filter((user) => {
       if (!searchQuery) return true
+      const queryLower = searchQuery.toLowerCase()
       return (
-        user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        user.address.toLowerCase().includes(searchQuery.toLowerCase())
+        user.displayName.toLowerCase().includes(queryLower) ||
+        user.address.toLowerCase().includes(queryLower) ||
+        (user.ensName && user.ensName.toLowerCase().includes(queryLower))
       )
     })
     .sort((a, b) => {
       let comparison = 0
 
       if (sortBy === "rank") {
-        // Extract numeric part from rank string (e.g., "#1" -> 1)
-        const rankA = Number.parseInt(a.rank.replace(/\D/g, ""))
-        const rankB = Number.parseInt(b.rank.replace(/\D/g, ""))
-        comparison = rankA - rankB
+        comparison = a.rank - b.rank
       } else if (sortBy === "totalDensity") {
-        // Remove commas and convert to number
-        const densityA = Number.parseFloat(a.totalDensity.replace(/,/g, ""))
-        const densityB = Number.parseFloat(b.totalDensity.replace(/,/g, ""))
-        comparison = densityA - densityB
-      } else if (sortBy === "winRate") {
-        comparison = a.winRate - b.winRate
-      } else if (sortBy === "gamesPlayed") {
-        comparison = a.gamesPlayed - b.gamesPlayed
+        comparison = a.totalDensity - b.totalDensity
       }
 
       return sortDirection === "asc" ? comparison : -comparison
     })
 
-  const handleSort = (column: "rank" | "totalDensity" | "winRate" | "gamesPlayed") => {
+  const handleSort = (column: "rank" | "totalDensity") => {
     if (sortBy === column) {
       setSortDirection(sortDirection === "asc" ? "desc" : "asc")
     } else {
       setSortBy(column)
-      // For rank, default to ascending (1, 2, 3...), for others default to descending
       setSortDirection(column === "rank" ? "asc" : "desc")
     }
+  }
+
+  const handleRowClick = (address: string) => {
+    router.push(`/profile/${address}`)
   }
 
   return (
@@ -383,7 +257,12 @@ export default function LeaderboardPage() {
                 <table className="w-full">
                   <thead>
                     <tr className="border-b border-gray-800">
-                      <th className="px-6 py-4 text-left text-sm font-pt-mono text-gray-400">RANK</th>
+                      <th
+                        className="px-6 py-4 text-left text-sm font-pt-mono text-gray-400 cursor-pointer hover:text-white"
+                        onClick={() => handleSort("rank")}
+                      >
+                        RANK {sortBy === "rank" && (sortDirection === "asc" ? "↑" : "↓")}
+                      </th>
                       <th className="px-6 py-4 text-left text-sm font-pt-mono text-gray-400">PLAYER</th>
                       <th
                         className="px-6 py-4 text-left text-sm font-pt-mono text-gray-400 cursor-pointer hover:text-white"
@@ -391,17 +270,8 @@ export default function LeaderboardPage() {
                       >
                         TOTAL DENSITY {sortBy === "totalDensity" && (sortDirection === "asc" ? "↑" : "↓")}
                       </th>
-                      <th
-                        className="px-6 py-4 text-left text-sm font-pt-mono text-gray-400 cursor-pointer hover:text-white"
-                        onClick={() => handleSort("gamesPlayed")}
-                      >
-                        GAMES PLAYED {sortBy === "gamesPlayed" && (sortDirection === "asc" ? "↑" : "↓")}
-                      </th>
-                      <th
-                        className="px-6 py-4 text-left text-sm font-pt-mono text-gray-400 cursor-pointer hover:text-white"
-                        onClick={() => handleSort("winRate")}
-                      >
-                        WIN RATE {sortBy === "winRate" && (sortDirection === "asc" ? "↑" : "↓")}
+                      <th className="px-6 py-4 text-left text-sm font-pt-mono text-gray-400">
+                        DENSITY DECK <span className="text-xs text-gray-500">(Coming Soon)</span>
                       </th>
                       <th className="px-6 py-4 text-left text-sm font-pt-mono text-gray-400">BADGES</th>
                     </tr>
@@ -410,30 +280,33 @@ export default function LeaderboardPage() {
                     {isLoading ? (
                       Array.from({ length: 5 }).map((_, index) => (
                         <tr key={index} className="border-b border-gray-800">
-                          <td colSpan={6} className="px-6 py-4">
+                          <td colSpan={5} className="px-6 py-4">
                             <div className="h-12 bg-gray-800/50 animate-pulse rounded-md"></div>
                           </td>
                         </tr>
                       ))
                     ) : filteredUsers.length > 0 ? (
-                      filteredUsers.map((user, index) => (
+                      filteredUsers.map((user) => (
                         <tr
-                          key={user.id}
-                          className={`border-b border-gray-800 hover:bg-gray-800/30 transition-colors ${
-                            userProfile?.address === user.address ? "bg-purple-900/20" : ""
+                          key={user.address}
+                          className={`border-b border-gray-800 hover:bg-gray-800/30 transition-colors cursor-pointer ${
+                            userProfile?.address?.toLowerCase() === user.address.toLowerCase()
+                              ? "bg-purple-900/20"
+                              : ""
                           }`}
+                          onClick={() => handleRowClick(user.address)}
                         >
                           <td className="px-6 py-4">
                             <div className="flex items-center">
-                              <span className="text-xl font-black font-montserrat">{user.rank}</span>
+                              <span className="text-xl font-black font-montserrat">#{user.rank}</span>
                             </div>
                           </td>
                           <td className="px-6 py-4">
                             <div className="flex items-center space-x-3">
                               <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-800">
                                 <Image
-                                  src={user.avatar || "/placeholder.svg"}
-                                  alt={user.name}
+                                  src={user.avatar || "/images/rock-logo.png"}
+                                  alt={user.displayName}
                                   width={40}
                                   height={40}
                                   className="object-cover"
@@ -444,8 +317,10 @@ export default function LeaderboardPage() {
                                 />
                               </div>
                               <div>
-                                <div className="font-bold text-white">{user.name}</div>
-                                <div className="text-xs text-gray-400">{user.address}</div>
+                                <div className="font-bold text-white">{user.displayName}</div>
+                                <div className="text-xs text-gray-400 font-mono">
+                                  {user.address.slice(0, 6)}...{user.address.slice(-4)}
+                                </div>
                               </div>
                             </div>
                           </td>
@@ -456,36 +331,49 @@ export default function LeaderboardPage() {
                                 alt="DENSITY"
                                 width={20}
                                 height={20}
-                                className="w-5 h-5 text-purple-400"
+                                className="w-5 h-5"
                               />
-                              <span className="font-bold">{user.totalDensity}</span>
+                              <span className="font-bold">
+                                {user.totalDensity.toLocaleString(undefined, {
+                                  minimumFractionDigits: 2,
+                                  maximumFractionDigits: 2,
+                                })}
+                              </span>
                             </div>
                           </td>
                           <td className="px-6 py-4">
-                            <span className="font-bold">{user.gamesPlayed}</span>
-                          </td>
-                          <td className="px-6 py-4">
-                            <span className="font-bold">{user.winRate}%</span>
+                            <div className="text-gray-500 text-sm">
+                              <div>Wins: <span className="text-gray-400">—</span></div>
+                              <div>Win Rate: <span className="text-gray-400">—</span></div>
+                            </div>
                           </td>
                           <td className="px-6 py-4">
                             <div className="flex space-x-2">
-                              {user.selectedBadges.map((badge) => (
-                                <div
-                                  key={badge.id}
-                                  className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-800 text-lg"
-                                  title={`${badge.name}: ${badge.description}`}
-                                >
-                                  {badge.icon}
-                                </div>
-                              ))}
+                              {user.bestBadges.length > 0 ? (
+                                user.bestBadges.map((badge) => (
+                                  <div
+                                    key={badge.id}
+                                    className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-800 border border-gray-700"
+                                    title={`${badge.name}: ${badge.description}`}
+                                  >
+                                    <Award
+                                      className={`w-5 h-5 ${
+                                        badge.unlocked ? "text-white opacity-100" : "text-gray-600 opacity-30"
+                                      }`}
+                                    />
+                                  </div>
+                                ))
+                              ) : (
+                                <span className="text-gray-500 text-sm">—</span>
+                              )}
                             </div>
                           </td>
                         </tr>
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={6} className="px-6 py-8 text-center text-gray-400">
-                          No players found matching your search.
+                        <td colSpan={5} className="px-6 py-8 text-center text-gray-400">
+                          {searchQuery ? "No players found matching your search." : "No leaderboard data available."}
                         </td>
                       </tr>
                     )}

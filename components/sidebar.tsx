@@ -75,8 +75,8 @@ export function Sidebar() {
 
   // Handle wallet selection from modal
   const handleWalletSelect = async (provider: any, walletName: string) => {
-    try {
-      // Check if there's already a pending request
+      try {
+        // Check if there's already a pending request
       const accounts = await provider.request({ method: "eth_accounts" })
         if (accounts.length > 0) {
           // Already connected, just update state
