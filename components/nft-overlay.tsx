@@ -48,7 +48,7 @@ export function NFTOverlay({ nft, isOpen, onClose, onSetAsProfilePicture, isSett
 
           {/* Menu overlay */}
           <motion.div
-            className="relative bg-gray-900/95 backdrop-blur-md rounded-lg border border-purple-500/50 shadow-xl p-4 mx-2 w-full max-w-[90%]"
+            className="relative p-4 mx-2 w-full max-w-[90%]"
             initial={{ scale: 0.95, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.95, opacity: 0 }}
@@ -59,7 +59,7 @@ export function NFTOverlay({ nft, isOpen, onClose, onSetAsProfilePicture, isSett
               <button
                 onClick={() => onSetAsProfilePicture(nft)}
                 disabled={isSettingAvatar}
-                className="w-full bg-purple-600 hover:bg-purple-700 disabled:bg-purple-800 disabled:cursor-not-allowed text-white font-semibold px-4 py-2 rounded-lg transition-colors flex items-center justify-center text-sm"
+                className="w-full text-white font-semibold px-4 py-2 transition-opacity flex items-center justify-center text-sm hover:opacity-80 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isSettingAvatar ? (
                   <span className="flex items-center gap-2">
