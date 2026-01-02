@@ -70,6 +70,7 @@ export default function ProfilePage() {
   const [selectedBadges, setSelectedBadges] = useState<number[]>([])
   const [isEditingBadges, setIsEditingBadges] = useState(false)
   const [userBadges, setUserBadges] = useState<Badge[]>([])
+  const [isBadgeExpanded, setIsBadgeExpanded] = useState(false)
 
   // Filter state
   const [selectedFilter, setSelectedFilter] = useState<"all" | "oldrock" | "goliath">("all")
@@ -723,7 +724,13 @@ export default function ProfilePage() {
               unoptimized
             />
           ) : (
-            <div className="absolute inset-0 bg-[url('/images/stonebound-souls-overview-bg.jpg')] bg-cover bg-center opacity-20" />
+            <Image
+              src="/BG_black.webp"
+              alt="Profile header placeholder"
+              fill
+              className="object-cover opacity-30"
+              unoptimized
+            />
           )}
           
           {/* Edit Header Button (only for own profile) */}
