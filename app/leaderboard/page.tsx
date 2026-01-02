@@ -106,12 +106,23 @@ export default function LeaderboardPage() {
           console.warn("Leaderboard API returned empty data")
         }
 
+        // Deduplicate by address to prevent doubles
+        const seenAddresses = new Set<string>()
+        const uniqueData = result.data.filter((user: any) => {
+          const addr = user.address?.toLowerCase()
+          if (!addr || seenAddresses.has(addr)) {
+            return false
+          }
+          seenAddresses.add(addr)
+          return true
+        })
+
         // Process and enrich user data (lightweight - no NFT fetching for initial load)
         const processedUsers = await Promise.all(
-          result.data.map(async (user: any, index: number) => {
+          uniqueData.map(async (user: any, index: number) => {
             // Calculate badges (lightweight - using density only)
             const badgeData = {
-              totalDensity: user.totalDensity,
+              totalDensity: user.totalDensity || 0,
               oldRockNFTs: [], // Will be fetched on demand if needed
               goliathNFTs: [],
             }
@@ -127,6 +138,7 @@ export default function LeaderboardPage() {
               badges,
               bestBadges,
               avatar,
+              totalDensity: user.totalDensity || 0, // Ensure it's a number
               unextractedDensity: user.unextractedDensity || 0,
             }
           })
@@ -190,12 +202,19 @@ export default function LeaderboardPage() {
         return
       }
 
+      // Deduplicate by address to prevent doubles BEFORE processing
+      const existingAddresses = new Set(leaderboardUsers.map(u => u.address.toLowerCase()))
+      const newData = result.data.filter((user: any) => {
+        const addr = user.address?.toLowerCase()
+        return addr && !existingAddresses.has(addr)
+      })
+
       // Process and enrich new user data (lightweight)
       const processedUsers = await Promise.all(
-        result.data.map(async (user: any, index: number) => {
+        newData.map(async (user: any, index: number) => {
           // Calculate badges (lightweight)
           const badgeData = {
-            totalDensity: user.totalDensity,
+            totalDensity: user.totalDensity || 0,
             oldRockNFTs: [],
             goliathNFTs: [],
           }
@@ -211,14 +230,15 @@ export default function LeaderboardPage() {
             badges,
             bestBadges,
             avatar,
+            totalDensity: user.totalDensity || 0, // Ensure it's a number
             unextractedDensity: user.unextractedDensity || 0,
           }
         })
       )
-
+      
       setLeaderboardUsers((prev) => [...prev, ...processedUsers])
-      setCurrentOffset((prev) => prev + processedUsers.length)
-      setHasMore(processedUsers.length === 50 && (result.total > currentOffset + processedUsers.length))
+      setCurrentOffset((prev) => prev + newUsers.length)
+      setHasMore(newUsers.length === 50 && (result.total > currentOffset + newUsers.length))
     } catch (error) {
       console.error("Error loading more users:", error)
       setHasMore(false)
@@ -342,6 +362,11 @@ export default function LeaderboardPage() {
     const isPolarBadge = badge.id === "rock-polar-reactor" && badge.unlocked
     const isRecurrentBadge = badge.id === "rock-recurrent-reactor" && badge.unlocked
     const isSingularityBadge = badge.id === "density-singularity" && badge.unlocked
+    const isGravityWellBadge = badge.id === "density-gravity-well" && badge.unlocked
+    const isHighDensityCoreBadge = badge.id === "rock-high-density-core" && badge.unlocked
+    const isLithicCouncilBadge = badge.id === "rock-lithic-council" && badge.unlocked
+    const isTitanHostBadge = badge.id === "goliath-titan-host" && badge.unlocked
+    const isMysticBadge = badge.id?.startsWith("mystic-") && !badge.id.includes("-locked") && badge.unlocked
     
     // Get rock color for reactive badges (convert hex to rgba)
     const getRockColorRgba = (hex: string, opacity: number) => {
@@ -403,11 +428,11 @@ export default function LeaderboardPage() {
               className="absolute inset-0 z-[5]"
               style={{
                 clipPath: "polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)",
-                background: `radial-gradient(circle, ${getRockColorRgba(pureColor, 0.25)} 0%, ${getRockColorRgba(pureColor, 0.15)} 40%, ${getRockColorRgba(pureColor, 0.05)} 70%, transparent 90%)`,
+                background: `radial-gradient(circle, ${getRockColorRgba(pureColor, 1)} 0%, ${getRockColorRgba(pureColor, 0.7)} 30%, ${getRockColorRgba(pureColor, 0.4)} 60%, ${getRockColorRgba(pureColor, 0.1)} 85%, transparent 100%)`,
               }}
               animate={{
-                scale: [1, 1.2, 1],
-                opacity: [0.3, 0.5, 0.3],
+                scale: [1, 1.25, 1],
+                opacity: [0.8, 1, 0.8],
               }}
               transition={{
                 duration: 2.5,
@@ -427,11 +452,11 @@ export default function LeaderboardPage() {
                   <motion.div
                     className="absolute inset-0 rounded-full z-[5] overflow-hidden"
                     style={{
-                      background: `radial-gradient(ellipse at center bottom, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0.15) 30%, rgba(255, 255, 255, 0.05) 60%, transparent 85%)`,
+                      background: `radial-gradient(ellipse at center bottom, rgba(255, 255, 255, 1) 0%, rgba(255, 255, 255, 0.8) 25%, rgba(255, 255, 255, 0.5) 50%, rgba(255, 255, 255, 0.2) 75%, transparent 100%)`,
                     }}
                     animate={{
                       scaleY: [1, 1.3, 1],
-                      opacity: [0.25, 0.4, 0.25],
+                      opacity: [0.8, 1, 0.8],
                     }}
                     transition={{
                       duration: 1.5,
@@ -448,12 +473,12 @@ export default function LeaderboardPage() {
                         width: `${30 + i * 10}%`,
                         height: `${40 + i * 15}%`,
                         transform: 'translateX(-50%)',
-                        background: `radial-gradient(ellipse at center, rgba(255, 255, 255, ${0.2 - i * 0.05}) 0%, transparent 70%)`,
+                        background: `radial-gradient(ellipse at center, rgba(255, 255, 255, ${0.9 - i * 0.2}) 0%, rgba(255, 255, 255, ${0.6 - i * 0.15}) 50%, transparent 100%)`,
                         clipPath: `polygon(${20 + i * 10}% 100%, ${50 - i * 5}% ${60 - i * 10}%, ${50 + i * 5}% ${60 - i * 10}%, ${80 - i * 10}% 100%)`,
                       }}
                       animate={{
                         scaleX: [1, 1.2 + i * 0.1, 0.9 - i * 0.05, 1],
-                        opacity: [0.15, 0.3, 0.1, 0.15],
+                        opacity: [0.7, 1, 0.5, 0.7],
                       }}
                       transition={{
                         duration: 1.2 + i * 0.3,
@@ -470,11 +495,11 @@ export default function LeaderboardPage() {
                   <motion.div
                     className="absolute inset-0 rounded-full z-[5]"
                     style={{
-                      background: `radial-gradient(circle at center, rgba(0, 0, 0, 0.4) 0%, rgba(0, 0, 0, 0.25) 30%, rgba(0, 0, 0, 0.1) 60%, transparent 85%)`,
+                      background: `radial-gradient(circle at center, rgba(0, 0, 0, 1) 0%, rgba(0, 0, 0, 0.8) 25%, rgba(0, 0, 0, 0.5) 50%, rgba(0, 0, 0, 0.2) 75%, transparent 100%)`,
                     }}
                     animate={{
                       scale: [1, 0.95, 1],
-                      opacity: [0.3, 0.5, 0.3],
+                      opacity: [0.8, 1, 0.8],
                     }}
                     transition={{
                       duration: 3,
@@ -486,7 +511,7 @@ export default function LeaderboardPage() {
                   <motion.div
                     className="absolute inset-0 rounded-full z-[5]"
                     style={{
-                      background: `conic-gradient(from 0deg, transparent 0%, rgba(0, 0, 0, 0.2) 20%, transparent 40%, rgba(0, 0, 0, 0.15) 60%, transparent 80%, rgba(0, 0, 0, 0.1) 100%)`,
+                      background: `conic-gradient(from 0deg, transparent 0%, rgba(0, 0, 0, 0.8) 15%, rgba(0, 0, 0, 0.6) 30%, transparent 45%, rgba(0, 0, 0, 0.5) 60%, rgba(0, 0, 0, 0.3) 75%, transparent 90%, rgba(0, 0, 0, 0.2) 100%)`,
                     }}
                     animate={{
                       rotate: [0, 360],
@@ -501,11 +526,11 @@ export default function LeaderboardPage() {
                   <motion.div
                     className="absolute inset-0 rounded-full z-[5]"
                     style={{
-                      background: `radial-gradient(circle at center, rgba(0, 0, 0, 0.6) 0%, rgba(0, 0, 0, 0.3) 40%, transparent 70%)`,
+                      background: `radial-gradient(circle at center, rgba(0, 0, 0, 1) 0%, rgba(0, 0, 0, 0.7) 30%, rgba(0, 0, 0, 0.4) 60%, transparent 100%)`,
                     }}
                     animate={{
                       scale: [0.8, 0.9, 0.8],
-                      opacity: [0.4, 0.6, 0.4],
+                      opacity: [0.7, 1, 0.7],
                     }}
                     transition={{
                       duration: 2,
@@ -519,12 +544,12 @@ export default function LeaderboardPage() {
                 <motion.div
                   className="absolute inset-0 rounded-full z-[5]"
                   style={{
-                    background: `radial-gradient(ellipse at center, ${getRockColorRgba(polarColor, 0.25)} 0%, ${getRockColorRgba(polarColor, 0.15)} 40%, ${getRockColorRgba(polarColor, 0.05)} 70%, transparent 90%)`,
+                    background: `radial-gradient(ellipse at center, ${getRockColorRgba(polarColor, 1)} 0%, ${getRockColorRgba(polarColor, 0.7)} 30%, ${getRockColorRgba(polarColor, 0.4)} 60%, ${getRockColorRgba(polarColor, 0.1)} 85%, transparent 100%)`,
                   }}
                   animate={{
                     scaleX: [1, 1.3, 1],
                     scaleY: [1, 1.15, 1],
-                    opacity: [0.3, 0.5, 0.3],
+                    opacity: [0.8, 1, 0.8],
                   }}
                   transition={{
                     duration: 2.5,
@@ -542,28 +567,37 @@ export default function LeaderboardPage() {
               <motion.div
                 className="absolute inset-0 rounded-full overflow-hidden z-[5]"
                 style={{
-                  background: `radial-gradient(circle, ${getRockColorRgba(recurrentColor, 0.2)} 0%, ${getRockColorRgba(recurrentColor, 0.1)} 50%, transparent 80%)`,
+                  background: `radial-gradient(circle, ${getRockColorRgba(recurrentColor, 1)} 0%, ${getRockColorRgba(recurrentColor, 0.7)} 40%, ${getRockColorRgba(recurrentColor, 0.4)} 70%, transparent 100%)`,
+                }}
+                animate={{
+                  scale: [1, 1.1, 1],
+                  opacity: [0.8, 1, 0.8],
+                }}
+                transition={{
+                  duration: 2,
+                  repeat: Infinity,
+                  ease: "easeInOut",
                 }}
               />
-              {/* Sparkle effect with actual rock color - more subtle */}
-              {[...Array(6)].map((_, i) => (
+              {/* Sparkle effect with actual rock color */}
+              {[...Array(8)].map((_, i) => (
                 <motion.div
                   key={i}
-                  className="absolute w-1 h-1 rounded-full z-[5]"
+                  className="absolute w-1.5 h-1.5 rounded-full z-[5]"
                   style={{
-                    backgroundColor: getRockColorRgba(recurrentColor, 0.8),
-                    left: `${20 + (i * 15)}%`,
-                    top: `${20 + (i % 3) * 30}%`,
-                    boxShadow: `0 0 3px ${getRockColorRgba(recurrentColor, 0.6)}`,
+                    backgroundColor: getRockColorRgba(recurrentColor, 1),
+                    left: `${15 + (i * 12)}%`,
+                    top: `${15 + (i % 4) * 25}%`,
+                    boxShadow: `0 0 6px ${getRockColorRgba(recurrentColor, 0.9)}, 0 0 12px ${getRockColorRgba(recurrentColor, 0.6)}`,
                   }}
                   animate={{
-                    scale: [0, 1.5, 0],
-                    opacity: [0, 0.7, 0],
+                    scale: [0, 2, 0],
+                    opacity: [0, 1, 0],
                   }}
                   transition={{
-                    duration: 1.8,
+                    duration: 1.5,
                     repeat: Infinity,
-                    delay: i * 0.3,
+                    delay: i * 0.2,
                     ease: "easeInOut",
                   }}
                 />
@@ -571,18 +605,131 @@ export default function LeaderboardPage() {
             </>
           )}
           
-          {/* Singularity badge - Rotating conic gradient - more subtle */}
+          {/* Singularity badge - Rotating conic gradient with pulsing */}
           {isSingularityBadge && (
+            <>
+              <motion.div
+                className="absolute inset-0 rounded-full z-[5]"
+                style={{
+                  background: "conic-gradient(from 0deg, rgba(139, 92, 246, 1), rgba(168, 85, 247, 1), rgba(192, 132, 252, 1), rgba(168, 85, 247, 1), rgba(139, 92, 246, 1))",
+                }}
+                animate={{
+                  rotate: [0, 360],
+                  opacity: [0.9, 1, 0.9],
+                }}
+                transition={{
+                  duration: 4,
+                  repeat: Infinity,
+                  ease: "linear",
+                }}
+              />
+              <motion.div
+                className="absolute inset-0 rounded-full z-[5]"
+                style={{
+                  background: "radial-gradient(circle, rgba(139, 92, 246, 0.6) 0%, rgba(168, 85, 247, 0.4) 50%, transparent 100%)",
+                }}
+                animate={{
+                  scale: [1, 1.2, 1],
+                  opacity: [0.7, 1, 0.7],
+                }}
+                transition={{
+                  duration: 2,
+                  repeat: Infinity,
+                  ease: "easeInOut",
+                }}
+              />
+            </>
+          )}
+          
+          {/* Gravity Well badge - Pulsing purple gradient */}
+          {isGravityWellBadge && (
             <motion.div
               className="absolute inset-0 rounded-full z-[5]"
               style={{
-                background: "conic-gradient(from 0deg, rgba(139, 92, 246, 0.25), rgba(168, 85, 247, 0.35), rgba(139, 92, 246, 0.25))",
+                background: "radial-gradient(circle, rgba(139, 92, 246, 1) 0%, rgba(168, 85, 247, 0.8) 40%, rgba(192, 132, 252, 0.5) 70%, transparent 100%)",
+              }}
+              animate={{
+                scale: [1, 1.15, 1],
+                opacity: [0.8, 1, 0.8],
+              }}
+              transition={{
+                duration: 2.5,
+                repeat: Infinity,
+                ease: "easeInOut",
+              }}
+            />
+          )}
+          
+          {/* High Density Core badge - Pulsing blue gradient */}
+          {isHighDensityCoreBadge && (
+            <motion.div
+              className="absolute inset-0 rounded-full z-[5]"
+              style={{
+                background: "radial-gradient(circle, rgba(59, 130, 246, 1) 0%, rgba(96, 165, 250, 0.8) 40%, rgba(147, 197, 253, 0.5) 70%, transparent 100%)",
+              }}
+              animate={{
+                scale: [1, 1.2, 1],
+                opacity: [0.8, 1, 0.8],
+              }}
+              transition={{
+                duration: 2,
+                repeat: Infinity,
+                ease: "easeInOut",
+              }}
+            />
+          )}
+          
+          {/* Lithic Council badge - Rotating gold gradient */}
+          {isLithicCouncilBadge && (
+            <motion.div
+              className="absolute inset-0 rounded-full z-[5]"
+              style={{
+                background: "conic-gradient(from 0deg, rgba(234, 179, 8, 1), rgba(250, 204, 21, 1), rgba(234, 179, 8, 1))",
               }}
               animate={{
                 rotate: [0, 360],
+                opacity: [0.9, 1, 0.9],
               }}
               transition={{
-                duration: 5,
+                duration: 3,
+                repeat: Infinity,
+                ease: "linear",
+              }}
+            />
+          )}
+          
+          {/* Titan Host badge - Pulsing orange gradient */}
+          {isTitanHostBadge && (
+            <motion.div
+              className="absolute inset-0 rounded-full z-[5]"
+              style={{
+                background: "radial-gradient(circle, rgba(249, 115, 22, 1) 0%, rgba(251, 146, 60, 0.8) 40%, rgba(253, 186, 116, 0.5) 70%, transparent 100%)",
+              }}
+              animate={{
+                scale: [1, 1.15, 1],
+                opacity: [0.8, 1, 0.8],
+              }}
+              transition={{
+                duration: 2.5,
+                repeat: Infinity,
+                ease: "easeInOut",
+              }}
+            />
+          )}
+          
+          {/* Mystic badges - Rotating rainbow gradient */}
+          {isMysticBadge && (
+            <motion.div
+              className="absolute inset-0 rounded-full z-[5]"
+              style={{
+                background: "conic-gradient(from 0deg, rgba(239, 68, 68, 1), rgba(251, 146, 60, 1), rgba(234, 179, 8, 1), rgba(34, 197, 94, 1), rgba(59, 130, 246, 1), rgba(139, 92, 246, 1), rgba(236, 72, 153, 1), rgba(239, 68, 68, 1))",
+              }}
+              animate={{
+                rotate: [0, 360],
+                opacity: [0.9, 1, 0.9],
+              }}
+              transition={{
+                duration: 3,
                 repeat: Infinity,
                 ease: "linear",
               }}

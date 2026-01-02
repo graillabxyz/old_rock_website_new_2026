@@ -939,9 +939,26 @@ function calculateGoliathBadges(goliathNFTs: any[]): Badge[] {
   // D. Goliath Color Badges
   const goliathColors = new Set<string>()
   goliathNFTs.forEach((nft) => {
-    // Attributes are accessed as object properties (attributes.Type)
-    // Can be: string, object with .value, or array
-    const typeAttr = nft.attributes?.Type
+    // Attributes can be in different formats:
+    // 1. Array format: nft.attributes = [{ trait_type: "Type", value: "Yellow" }]
+    // 2. Object format: nft.attributes = { Type: "Yellow" } or { Type: { value: "Yellow" } }
+    // 3. Direct property: nft.attributes.Type
+    
+    let typeAttr: any = null
+    
+    // Try array format first (most common from API)
+    if (Array.isArray(nft.attributes)) {
+      const typeAttrObj = nft.attributes.find((attr: any) => 
+        attr && (attr.trait_type === "Type" || attr.trait_type === "type" || attr.trait_type === "TYPE")
+      )
+      if (typeAttrObj && typeAttrObj.value) {
+        typeAttr = typeAttrObj.value
+      }
+    } else if (nft.attributes) {
+      // Try object format
+      typeAttr = nft.attributes.Type || nft.attributes.type || nft.attributes.TYPE
+    }
+    
     if (typeAttr) {
       let color: string
       if (typeof typeAttr === 'string') {
@@ -949,12 +966,16 @@ function calculateGoliathBadges(goliathNFTs: any[]): Badge[] {
       } else if (typeAttr?.value) {
         color = typeAttr.value
       } else if (Array.isArray(typeAttr) && typeAttr.length > 0) {
-        color = typeAttr[0]?.value || typeAttr[0] || typeAttr
+        color = typeAttr[0]?.value || typeAttr[0] || String(typeAttr[0])
       } else {
         color = String(typeAttr)
       }
-      if (COLOR_NAMES.includes(color)) {
-        goliathColors.add(color)
+      // Normalize color name (capitalize first letter)
+      if (color) {
+        color = color.charAt(0).toUpperCase() + color.slice(1).toLowerCase()
+        if (COLOR_NAMES.includes(color)) {
+          goliathColors.add(color)
+        }
       }
     }
   })
