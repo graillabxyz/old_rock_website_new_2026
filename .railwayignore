@@ -1,0 +1,3 @@
+# Railway ignore file
+# PINATA_JWT is runtime-only, not needed during build
+
