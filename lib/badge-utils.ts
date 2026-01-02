@@ -1221,18 +1221,23 @@ export function getBestBadges(badges: Badge[]): Badge[] {
   // 4. Then by category priority (Mystic > Prestige > Density > others)
   
   const categoryPriority: { [key: string]: number } = {
+    // Highest priority: Mystics and Mystic-related
     "Mystic Hybrid": 100,
-    "Mystic": 90,
-    "Mystic Prestige": 85,
-    "Mystic Color": 80,
-    "Prestige": 70,
-    "Density": 60,
-    "Goliath Bounty": 50,
-    "Goliath Density": 40,
-    "Goliath Ownership": 35,
-    "Rock Reactive": 30,
-    "Rock Density": 25,
-    "Rock Ownership": 20,
+    "Mystic": 95,
+    "Mystic Prestige": 90,
+    "Mystic Color": 85,
+    // Very high priority: Reactive rocks (Pure is highest), $DENSITY, High density rocks, Large collections
+    "Rock Reactive": 82, // Pure, Polar, Recurrent - these are top badges
+    "Density": 80, // $DENSITY badges are top badges
+    "Rock Density": 78, // High density rocks are important
+    "Rock Ownership": 76, // Large rock collections (Lithic Council tier 4) - high priority
+    "Goliath Ownership": 74, // Large goliath collections (Legion Holder tier 4) - high priority
+    // Medium-high: Prestige
+    "Prestige": 65,
+    // Medium: Goliath badges (Rocks are always more important)
+    "Goliath Bounty": 40,
+    "Goliath Density": 35,
+    // Lower: Color badges
     "Goliath Color": 15,
     "Rock Color": 10,
   }
@@ -1243,6 +1248,19 @@ export function getBestBadges(badges: Badge[]): Badge[] {
       return a.unlocked ? -1 : 1
     }
     
+    // Special handling for Pure reactive badge (highest reactive tier)
+    const isPureA = a.id === "rock-pure-reactor" && a.unlocked
+    const isPureB = b.id === "rock-pure-reactor" && b.unlocked
+    if (isPureA && !isPureB) return -1
+    if (!isPureA && isPureB) return 1
+    
+    // Then by category priority (Mystics, Pure reactive, $DENSITY, High density rocks, etc.)
+    const priorityA = categoryPriority[a.category] || 0
+    const priorityB = categoryPriority[b.category] || 0
+    if (priorityA !== priorityB) {
+      return priorityB - priorityA
+    }
+    
     // Then by tier (higher is better)
     const tierA = a.tier || 0
     const tierB = b.tier || 0
@@ -1250,22 +1268,12 @@ export function getBestBadges(badges: Badge[]): Badge[] {
       return tierB - tierA
     }
     
-    // Then by category priority
-    const priorityA = categoryPriority[a.category] || 0
-    const priorityB = categoryPriority[b.category] || 0
-    if (priorityA !== priorityB) {
-      return priorityB - priorityA
-    }
-    
     return 0
   })
 
-  // Get top 4 unlocked badges, or top 4 overall if less than 4 unlocked
+  // Get top 4 unlocked badges only
+  // If user has less than 4 unlocked badges, only show what they have (don't show locked badges)
   const unlocked = sorted.filter(b => b.unlocked)
-  if (unlocked.length >= 4) {
-    return unlocked.slice(0, 4)
-  }
-  
-  return sorted.slice(0, 4)
+  return unlocked.slice(0, 4)
 }
 
