@@ -37,6 +37,16 @@ export default function LeaderboardPage() {
   const [searchQuery, setSearchQuery] = useState("")
   const [sortBy, setSortBy] = useState<"rank" | "totalDensity" | "densityDeck">("rank")
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc")
+  const [hasMore, setHasMore] = useState(true)
+  const [isLoadingMore, setIsLoadingMore] = useState(false)
+  const [currentOffset, setCurrentOffset] = useState(0)
+  const [totalUsers, setTotalUsers] = useState(0)
+  const loadMoreTriggerRef = useRef<HTMLDivElement>(null)
+  const [hasMore, setHasMore] = useState(true)
+  const [isLoadingMore, setIsLoadingMore] = useState(false)
+  const [currentOffset, setCurrentOffset] = useState(0)
+  const [totalUsers, setTotalUsers] = useState(0)
+  const loadMoreTriggerRef = useRef<HTMLDivElement>(null)
 
   // Check wallet connection status
   useEffect(() => {
@@ -65,37 +75,24 @@ export default function LeaderboardPage() {
 
   const router = useRouter()
 
-  // Fetch leaderboard data with progress tracking
+  // Fetch initial top 50 leaderboard data (fast mode)
   useEffect(() => {
-    const fetchLeaderboardData = async () => {
+    const fetchInitialLeaderboard = async () => {
       setIsLoading(true)
       setLoadingProgress(0)
+      setCurrentOffset(0)
 
-      // Simulate progress while loading (slower for longer loads)
+      // Simulate progress for fast load
       const progressInterval = setInterval(() => {
         setLoadingProgress((prev) => {
-          if (prev >= 95) return prev // Don't go to 100 until data is loaded
-          return prev + Math.random() * 3 // Slower increment for longer loads
+          if (prev >= 90) return prev
+          return prev + Math.random() * 5
         })
-      }, 500) // Slower update interval
-
-      // Poll progress endpoint
-      const progressPollInterval = setInterval(async () => {
-        try {
-          const progressResponse = await fetch("/api/leaderboard/progress")
-          if (progressResponse.ok) {
-            const progressData = await progressResponse.json()
-            if (progressData.progress !== undefined) {
-              setLoadingProgress(progressData.progress)
-            }
-          }
-        } catch (error) {
-          // Ignore progress polling errors
-        }
-      }, 500)
+      }, 200)
 
       try {
-        const response = await fetch("/api/leaderboard")
+        // Use fast mode to get top 50 quickly
+        const response = await fetch("/api/leaderboard?fast=true&limit=50")
         if (!response.ok) {
           throw new Error("Failed to fetch leaderboard data")
         }
@@ -105,79 +102,126 @@ export default function LeaderboardPage() {
           throw new Error("Invalid leaderboard data")
         }
 
-        setLoadingProgress(100)
-
-        // Fetch NFTs and calculate badges for each user
-        const usersWithBadges = await Promise.all(
+        // Process and enrich user data (lightweight - no NFT fetching for initial load)
+        const processedUsers = await Promise.all(
           result.data.map(async (user: any, index: number) => {
-            try {
-              // Fetch user NFTs
-              const nftResponse = await fetch(
-                `${process.env.NEXT_PUBLIC_AMPLIFY_API_URL}/nfts/${user.address}`
-              )
-              if (!nftResponse.ok) {
-                return {
-                  ...user,
-                  rank: index + 1,
-                  badges: [],
-                  bestBadges: [],
-                  avatar: await fetchENSAvatar(user.address),
-                  unextractedDensity: user.unextractedDensity || 0,
-                }
-              }
+            // Calculate badges (lightweight - using density only)
+            const badgeData = {
+              totalDensity: user.totalDensity,
+              oldRockNFTs: [], // Will be fetched on demand if needed
+              goliathNFTs: [],
+            }
+            const badges = calculateAllBadges(badgeData)
+            const bestBadges = getBestBadges(badges)
 
-              const nftData = await nftResponse.json()
-              const oldRockNFTs = nftData?.data?.OldRocks || []
-              const goliathNFTs = nftData?.data?.Goliath || []
+            // Fetch avatar
+            const avatar = await fetchENSAvatar(user.address)
 
-              // Calculate badges
-              const badges = calculateAllBadges({
-                totalDensity: user.totalDensity,
-                oldRockNFTs,
-                goliathNFTs,
-              })
-
-              const bestBadges = getBestBadges(badges).slice(0, 4)
-
-              // Fetch avatar
-              const avatar = await fetchENSAvatar(user.address)
-
-              return {
-                ...user,
-                rank: index + 1,
-                badges,
-                bestBadges,
-                avatar,
-                unextractedDensity: user.unextractedDensity || 0,
-              }
-            } catch (error) {
-              console.error(`Error processing user ${user.address}:`, error)
-              return {
-                ...user,
-                rank: index + 1,
-                badges: [],
-                bestBadges: [],
-                avatar: await fetchENSAvatar(user.address),
-                unextractedDensity: user.unextractedDensity || 0,
-              }
+            return {
+              ...user,
+              rank: index + 1,
+              badges,
+              bestBadges,
+              avatar,
+              unextractedDensity: user.unextractedDensity || 0,
             }
           })
         )
 
-        setLeaderboardUsers(usersWithBadges)
+        setLeaderboardUsers(processedUsers)
+        setCurrentOffset(50)
+        setTotalUsers(result.total || processedUsers.length)
+        setHasMore(result.total > processedUsers.length || !result.fast)
+        setLoadingProgress(100)
       } catch (error) {
-        console.error("Error fetching leaderboard data:", error)
+        console.error("Error fetching leaderboard:", error)
         setLeaderboardUsers([])
       } finally {
         clearInterval(progressInterval)
-        clearInterval(progressPollInterval)
-        setLoadingProgress(100)
         setIsLoading(false)
       }
     }
 
-    fetchLeaderboardData()
+    fetchInitialLeaderboard()
   }, [])
+
+  // Load more users when scrolling near bottom
+  useEffect(() => {
+    if (!hasMore || isLoadingMore) return
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !isLoadingMore) {
+          loadMoreUsers()
+        }
+      },
+      { threshold: 0.1 }
+    )
+
+    if (loadMoreTriggerRef.current) {
+      observer.observe(loadMoreTriggerRef.current)
+    }
+
+    return () => {
+      if (loadMoreTriggerRef.current) {
+        observer.unobserve(loadMoreTriggerRef.current)
+      }
+    }
+  }, [hasMore, isLoadingMore])
+
+  const loadMoreUsers = async () => {
+    if (isLoadingMore || !hasMore) return
+
+    setIsLoadingMore(true)
+    try {
+      // Load next 50 from cache (or full query if cache is stale)
+      const response = await fetch(`/api/leaderboard?limit=50&offset=${currentOffset}`)
+      if (!response.ok) {
+        throw new Error("Failed to fetch more leaderboard data")
+      }
+
+      const result = await response.json()
+      if (!result.success || !result.data || result.data.length === 0) {
+        setHasMore(false)
+        return
+      }
+
+      // Process and enrich new user data (lightweight)
+      const processedUsers = await Promise.all(
+        result.data.map(async (user: any, index: number) => {
+          // Calculate badges (lightweight)
+          const badgeData = {
+            totalDensity: user.totalDensity,
+            oldRockNFTs: [],
+            goliathNFTs: [],
+          }
+          const badges = calculateAllBadges(badgeData)
+          const bestBadges = getBestBadges(badges)
+
+          // Fetch avatar
+          const avatar = await fetchENSAvatar(user.address)
+
+          return {
+            ...user,
+            rank: currentOffset + index + 1,
+            badges,
+            bestBadges,
+            avatar,
+            unextractedDensity: user.unextractedDensity || 0,
+          }
+        })
+      )
+
+      setLeaderboardUsers((prev) => [...prev, ...processedUsers])
+      setCurrentOffset((prev) => prev + processedUsers.length)
+      setHasMore(processedUsers.length === 50 && (result.total > currentOffset + processedUsers.length))
+    } catch (error) {
+      console.error("Error loading more users:", error)
+      setHasMore(false)
+    } finally {
+      setIsLoadingMore(false)
+    }
+  }
 
   const fetchENSAvatar = async (address: string) => {
     try {
@@ -185,19 +229,45 @@ export default function LeaderboardPage() {
       if (ensResponse.ok) {
         const ensData = await ensResponse.json()
         if (ensData.name) {
-          const avatarResponse = await fetch(`https://metadata.ens.domains/mainnet/avatar/${ensData.name}`)
-          if (avatarResponse.ok) {
-            const avatarUrl = avatarResponse.url
-            if (avatarUrl && !avatarUrl.includes("404")) {
-              return avatarUrl
+          try {
+            // Create timeout controller for 5 second timeout
+            const controller = new AbortController()
+            const timeoutId = setTimeout(() => controller.abort(), 5000)
+            
+            try {
+              const avatarResponse = await fetch(`https://metadata.ens.domains/mainnet/avatar/${ensData.name}`, {
+                // Don't throw on 404 - it's expected for ENS names without avatars
+                signal: controller.signal,
+              })
+              clearTimeout(timeoutId)
+              if (avatarResponse.ok && avatarResponse.status !== 404) {
+                const avatarUrl = avatarResponse.url
+                if (avatarUrl && !avatarUrl.includes("404")) {
+                  return avatarUrl
+                }
+              }
+            } catch (fetchError: any) {
+              clearTimeout(timeoutId)
+              // Silently handle 404s and timeouts - these are expected
+              if (fetchError.name !== "AbortError" && fetchError.name !== "TypeError") {
+                // Only log unexpected errors
+              }
+            }
+          } catch (avatarError: any) {
+            // Silently handle 404s and timeouts - these are expected
+            if (avatarError.name !== "AbortError" && avatarError.name !== "TypeError") {
+              // Only log unexpected errors
             }
           }
         }
       }
       return `https://effigy.im/a/${address}.png`
-    } catch (error) {
-      console.error("Error fetching ENS avatar:", error)
-      return "/images/rock-logo.png"
+    } catch (error: any) {
+      // Silently handle network errors - fallback to effigy
+      if (error.name !== "AbortError" && error.name !== "TypeError") {
+        // Only log unexpected errors
+      }
+      return `https://effigy.im/a/${address}.png`
     }
   }
 
@@ -311,7 +381,7 @@ export default function LeaderboardPage() {
       <>
         <div
           ref={badgeRef}
-          className="relative w-8 h-8 flex items-center justify-center rounded-full bg-gray-800 border border-gray-700 cursor-help overflow-hidden"
+          className="relative w-8 h-8 flex items-center justify-center rounded-full bg-gray-800/80 border border-gray-700 cursor-help overflow-hidden backdrop-blur-sm"
           onMouseEnter={() => {
             setShowCustomTooltip(true)
             updateTooltipPosition()
@@ -319,18 +389,27 @@ export default function LeaderboardPage() {
           onMouseLeave={() => setShowCustomTooltip(false)}
           title={!showCustomTooltip ? `${badge.name}${badge.description ? ` - ${badge.description}` : ""}` : undefined}
         >
-          {/* Animation backgrounds for special badges */}
+          {/* Badge Icon - On top */}
+          <div className="relative z-10">
+            <Award
+              className={`w-5 h-5 ${
+                badge.unlocked ? "text-white opacity-100" : "text-gray-600 opacity-30"
+              }`}
+            />
+          </div>
+          
+          {/* Animation backgrounds for special badges - Behind icon but visible */}
           {/* Pure badge - Uses actual rock color with hexagon shape */}
           {isPureBadge && (
             <motion.div
-              className="absolute inset-0"
+              className="absolute inset-0 z-0"
               style={{
                 clipPath: "polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)",
-                background: `radial-gradient(circle, ${getRockColorRgba(pureColor, 0.4)} 0%, transparent 70%)`,
+                background: `radial-gradient(circle, ${getRockColorRgba(pureColor, 0.6)} 0%, ${getRockColorRgba(pureColor, 0.2)} 50%, transparent 80%)`,
               }}
               animate={{
-                scale: [1, 1.2, 1],
-                opacity: [0.4, 0.7, 0.4],
+                scale: [1, 1.3, 1],
+                opacity: [0.5, 0.9, 0.5],
               }}
               transition={{
                 duration: 2,
@@ -343,14 +422,14 @@ export default function LeaderboardPage() {
           {/* Polar badge - Uses actual rock color with elliptical shape */}
           {isPolarBadge && (
             <motion.div
-              className="absolute inset-0 rounded-full"
+              className="absolute inset-0 rounded-full z-0"
               style={{
-                background: `radial-gradient(ellipse at center, ${getRockColorRgba(polarColor, 0.4)} 0%, transparent 70%)`,
+                background: `radial-gradient(ellipse at center, ${getRockColorRgba(polarColor, 0.6)} 0%, ${getRockColorRgba(polarColor, 0.2)} 50%, transparent 80%)`,
               }}
               animate={{
-                scaleX: [1, 1.3, 1],
-                scaleY: [1, 1.1, 1],
-                opacity: [0.4, 0.7, 0.4],
+                scaleX: [1, 1.4, 1],
+                scaleY: [1, 1.2, 1],
+                opacity: [0.5, 0.9, 0.5],
               }}
               transition={{
                 duration: 2.5,
@@ -362,24 +441,26 @@ export default function LeaderboardPage() {
           
           {/* Recurrent badge - Uses actual rock color with sparkle effect */}
           {isRecurrentBadge && (
-            <motion.div
-              className="absolute inset-0 rounded-full overflow-hidden"
-              style={{
-                background: `radial-gradient(circle, ${getRockColorRgba(recurrentColor, 0.3)} 0%, transparent 70%)`,
-              }}
-            >
+            <>
+              <motion.div
+                className="absolute inset-0 rounded-full overflow-hidden z-0"
+                style={{
+                  background: `radial-gradient(circle, ${getRockColorRgba(recurrentColor, 0.4)} 0%, transparent 70%)`,
+                }}
+              />
               {/* Sparkle effect with actual rock color */}
               {[...Array(6)].map((_, i) => (
                 <motion.div
                   key={i}
-                  className="absolute w-1 h-1 rounded-full"
+                  className="absolute w-1.5 h-1.5 rounded-full z-0"
                   style={{
-                    backgroundColor: getRockColorRgba(recurrentColor, 0.8),
+                    backgroundColor: getRockColorRgba(recurrentColor, 1),
                     left: `${20 + (i * 15)}%`,
                     top: `${20 + (i % 3) * 30}%`,
+                    boxShadow: `0 0 4px ${getRockColorRgba(recurrentColor, 0.8)}`,
                   }}
                   animate={{
-                    scale: [0, 1.5, 0],
+                    scale: [0, 2, 0],
                     opacity: [0, 1, 0],
                   }}
                   transition={{
@@ -390,14 +471,15 @@ export default function LeaderboardPage() {
                   }}
                 />
               ))}
-            </motion.div>
+            </>
           )}
           
+          {/* Singularity badge - Rotating conic gradient */}
           {isSingularityBadge && (
             <motion.div
-              className="absolute inset-0 rounded-full"
+              className="absolute inset-0 rounded-full z-0"
               style={{
-                background: "conic-gradient(from 0deg, rgba(139, 92, 246, 0.3), rgba(168, 85, 247, 0.5), rgba(139, 92, 246, 0.3))",
+                background: "conic-gradient(from 0deg, rgba(139, 92, 246, 0.5), rgba(168, 85, 247, 0.7), rgba(139, 92, 246, 0.5))",
               }}
               animate={{
                 rotate: [0, 360],
@@ -409,14 +491,6 @@ export default function LeaderboardPage() {
               }}
             />
           )}
-          
-          <div className="relative z-10">
-            <Award
-              className={`w-5 h-5 ${
-                badge.unlocked ? "text-white opacity-100" : "text-gray-600 opacity-30"
-              }`}
-            />
-          </div>
         </div>
         
         {/* Custom tooltip on hover - rendered via portal to escape container bounds */}
@@ -640,6 +714,20 @@ export default function LeaderboardPage() {
                     )}
                   </tbody>
                 </table>
+                
+                {/* Load More Trigger */}
+                {hasMore && !searchQuery && (
+                  <div ref={loadMoreTriggerRef} className="py-8 text-center">
+                    {isLoadingMore ? (
+                      <div className="flex items-center justify-center gap-2 text-gray-400">
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                        <span className="font-pt-mono text-sm">Loading more...</span>
+                      </div>
+                    ) : (
+                      <div className="h-20" /> // Spacer to trigger intersection observer
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 

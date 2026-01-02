@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { isCacheStale, isRefreshing, getCacheAge } from "@/lib/leaderboard-cache"
+import { isCacheStale, isRefreshing, getCacheAge, getProgress } from "@/lib/leaderboard-cache"
 
 export const dynamic = "force-dynamic"
 
@@ -16,11 +16,15 @@ export async function GET(request: NextRequest) {
     // Calculate progress based on cache state
     let progress = 0
     let status = "idle"
+    const progressData = getProgress()
 
-    if (refreshing) {
-      // If refreshing, estimate progress (this is a simple simulation)
-      // In a real implementation, you'd track actual progress
-      progress = 50 // Mid-way through refresh
+    if (refreshing && progressData) {
+      // Calculate actual progress from batch processing
+      progress = Math.min(95, Math.floor((progressData.current / progressData.total) * 100))
+      status = "loading"
+    } else if (refreshing) {
+      // Refreshing but no progress data yet
+      progress = 10
       status = "loading"
     } else if (cacheStale) {
       // Cache is stale, will trigger refresh

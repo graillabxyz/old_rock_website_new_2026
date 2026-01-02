@@ -232,19 +232,41 @@ const SimpleWalletButton: React.FC<Props> = ({ className, onConnectionChange, pr
       if (ensResponse.ok) {
         const ensData = await ensResponse.json()
         if (ensData.name) {
-          const avatarResponse = await fetch(`https://metadata.ens.domains/mainnet/avatar/${ensData.name}`)
-          if (avatarResponse.ok) {
-            const avatarUrl = avatarResponse.url
-            if (avatarUrl && !avatarUrl.includes("404")) {
-              return avatarUrl
+          try {
+            // Create timeout controller for 5 second timeout
+            const controller = new AbortController()
+            const timeoutId = setTimeout(() => controller.abort(), 5000)
+            
+            try {
+              const avatarResponse = await fetch(`https://metadata.ens.domains/mainnet/avatar/${ensData.name}`, {
+                signal: controller.signal,
+              })
+              clearTimeout(timeoutId)
+              if (avatarResponse.ok && avatarResponse.status !== 404) {
+                const avatarUrl = avatarResponse.url
+                if (avatarUrl && !avatarUrl.includes("404")) {
+                  return avatarUrl
+                }
+              }
+            } catch (fetchError: any) {
+              clearTimeout(timeoutId)
+              // Silently handle 404s and timeouts - these are expected
+              if (fetchError.name !== "AbortError" && fetchError.name !== "TypeError") {
+                // Only log unexpected errors
+              }
             }
+          } catch (avatarError: any) {
+            // Silently handle errors - fallback to effigy
           }
         }
       }
       return `https://effigy.im/a/${address}.png`
-    } catch (error) {
-      console.error("Error fetching ENS avatar:", error)
-      return "/images/rock-logo.png"
+    } catch (error: any) {
+      // Silently handle network errors - fallback to effigy
+      if (error.name !== "AbortError" && error.name !== "TypeError") {
+        // Only log unexpected errors
+      }
+      return `https://effigy.im/a/${address}.png`
     }
   }
 

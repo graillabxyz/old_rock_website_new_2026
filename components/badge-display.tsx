@@ -322,18 +322,23 @@ function BadgeIcon({ badge, size = "md" }: BadgeIconProps) {
         title={!showCustomTooltip ? `${badge.name}${badge.description ? ` - ${badge.description}` : ""}` : undefined}
         aria-label={`${badge.name}${badge.description ? ` - ${badge.description}` : ""}`}
       >
-        {/* Animation backgrounds for special badges */}
+        {/* Badge Icon Placeholder - White icon with semi-transparent background to show animations */}
+        <div className="relative w-full h-full rounded-lg bg-gray-800/80 border border-gray-700 flex items-center justify-center z-10 backdrop-blur-sm">
+          <Award className="w-6 h-6 text-white z-20 relative" />
+        </div>
+        
+        {/* Animation backgrounds for special badges - Behind the icon but visible */}
         {/* Pure badge - Uses actual rock color with hexagon shape */}
         {isPureBadge && (
           <motion.div
-            className="absolute inset-0"
+            className="absolute inset-0 z-0"
             style={{
               clipPath: "polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)",
-              background: `radial-gradient(circle, ${getRockColorRgba(pureColor, 0.4)} 0%, transparent 70%)`,
+              background: `radial-gradient(circle, ${getRockColorRgba(pureColor, 0.6)} 0%, ${getRockColorRgba(pureColor, 0.2)} 50%, transparent 80%)`,
             }}
             animate={{
-              scale: [1, 1.2, 1],
-              opacity: [0.4, 0.7, 0.4],
+              scale: [1, 1.3, 1],
+              opacity: [0.5, 0.9, 0.5],
             }}
             transition={{
               duration: 2,
@@ -346,14 +351,14 @@ function BadgeIcon({ badge, size = "md" }: BadgeIconProps) {
         {/* Polar badge - Uses actual rock color with elliptical shape */}
         {isPolarBadge && (
           <motion.div
-            className="absolute inset-0 rounded-lg"
+            className="absolute inset-0 rounded-lg z-0"
             style={{
-              background: `radial-gradient(ellipse at center, ${getRockColorRgba(polarColor, 0.4)} 0%, transparent 70%)`,
+              background: `radial-gradient(ellipse at center, ${getRockColorRgba(polarColor, 0.6)} 0%, ${getRockColorRgba(polarColor, 0.2)} 50%, transparent 80%)`,
             }}
             animate={{
-              scaleX: [1, 1.3, 1],
-              scaleY: [1, 1.1, 1],
-              opacity: [0.4, 0.7, 0.4],
+              scaleX: [1, 1.4, 1],
+              scaleY: [1, 1.2, 1],
+              opacity: [0.5, 0.9, 0.5],
             }}
             transition={{
               duration: 2.5,
@@ -365,24 +370,26 @@ function BadgeIcon({ badge, size = "md" }: BadgeIconProps) {
         
         {/* Recurrent badge - Uses actual rock color with sparkle effect */}
         {isRecurrentBadge && (
-          <motion.div
-            className="absolute inset-0 rounded-lg overflow-hidden"
-            style={{
-              background: `radial-gradient(circle, ${getRockColorRgba(recurrentColor, 0.3)} 0%, transparent 70%)`,
-            }}
-          >
+          <>
+            <motion.div
+              className="absolute inset-0 rounded-lg overflow-hidden z-0"
+              style={{
+                background: `radial-gradient(circle, ${getRockColorRgba(recurrentColor, 0.4)} 0%, transparent 70%)`,
+              }}
+            />
             {/* Sparkle effect with actual rock color */}
             {[...Array(6)].map((_, i) => (
               <motion.div
                 key={i}
-                className="absolute w-1 h-1 rounded-full"
+                className="absolute w-1.5 h-1.5 rounded-full z-0"
                 style={{
-                  backgroundColor: getRockColorRgba(recurrentColor, 0.8),
+                  backgroundColor: getRockColorRgba(recurrentColor, 1),
                   left: `${20 + (i * 15)}%`,
                   top: `${20 + (i % 3) * 30}%`,
+                  boxShadow: `0 0 4px ${getRockColorRgba(recurrentColor, 0.8)}`,
                 }}
                 animate={{
-                  scale: [0, 1.5, 0],
+                  scale: [0, 2, 0],
                   opacity: [0, 1, 0],
                 }}
                 transition={{
@@ -393,14 +400,15 @@ function BadgeIcon({ badge, size = "md" }: BadgeIconProps) {
                 }}
               />
             ))}
-          </motion.div>
+          </>
         )}
         
+        {/* Singularity badge - Rotating conic gradient */}
         {isSingularityBadge && (
           <motion.div
-            className="absolute inset-0 rounded-lg"
+            className="absolute inset-0 rounded-lg z-0"
             style={{
-              background: "conic-gradient(from 0deg, rgba(139, 92, 246, 0.3), rgba(168, 85, 247, 0.5), rgba(139, 92, 246, 0.3))",
+              background: "conic-gradient(from 0deg, rgba(139, 92, 246, 0.5), rgba(168, 85, 247, 0.7), rgba(139, 92, 246, 0.5))",
             }}
             animate={{
               rotate: [0, 360],
@@ -412,11 +420,6 @@ function BadgeIcon({ badge, size = "md" }: BadgeIconProps) {
             }}
           />
         )}
-        
-        {/* Badge Icon Placeholder - White icon */}
-        <div className="relative w-full h-full rounded-lg bg-gray-800 border border-gray-700 flex items-center justify-center z-10">
-          <Award className="w-6 h-6 text-white" />
-        </div>
         
         {/* Unlocked indicator */}
         {badge.unlocked && (

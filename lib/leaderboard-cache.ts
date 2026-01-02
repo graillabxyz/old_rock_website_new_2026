@@ -8,6 +8,12 @@ interface LeaderboardCache {
   timestamp: number
   isRefreshing: boolean
   refreshPromise: Promise<any[]> | null
+  progress: {
+    current: number
+    total: number
+    currentBatch: number
+    totalBatches: number
+  } | null
 }
 
 const CACHE_TTL = 60 * 60 * 1000 // 1 hour in milliseconds
@@ -16,6 +22,7 @@ let cache: LeaderboardCache = {
   timestamp: 0,
   isRefreshing: false,
   refreshPromise: null,
+  progress: null,
 }
 
 /**
@@ -44,6 +51,26 @@ export function setCachedData(data: any[]): void {
   cache.timestamp = Date.now()
   cache.isRefreshing = false
   cache.refreshPromise = null
+  cache.progress = null
+}
+
+/**
+ * Update progress during refresh
+ */
+export function setProgress(current: number, total: number, currentBatch: number, totalBatches: number): void {
+  cache.progress = {
+    current,
+    total,
+    currentBatch,
+    totalBatches,
+  }
+}
+
+/**
+ * Get current progress
+ */
+export function getProgress(): { current: number; total: number; currentBatch: number; totalBatches: number } | null {
+  return cache.progress
 }
 
 /**
