@@ -26,8 +26,8 @@ async function fetchLeaderboardData(): Promise<any[]> {
     // Continue with empty owners list
   }
 
-  // Fetch data for each owner in parallel (limit to reasonable number for performance)
-  const leaderboardPromises = owners.slice(0, 1000).map(async (address: string) => {
+  // Fetch data for each owner in parallel (process all owners for accurate leaderboard)
+  const leaderboardPromises = owners.map(async (address: string) => {
     try {
       const addressLower = address.toLowerCase()
 
