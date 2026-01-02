@@ -10,6 +10,8 @@ import { saveProfileNFT } from "@/app/actions/save-profile-nft"
 import { UserBadge } from "@/components/user-badge"
 import { Header } from "@/components/header"
 import { Sidebar } from "@/components/sidebar"
+import { NFTOverlay } from "@/components/nft-overlay"
+import { setENSAvatar } from "@/lib/ens-utils"
 
 interface NFT {
   tokenId: string
@@ -64,6 +66,11 @@ export default function ProfilePage() {
 
   // Filter state
   const [selectedFilter, setSelectedFilter] = useState<"all" | "oldrock" | "goliath">("all")
+
+  // NFT Overlay state
+  const [selectedNFT, setSelectedNFT] = useState<NFT | null>(null)
+  const [isOverlayOpen, setIsOverlayOpen] = useState(false)
+  const [isSettingAvatar, setIsSettingAvatar] = useState(false)
 
   useEffect(() => {
     const checkWallet = async () => {
@@ -280,6 +287,75 @@ export default function ProfilePage() {
   const handleSaveBadges = () => {
     localStorage.setItem(`selected-badges-${walletAddress}`, JSON.stringify(selectedBadges))
     setIsEditingBadges(false)
+  }
+
+  const handleNFTClick = (nft: NFT) => {
+    if (isOwnProfile) {
+      setSelectedNFT(nft)
+      setIsOverlayOpen(true)
+    }
+  }
+
+  const handleSetAsProfilePicture = async (nft: NFT) => {
+    if (!window.ethereum) {
+      alert("Please connect your wallet to set a profile picture.")
+      return
+    }
+
+    // Check if user has a valid ENS name
+    if (!ensName || !ensName.endsWith(".eth") || ensName.includes("...")) {
+      alert("You need to have an ENS name (ending in .eth) to set a profile picture. Please ensure you own an ENS domain.")
+      return
+    }
+
+    setIsSettingAvatar(true)
+    try {
+      // Use the NFT image URL - convert .webp to full resolution if needed
+      let imageUrl = nft.image
+      
+      // If it's a -300.webp thumbnail, try to get the full resolution version
+      if (imageUrl.includes("-300.webp")) {
+        imageUrl = imageUrl.replace("-300.webp", ".webp")
+      }
+
+      // Call the ENS setText function to set the avatar
+      await setENSAvatar(window.ethereum, ensName, imageUrl)
+
+      // Update local state
+      setEnsAvatar(imageUrl)
+      setSelectedProfileNFT(nft)
+      localStorage.setItem(`profile-nft-${walletAddress}`, JSON.stringify(nft))
+
+      // Dispatch event for other components to update
+      window.dispatchEvent(
+        new CustomEvent("profileNFTChanged", {
+          detail: nft,
+        })
+      )
+
+      // Close overlay
+      setIsOverlayOpen(false)
+      setSelectedNFT(null)
+
+      alert("Profile picture updated successfully! It may take a few minutes to propagate across all services.")
+    } catch (error: any) {
+      console.error("Error setting ENS avatar:", error)
+      
+      let errorMessage = "Failed to set profile picture. "
+      if (error?.message?.includes("user rejected") || error?.code === 4001) {
+        errorMessage += "Transaction was rejected."
+      } else if (error?.message?.includes("No resolver")) {
+        errorMessage += "You must own this ENS name and have a resolver set."
+      } else if (error?.message) {
+        errorMessage += error.message
+      } else {
+        errorMessage += "Please try again."
+      }
+      
+      alert(errorMessage)
+    } finally {
+      setIsSettingAvatar(false)
+    }
   }
 
   const allNFTs = [...oldRockNFTs, ...goliathNFTs]
@@ -567,14 +643,20 @@ export default function ProfilePage() {
               {filteredNFTs.map((nft) => (
                 <div
                   key={`${nft.collection}-${nft.tokenId}`}
-                  className="bg-gray-900 rounded-xl overflow-hidden border border-gray-800 hover:border-purple-500 transition-all cursor-pointer group"
+                  className={`bg-gray-900 rounded-xl overflow-hidden border border-gray-800 hover:border-purple-500 transition-all group ${
+                    isOwnProfile ? "cursor-pointer" : ""
+                  }`}
+                  onClick={() => isOwnProfile && handleNFTClick(nft)}
                 >
                   <div className="relative aspect-square" style={{ backgroundColor: nft.backgroundColor }}>
                     <Image src={nft.image || "/placeholder.svg"} alt={nft.name} fill className="object-cover" />
                     {/*}
                     {isOwnProfile && featuredNFTs.length < 3 && (
                       <button
-                        onClick={() => handleAddFeaturedNFT(nft)}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleAddFeaturedNFT(nft)
+                        }}
                         className="absolute top-2 right-2 bg-purple-600 hover:bg-purple-700 text-white p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
                       >
                         <Plus className="w-4 h-4" />
@@ -582,7 +664,10 @@ export default function ProfilePage() {
                     )}
                     {*/}
                     <button
-                      onClick={() => window.open(nft.image?.replace('.webp', '.gif'), '_blank')}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        window.open(nft.image?.replace('.webp', '.gif'), '_blank')
+                      }}
                       className="absolute top-2 right-2 bg-purple-600 hover:bg-purple-700 text-white p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity text-xs"
                       title="View GIF asset for sharing on social"
                     >
@@ -707,6 +792,18 @@ export default function ProfilePage() {
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* NFT Overlay */}
+        <NFTOverlay
+          nft={selectedNFT}
+          isOpen={isOverlayOpen}
+          onClose={() => {
+            setIsOverlayOpen(false)
+            setSelectedNFT(null)
+          }}
+          onSetAsProfilePicture={handleSetAsProfilePicture}
+          isSettingAvatar={isSettingAvatar}
+        />
       </div>
     </>
   )
