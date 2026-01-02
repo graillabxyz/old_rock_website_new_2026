@@ -11,7 +11,7 @@ import { UserBadge } from "@/components/user-badge"
 import { Header } from "@/components/header"
 import { Sidebar } from "@/components/sidebar"
 import { NFTOverlay } from "@/components/nft-overlay"
-import { setENSAvatar } from "@/lib/ens-utils"
+import { setENSAvatar, getConnectedWalletENSName } from "@/lib/ens-utils"
 import { uploadToIPFS, getIPFSGatewayURL, SUPPORTED_IMAGE_TYPES, SUPPORTED_VIDEO_TYPES } from "@/lib/ipfs-utils"
 import { Upload } from "lucide-react"
 
@@ -406,9 +406,23 @@ export default function ProfilePage() {
       return
     }
 
-    // Check if user has a valid ENS name
-    if (!ensName || !ensName.endsWith(".eth") || ensName.includes("...")) {
-      alert("You need to have an ENS name (ending in .eth) to set a profile picture. Please ensure you own an ENS domain.")
+    // Get connected wallet address - must be from wallet, not localStorage
+    let connectedAddress: string
+    try {
+      const accounts = await window.ethereum.request({ method: "eth_accounts" })
+      if (!accounts || accounts.length === 0) {
+        alert("Please connect your wallet to set a profile picture.")
+        return
+      }
+      connectedAddress = accounts[0]
+    } catch (error) {
+      alert("Failed to get connected wallet address. Please try again.")
+      return
+    }
+
+    // Verify the connected address matches the profile owner
+    if (connectedAddress.toLowerCase() !== connectedWallet.toLowerCase()) {
+      alert("Connected wallet does not match profile owner. Please connect the correct wallet.")
       return
     }
 
@@ -422,26 +436,31 @@ export default function ProfilePage() {
         imageUrl = imageUrl.replace("-300.webp", ".webp")
       }
 
-      // Check if we've already upgraded this resolver (cache check)
-      const resolverUpgradeCache = localStorage.getItem(`ens-resolver-upgraded-${ensName}`)
-      const needsUpgrade = resolverUpgradeCache !== "true"
-
       // Call the ENS setText function to set the avatar
-      // This will automatically upgrade the resolver if needed
+      // This function will:
+      // 1. Get ENS name from connected wallet (on-chain reverse lookup) - NO localStorage
+      // 2. Validate ownership/manager rights (on-chain validation)
+      // 3. Fetch resolver and namehash from on-chain data - NO cached values
+      // 4. Construct transaction at signing time with fresh on-chain data
+      // The transaction shown in wallet will clearly show:
+      // - setText("avatar", imageUrl) on the current resolver, OR
+      // - setResolver(namehash, publicResolver) if upgrade needed
       const result = await setENSAvatar(
         window.ethereum,
-        ensName,
+        connectedAddress, // Pass connected wallet address for validation
         imageUrl,
         async (needsUpgrade: boolean) => {
           if (needsUpgrade) {
             // Show confirmation dialog explaining what's happening
+            // ENS name will be fetched on-chain, so we show a generic message
             const confirmed = confirm(
-              `Setting ENS Avatar: ${ensName}\n\n` +
+              `Setting ENS Avatar\n\n` +
               `Your ENS resolver needs to be upgraded to support profile pictures.\n\n` +
               `This will change your ENS avatar and requires:\n` +
               `1. Upgrade resolver to Public Resolver (one-time transaction)\n` +
               `2. Set ENS avatar to: ${nft.name}\n\n` +
               `You'll need to approve two transactions in your wallet.\n\n` +
+              `The transaction will be constructed using on-chain ENS data.\n\n` +
               `Continue?`
             )
             
@@ -454,15 +473,15 @@ export default function ProfilePage() {
         }
       )
 
-      // Cache that we've upgraded the resolver
-      if (result.upgradedResolver) {
-        localStorage.setItem(`ens-resolver-upgraded-${ensName}`, "true")
-      }
-
-      // Update local state
+      // Update local state (for display only, not used for transactions)
       setEnsAvatar(imageUrl)
       setSelectedProfileNFT(nft)
       localStorage.setItem(`profile-nft-${walletAddress}`, JSON.stringify(nft))
+
+      // Update ENS name from on-chain result (for display)
+      if (result.ensName) {
+        setEnsName(result.ensName)
+      }
 
       // Dispatch event for other components to update
       window.dispatchEvent(
@@ -476,9 +495,9 @@ export default function ProfilePage() {
       setSelectedNFT(null)
 
       if (result.upgradedResolver) {
-        alert("Resolver upgraded and profile picture set successfully! It may take a few minutes to propagate across all services.")
+        alert(`Resolver upgraded and profile picture set successfully for ${result.ensName}! It may take a few minutes to propagate across all services.`)
       } else {
-        alert("Profile picture updated successfully! It may take a few minutes to propagate across all services.")
+        alert(`Profile picture updated successfully for ${result.ensName}! It may take a few minutes to propagate across all services.`)
       }
     } catch (error: any) {
       console.error("Error setting ENS avatar:", error)
@@ -488,6 +507,10 @@ export default function ProfilePage() {
         errorMessage += "Transaction was rejected."
       } else if (error?.message?.includes("cancelled")) {
         errorMessage += "Operation was cancelled."
+      } else if (error?.message?.includes("No ENS name found")) {
+        errorMessage += "No ENS name found for your wallet address. Please ensure your wallet has an ENS name."
+      } else if (error?.message?.includes("do not own or manage")) {
+        errorMessage += error.message
       } else if (error?.message?.includes("No resolver")) {
         errorMessage += "You must own this ENS name and have a resolver set."
       } else if (error?.message) {
