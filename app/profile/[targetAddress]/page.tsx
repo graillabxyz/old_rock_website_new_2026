@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { useParams } from "next/navigation";
 import Image from "next/image"
 import { motion, AnimatePresence } from "framer-motion"
-import { Edit2, X, Plus, Trash2 } from "lucide-react"
+import { Edit2, X, Plus, Trash2, CheckCircle, AlertCircle } from "lucide-react"
 import { fetchUserNFTs, fetchUserStats } from "@/app/actions/fetch-user-nfts"
 import { fetchUserDensity } from "@/app/actions/fetch-user-density"
 import { saveProfileNFT } from "@/app/actions/save-profile-nft"
@@ -94,6 +94,9 @@ export default function ProfilePage() {
   const [ensConfirmMessage, setEnsConfirmMessage] = useState("")
   const [ensConfirmNFTName, setEnsConfirmNFTName] = useState("")
   const [ensConfirmResolve, setEnsConfirmResolve] = useState<((value: boolean) => void) | null>(null)
+
+  // Notification state
+  const [notification, setNotification] = useState<{ message: string; type: "success" | "error" } | null>(null)
 
   useEffect(() => {
     // Suppress harmless wallet extension errors in console
@@ -561,9 +564,14 @@ export default function ProfilePage() {
     }
   }
 
+  const showNotification = (message: string, type: "success" | "error") => {
+    setNotification({ message, type })
+    setTimeout(() => setNotification(null), 5000)
+  }
+
   const handleSetAsProfilePicture = async (nft: NFT) => {
     if (!window.ethereum) {
-      alert("Please connect your wallet to set a profile picture.")
+      showNotification("Please connect your wallet to set a profile picture.", "error")
       return
     }
 
@@ -572,18 +580,18 @@ export default function ProfilePage() {
     try {
       const accounts = await window.ethereum.request({ method: "eth_accounts" })
       if (!accounts || accounts.length === 0) {
-        alert("Please connect your wallet to set a profile picture.")
+        showNotification("Please connect your wallet to set a profile picture.", "error")
         return
       }
       connectedAddress = accounts[0]
     } catch (error) {
-      alert("Failed to get connected wallet address. Please try again.")
+      showNotification("Failed to get connected wallet address. Please try again.", "error")
       return
     }
 
     // Verify the connected address matches the profile owner
     if (connectedAddress.toLowerCase() !== connectedWallet.toLowerCase()) {
-      alert("Connected wallet does not match profile owner. Please connect the correct wallet.")
+      showNotification("Connected wallet does not match profile owner. Please connect the correct wallet.", "error")
       return
     }
 
@@ -674,9 +682,9 @@ export default function ProfilePage() {
       }, 5000)
 
       if (result.upgradedResolver) {
-        alert(`Resolver upgraded and profile picture set successfully for ${result.ensName}! It may take a few minutes to propagate across all services.`)
+        showNotification(`Resolver upgraded and profile picture set successfully for ${result.ensName}! It may take a few minutes to propagate across all services.`, "success")
       } else {
-        alert(`Profile picture updated successfully for ${result.ensName}! It may take a few minutes to propagate across all services.`)
+        showNotification(`Profile picture updated successfully for ${result.ensName}! It may take a few minutes to propagate across all services.`, "success")
       }
     } catch (error: any) {
       console.error("Error setting ENS avatar:", error)
@@ -698,7 +706,7 @@ export default function ProfilePage() {
         errorMessage += "Please try again."
       }
       
-      alert(errorMessage)
+      showNotification(errorMessage, "error")
     } finally {
       setIsSettingAvatar(false)
     }
@@ -1319,6 +1327,48 @@ export default function ProfilePage() {
           nftName={ensConfirmNFTName}
           isLoading={isSettingAvatar}
         />
+
+        {/* Styled Notification Toast */}
+        <AnimatePresence>
+          {notification && (
+            <motion.div
+              initial={{ opacity: 0, y: -50, x: "-50%" }}
+              animate={{ opacity: 1, y: 0, x: "-50%" }}
+              exit={{ opacity: 0, y: -50, x: "-50%" }}
+              className={`fixed top-20 left-1/2 z-[100] max-w-md w-full mx-4 ${
+                notification.type === "success"
+                  ? "bg-black/90 backdrop-blur-md border border-cyan-400/50 shadow-lg shadow-cyan-500/20"
+                  : "bg-black/90 backdrop-blur-md border border-red-400/50 shadow-lg shadow-red-500/20"
+              } rounded-xl p-4`}
+              style={{
+                boxShadow: notification.type === "success" 
+                  ? '0 0 30px rgba(34, 211, 238, 0.3), 0 0 60px rgba(34, 211, 238, 0.1)' 
+                  : '0 0 30px rgba(239, 68, 68, 0.3), 0 0 60px rgba(239, 68, 68, 0.1)',
+              }}
+            >
+              <div className="flex items-start gap-3">
+                {notification.type === "success" ? (
+                  <CheckCircle className="w-5 h-5 text-cyan-400 flex-shrink-0 mt-0.5" />
+                ) : (
+                  <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+                )}
+                <p className={`flex-1 text-sm font-['PT_Mono'] ${
+                  notification.type === "success" ? "text-cyan-100" : "text-red-100"
+                } leading-relaxed`}>
+                  {notification.message}
+                </p>
+                <button
+                  onClick={() => setNotification(null)}
+                  className={`flex-shrink-0 ${
+                    notification.type === "success" ? "text-cyan-400 hover:text-cyan-300" : "text-red-400 hover:text-red-300"
+                  } transition-colors`}
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </>
   )
