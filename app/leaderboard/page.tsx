@@ -26,6 +26,10 @@ interface LeaderboardUser {
   badges: BadgeType[]
   bestBadges: BadgeType[]
   avatar: string
+  // Density Deck specific fields
+  username?: string | null
+  wins?: number
+  winrate?: number
 }
 
 export default function LeaderboardPage() {
@@ -52,7 +56,7 @@ export default function LeaderboardPage() {
           const accounts = await window.ethereum.request({ method: "eth_accounts" })
           if (accounts.length > 0) {
             setIsWalletConnected(true)
-            const avatarUrl = await fetchENSAvatar(accounts[0])
+            const avatarUrl = await fetchDensityDeckAvatar(accounts[0], null).catch(() => null)
             const ensName = await fetchENSName(accounts[0])
             setUserProfile({
               name: ensName || "OldRock User",
@@ -162,8 +166,9 @@ export default function LeaderboardPage() {
             const badges = calculateAllBadges(badgeData)
             const bestBadges = getBestBadges(badges)
 
-            // Fetch avatar (non-blocking, can fail silently)
-            const avatar = await fetchENSAvatar(user.address).catch(() => null)
+            // Fetch Density Deck avatar (non-blocking, can fail silently)
+            const avatar = await fetchDensityDeckAvatar(user.address, user.ensName).catch(() => null)
+            const avatarFallbackLetter = getAvatarFallbackLetter(user.ensName, user.address)
 
             return {
               ...user,
@@ -171,6 +176,7 @@ export default function LeaderboardPage() {
               badges,
               bestBadges,
               avatar: avatar || null,
+              avatarFallbackLetter,
               totalDensity: user.totalDensity || 0,
               unextractedDensity: user.unextractedDensity || 0,
             }
@@ -191,13 +197,76 @@ export default function LeaderboardPage() {
       }
     }
 
+  // Fetch Density Deck leaderboard data
+  const fetchDensityDeckLeaderboard = async () => {
+    setIsLoading(true)
+    setLoadingProgress(0)
+    setError(null)
+    setCurrentOffset(0)
+
+    try {
+      const response = await fetch("/api/density-deck-leaderboard")
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        console.error("❌ Density Deck leaderboard error response:", errorData)
+        
+        // Log API response structure if available
+        if (errorData.apiResponse) {
+          console.error("❌ API Response Structure:", JSON.stringify(errorData.apiResponse, null, 2))
+        }
+        
+        const errorMessage = errorData.details || errorData.error || "Unknown error"
+        const debugInfo = errorData.debug ? ` (Debug: ${JSON.stringify(errorData.debug)})` : ""
+        throw new Error(`Failed to fetch Density Deck leaderboard: ${response.status} - ${errorMessage}${debugInfo}`)
+      }
+
+      const result = await response.json()
+      
+      if (!result.success) {
+        throw new Error(result.error || "Failed to fetch Density Deck leaderboard")
+      }
+
+      if (!result.data || !Array.isArray(result.data)) {
+        throw new Error("Invalid Density Deck leaderboard data")
+      }
+
+      // Process Density Deck leaderboard data
+      const processedUsers: LeaderboardUser[] = result.data.map((entry: any) => ({
+        address: entry.address || "",
+        ensName: null,
+        displayName: entry.username || `${entry.address?.slice(0, 6)}...${entry.address?.slice(-4)}` || "Unknown",
+        totalDensity: 0,
+        unextractedDensity: 0,
+        hasOldRock: false,
+        hasGoliath: false,
+        rank: entry.rank || 0,
+        badges: [],
+        bestBadges: [],
+        avatar: entry.avatar || `https://effigy.im/a/${entry.address}.png`,
+        username: entry.username || null,
+        wins: entry.wins || 0,
+        winrate: entry.winrate || 0,
+      }))
+
+      setLeaderboardUsers(processedUsers)
+      setCurrentOffset(processedUsers.length)
+      setTotalUsers(result.total || processedUsers.length)
+      setHasMore(false) // Density Deck API returns all data at once
+      setLoadingProgress(100)
+    } catch (error) {
+      console.error("Error fetching Density Deck leaderboard:", error)
+      setError(error instanceof Error ? error.message : "Failed to load Density Deck leaderboard")
+      setLeaderboardUsers([])
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   useEffect(() => {
     if (leaderboardType === "density") {
       fetchInitialLeaderboard()
     } else {
-      // For Density Deck, show empty state for now
-      setLeaderboardUsers([])
-      setIsLoading(false)
+      fetchDensityDeckLeaderboard()
     }
   }, [leaderboardType])
 
@@ -251,8 +320,9 @@ export default function LeaderboardPage() {
           const badges = calculateAllBadges(badgeData)
           const bestBadges = getBestBadges(badges)
 
-          // Fetch avatar (non-blocking, can fail silently)
-          const avatar = await fetchENSAvatar(user.address).catch(() => null)
+          // Fetch Density Deck avatar (non-blocking, can fail silently)
+          const avatar = await fetchDensityDeckAvatar(user.address, user.ensName).catch(() => null)
+          const avatarFallbackLetter = getAvatarFallbackLetter(user.ensName, user.address)
 
           return {
             ...user,
@@ -260,6 +330,7 @@ export default function LeaderboardPage() {
             badges,
             bestBadges,
             avatar: avatar || null,
+            avatarFallbackLetter,
             totalDensity: user.totalDensity || 0,
             unextractedDensity: user.unextractedDensity || 0,
           }
@@ -286,52 +357,65 @@ export default function LeaderboardPage() {
     }
   }
 
-  const fetchENSAvatar = async (address: string) => {
+  // Fetch Density Deck avatar for a user
+  const fetchDensityDeckAvatar = async (address: string, username?: string | null) => {
     try {
-      const ensResponse = await fetch(`https://api.ensideas.com/ens/resolve/${address}`)
-      if (ensResponse.ok) {
-        const ensData = await ensResponse.json()
-        if (ensData.name) {
-          try {
-            // Create timeout controller for 5 second timeout
-            const controller = new AbortController()
-            const timeoutId = setTimeout(() => controller.abort(), 5000)
-            
-            try {
-              const avatarResponse = await fetch(`https://metadata.ens.domains/mainnet/avatar/${ensData.name}`, {
-                // Don't throw on 404 - it's expected for ENS names without avatars
-                signal: controller.signal,
-              })
-              clearTimeout(timeoutId)
-              if (avatarResponse.ok && avatarResponse.status !== 404) {
-                const avatarUrl = avatarResponse.url
-                if (avatarUrl && !avatarUrl.includes("404")) {
-                  return avatarUrl
-                }
-              }
-            } catch (fetchError: any) {
-              clearTimeout(timeoutId)
-              // Silently handle 404s and timeouts - these are expected
-              if (fetchError.name !== "AbortError" && fetchError.name !== "TypeError") {
-                // Only log unexpected errors
-              }
-            }
-          } catch (avatarError: any) {
-            // Silently handle 404s and timeouts - these are expected
-            if (avatarError.name !== "AbortError" && avatarError.name !== "TypeError") {
-              // Only log unexpected errors
-            }
+      const densityDeckApiUrl = process.env.NEXT_PUBLIC_DENSITY_DECK_API_URL || "https://api.densitydeck.com"
+      
+      // First, try to get user data to get their avatar
+      const userResponse = await fetch(`${densityDeckApiUrl}/user/${address}`, {
+        cache: "no-store",
+        headers: {
+          Accept: "application/json",
+        },
+        signal: AbortSignal.timeout(5000),
+      })
+
+      if (userResponse.ok) {
+        const userData = await userResponse.json()
+        const avatar = userData.avatar || ""
+        
+        if (avatar) {
+          // Build avatar URL
+          const avatarUrl = avatar.startsWith("http") 
+            ? avatar 
+            : `https://densitydeck.com/avatar/${avatar}`
+          
+          // Verify the avatar exists
+          const avatarCheck = await fetch(avatarUrl, { method: "HEAD", signal: AbortSignal.timeout(3000) })
+          if (avatarCheck.ok) {
+            return avatarUrl
           }
         }
       }
-      return `https://effigy.im/a/${address}.png`
-    } catch (error: any) {
-      // Silently handle network errors - fallback to effigy
-      if (error.name !== "AbortError" && error.name !== "TypeError") {
-        // Only log unexpected errors
-      }
-      return `https://effigy.im/a/${address}.png`
+    } catch (error) {
+      // Silently handle errors - avatar is optional
     }
+    return null
+  }
+
+  // Get fallback letter for avatar (first letter of username or first letter character from address)
+  const getAvatarFallbackLetter = (username?: string | null, address?: string) => {
+    // Try username first
+    if (username && username.length > 0) {
+      const firstLetter = username[0].toUpperCase()
+      if (/[A-Za-z]/.test(firstLetter)) {
+        return firstLetter
+      }
+    }
+    
+    // Fallback to address - find first letter character that is not 'x'
+    if (address) {
+      for (const char of address) {
+        if (/[A-Za-z]/.test(char) && char.toLowerCase() !== 'x') {
+          return char.toUpperCase()
+        }
+      }
+      // If no letter found, use first character
+      return address[0]?.toUpperCase() || "?"
+    }
+    
+    return "?"
   }
 
   const fetchENSName = async (address: string) => {
@@ -369,9 +453,8 @@ export default function LeaderboardPage() {
       } else if (sortBy === "totalDensity") {
         comparison = a.totalDensity - b.totalDensity
       } else if (sortBy === "densityDeck") {
-        // For now, Density Deck sorting is placeholder (coming soon)
-        // Could sort by games played, win rate, etc. when data is available
-        comparison = 0 // Keep original order for now
+        // Sort by wins (score) for Density Deck
+        comparison = (a.wins || 0) - (b.wins || 0)
       }
 
       return sortDirection === "asc" ? comparison : -comparison
@@ -1651,18 +1734,16 @@ export default function LeaderboardPage() {
                 />
               </div>
               
-              {/* Leaderboard Type Tabs */}
-              <div className="flex flex-wrap gap-2 mb-4">
+              {/* Leaderboard Type Toggle - Segmented Control Style */}
+              <div className="flex items-center gap-1 bg-gray-900/50 backdrop-blur-sm border border-gray-700/50 rounded-lg p-1">
                 <button
                   onClick={() => {
                     setLeaderboardType("density")
-                    setSortBy("rank")
-                    setSortDirection("asc")
                   }}
-                  className={`px-3 sm:px-4 py-2 rounded-lg font-pt-mono text-xs sm:text-sm font-bold transition-colors ${
+                  className={`px-4 py-2 rounded-md font-pt-mono text-xs sm:text-sm font-bold transition-all duration-200 ${
                     leaderboardType === "density"
-                      ? "bg-cyan-600 text-white"
-                      : "bg-gray-800/50 text-gray-300 hover:bg-gray-700/50"
+                      ? "bg-cyan-600 text-white shadow-lg shadow-cyan-600/20"
+                      : "text-gray-400 hover:text-gray-300"
                   }`}
                 >
                   $DENSITY
@@ -1670,34 +1751,16 @@ export default function LeaderboardPage() {
                 <button
                   onClick={() => {
                     setLeaderboardType("densityDeck")
-                    setSortBy("densityDeck")
-                    setSortDirection("desc")
                   }}
-                  className={`px-3 sm:px-4 py-2 rounded-lg font-pt-mono text-xs sm:text-sm font-bold transition-colors ${
+                  className={`px-4 py-2 rounded-md font-pt-mono text-xs sm:text-sm font-bold transition-all duration-200 ${
                     leaderboardType === "densityDeck"
-                      ? "bg-cyan-600 text-white"
-                      : "bg-gray-800/50 text-gray-300 hover:bg-gray-700/50"
+                      ? "bg-cyan-600 text-white shadow-lg shadow-cyan-600/20"
+                      : "text-gray-400 hover:text-gray-300"
                   }`}
                 >
                   DENSITY DECK
                 </button>
               </div>
-
-              {/* Sort Buttons - Only show for $DENSITY leaderboard */}
-              {leaderboardType === "density" && (
-                <div className="flex gap-2 mb-4">
-                  <button
-                    onClick={() => handleSort("totalDensity")}
-                    className={`px-3 sm:px-4 py-2 rounded-lg font-pt-mono text-xs sm:text-sm font-bold transition-colors ${
-                      sortBy === "totalDensity"
-                        ? "bg-purple-600 text-white"
-                        : "bg-gray-800/50 text-gray-300 hover:bg-gray-700/50"
-                    }`}
-                  >
-                    Sort by $DENSITY {sortBy === "totalDensity" && (sortDirection === "asc" ? "↑" : "↓")}
-                  </button>
-                </div>
-              )}
             </div>
 
             {/* Leaderboard Table - Desktop */}
@@ -1713,9 +1776,9 @@ export default function LeaderboardPage() {
                       >
                         RANK {sortBy === "rank" && (sortDirection === "asc" ? "↑" : "↓")}
                       </th>
-                      <th className="px-4 sm:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm font-pt-mono text-gray-400">PLAYER</th>
                       {leaderboardType === "density" ? (
                         <>
+                          <th className="px-4 sm:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm font-pt-mono text-gray-400">PLAYER</th>
                           <th
                             className="px-4 sm:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm font-pt-mono text-gray-400 cursor-pointer hover:text-white"
                             onClick={() => handleSort("totalDensity")}
@@ -1726,6 +1789,8 @@ export default function LeaderboardPage() {
                         </>
                       ) : (
                         <>
+                          <th className="px-4 sm:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm font-pt-mono text-gray-400">USERNAME</th>
+                          <th className="px-4 sm:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm font-pt-mono text-gray-400">AVATAR</th>
                           <th
                             className="px-4 sm:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm font-pt-mono text-gray-400 cursor-pointer hover:text-white"
                             onClick={() => handleSort("densityDeck")}
@@ -1740,7 +1805,7 @@ export default function LeaderboardPage() {
                   <tbody>
                     {error ? (
                       <tr>
-                        <td colSpan={4} className="px-4 sm:px-6 py-8 sm:py-12">
+                        <td colSpan={leaderboardType === "density" ? 4 : 5} className="px-4 sm:px-6 py-8 sm:py-12">
                           <div className="flex flex-col items-center justify-center gap-4">
                             <div className="bg-red-900/20 border border-red-500/50 rounded-lg p-6 max-w-2xl w-full">
                               <h3 className="text-red-400 text-xl font-bold mb-2">Configuration Error</h3>
@@ -1758,7 +1823,7 @@ export default function LeaderboardPage() {
                       </tr>
                     ) : isLoading ? (
                       <tr>
-                        <td colSpan={4} className="px-4 sm:px-6 py-8 sm:py-12">
+                        <td colSpan={leaderboardType === "density" ? 4 : 5} className="px-4 sm:px-6 py-8 sm:py-12">
                           <div className="flex flex-col items-center justify-center gap-4">
                             <Loader2 className="w-8 h-8 text-purple-400 animate-spin" />
                             <div className="w-full max-w-xs">
@@ -1796,29 +1861,69 @@ export default function LeaderboardPage() {
                               <span className="text-lg sm:text-xl font-black font-montserrat">#{user.rank}</span>
                             </div>
                           </td>
-                          <td className="px-3 sm:px-4 md:px-6 py-3 sm:py-4">
-                            <div className="flex items-center space-x-2 sm:space-x-3">
-                              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg overflow-hidden bg-gray-800 flex-shrink-0">
-                                <Image
-                                  src={user.avatar || "/images/rock-logo.png"}
-                                  alt={user.displayName}
-                                  width={40}
-                                  height={40}
-                                  className="object-cover w-full h-full"
-                                  onError={(e) => {
-                                    const target = e.target as HTMLImageElement
-                                    target.src = "/images/rock-logo.png"
-                                  }}
-                                />
-                              </div>
-                              <div className="min-w-0">
-                                <div className="font-bold text-white text-sm sm:text-base truncate">{user.displayName}</div>
+                          {leaderboardType === "density" ? (
+                            <>
+                              <td className="px-3 sm:px-4 md:px-6 py-3 sm:py-4">
+                                <div className="flex items-center space-x-2 sm:space-x-3">
+                                  <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg overflow-hidden bg-gray-800 flex-shrink-0 flex items-center justify-center">
+                                    {user.avatar ? (
+                                      <Image
+                                        src={user.avatar}
+                                        alt={user.displayName}
+                                        width={40}
+                                        height={40}
+                                        className="object-cover w-full h-full"
+                                        onError={(e) => {
+                                          const target = e.target as HTMLImageElement
+                                          target.style.display = 'none'
+                                          const fallback = target.nextElementSibling as HTMLElement
+                                          if (fallback) fallback.style.display = 'flex'
+                                        }}
+                                      />
+                                    ) : null}
+                                    <div 
+                                      className={`w-full h-full flex items-center justify-center text-white font-bold text-sm sm:text-base ${user.avatar ? 'hidden' : 'flex'}`}
+                                      style={{ backgroundColor: '#1f2937' }}
+                                    >
+                                      {user.avatarFallbackLetter || getAvatarFallbackLetter(user.ensName, user.address)}
+                                    </div>
+                                  </div>
+                                  <div className="min-w-0">
+                                    <div className="font-bold text-white text-sm sm:text-base truncate">{user.displayName}</div>
+                                    <div className="text-xs text-gray-400 font-mono">
+                                      {user.address.slice(0, 6)}...{user.address.slice(-4)}
+                                    </div>
+                                  </div>
+                                </div>
+                              </td>
+                            </>
+                          ) : (
+                            <>
+                              <td className="px-3 sm:px-4 md:px-6 py-3 sm:py-4">
+                                <div className="font-bold text-white text-sm sm:text-base">
+                                  {user.username || user.displayName || "Unknown"}
+                                </div>
                                 <div className="text-xs text-gray-400 font-mono">
                                   {user.address.slice(0, 6)}...{user.address.slice(-4)}
                                 </div>
-                              </div>
-                            </div>
-                          </td>
+                              </td>
+                              <td className="px-3 sm:px-4 md:px-6 py-3 sm:py-4">
+                                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg overflow-hidden bg-gray-800 flex-shrink-0">
+                                  <Image
+                                    src={user.avatar || "/images/rock-logo.png"}
+                                    alt={user.username || user.displayName || "User"}
+                                    width={48}
+                                    height={48}
+                                    className="object-cover w-full h-full"
+                                    onError={(e) => {
+                                      const target = e.target as HTMLImageElement
+                                      target.src = "/images/rock-logo.png"
+                                    }}
+                                  />
+                                </div>
+                              </td>
+                            </>
+                          )}
                           {leaderboardType === "density" ? (
                             <>
                               <td className="px-3 sm:px-4 md:px-6 py-3 sm:py-4">
@@ -1858,14 +1963,14 @@ export default function LeaderboardPage() {
                             <>
                               <td className="px-3 sm:px-4 md:px-6 py-3 sm:py-4">
                                 <div className="font-bold text-white text-sm sm:text-base">
-                                  {/* TODO: Replace with actual wins data from API */}
-                                  <span className="text-gray-400">—</span>
+                                  {user.wins !== undefined ? user.wins.toLocaleString() : <span className="text-gray-400">—</span>}
                                 </div>
                               </td>
                               <td className="px-3 sm:px-4 md:px-6 py-3 sm:py-4">
                                 <div className="font-bold text-white text-sm sm:text-base">
-                                  {/* TODO: Replace with actual winrate data from API */}
-                                  <span className="text-gray-400">—</span>
+                                  {user.winrate !== undefined && user.winrate > 0 
+                                    ? `${user.winrate.toFixed(1)}%` 
+                                    : <span className="text-gray-400">—</span>}
                                 </div>
                               </td>
                             </>
@@ -1874,7 +1979,7 @@ export default function LeaderboardPage() {
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={4} className="px-4 sm:px-6 py-6 sm:py-8 text-center text-gray-400 text-sm">
+                        <td colSpan={leaderboardType === "density" ? 4 : 5} className="px-4 sm:px-6 py-6 sm:py-8 text-center text-gray-400 text-sm">
                           {searchQuery ? "No players found matching your search." : "No leaderboard data available."}
                         </td>
                       </tr>
@@ -1931,21 +2036,35 @@ export default function LeaderboardPage() {
                       >
                         <div className="flex items-start justify-between mb-3">
                           <div className="flex items-center space-x-3 flex-1 min-w-0">
-                            <div className="w-12 h-12 rounded-lg overflow-hidden bg-gray-800 flex-shrink-0">
-                              <Image
-                                src={user.avatar || "/images/rock-logo.png"}
-                                alt={user.displayName}
-                                width={48}
-                                height={48}
-                                className="object-cover w-full h-full"
-                                onError={(e) => {
-                                  const target = e.target as HTMLImageElement
-                                  target.src = "/images/rock-logo.png"
-                                }}
-                              />
+                            <div className="w-12 h-12 rounded-lg overflow-hidden bg-gray-800 flex-shrink-0 flex items-center justify-center">
+                              {user.avatar ? (
+                                <Image
+                                  src={user.avatar}
+                                  alt={user.displayName}
+                                  width={48}
+                                  height={48}
+                                  className="object-cover w-full h-full"
+                                  onError={(e) => {
+                                    const target = e.target as HTMLImageElement
+                                    target.style.display = 'none'
+                                    const fallback = target.nextElementSibling as HTMLElement
+                                    if (fallback) fallback.style.display = 'flex'
+                                  }}
+                                />
+                              ) : null}
+                              <div 
+                                className={`w-full h-full flex items-center justify-center text-white font-bold text-base ${user.avatar ? 'hidden' : 'flex'}`}
+                                style={{ backgroundColor: '#1f2937' }}
+                              >
+                                {user.avatarFallbackLetter || getAvatarFallbackLetter(user.ensName, user.address)}
+                              </div>
                             </div>
                             <div className="min-w-0 flex-1">
-                              <div className="font-bold text-white text-base truncate">{user.displayName}</div>
+                              <div className="font-bold text-white text-base truncate">
+                                {leaderboardType === "densityDeck" 
+                                  ? (user.username || user.displayName || "Unknown")
+                                  : user.displayName}
+                              </div>
                               <div className="text-xs text-gray-400 font-mono">
                                 {user.address.slice(0, 6)}...{user.address.slice(-4)}
                               </div>
@@ -1996,13 +2115,15 @@ export default function LeaderboardPage() {
                             <div className="flex items-center justify-between">
                               <span className="text-xs text-gray-400 font-pt-mono">WINS</span>
                               <span className="font-bold text-white">
-                                <span className="text-gray-400">—</span>
+                                {user.wins !== undefined ? user.wins.toLocaleString() : <span className="text-gray-400">—</span>}
                               </span>
                             </div>
                             <div className="flex items-center justify-between pt-2 border-t border-gray-700/50">
                               <span className="text-xs text-gray-400 font-pt-mono">WIN RATE</span>
                               <span className="font-bold text-white">
-                                <span className="text-gray-400">—</span>
+                                {user.winrate !== undefined && user.winrate > 0 
+                                  ? `${user.winrate.toFixed(1)}%` 
+                                  : <span className="text-gray-400">—</span>}
                               </span>
                             </div>
                           </div>

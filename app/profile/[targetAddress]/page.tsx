@@ -595,6 +595,19 @@ export default function ProfilePage() {
       return
     }
 
+    // Check if user has an ENS name before attempting to set avatar
+    try {
+      const ensName = await getConnectedWalletENSName(window.ethereum, connectedAddress)
+      if (!ensName || !ensName.endsWith(".eth")) {
+        showNotification("You need an ENS name to set a profile picture. Please ensure your wallet has an ENS name registered.", "error")
+        return
+      }
+    } catch (error) {
+      console.error("Error checking ENS name:", error)
+      showNotification("Failed to verify ENS name. Please try again.", "error")
+      return
+    }
+
     setIsSettingAvatar(true)
     try {
       // Use the NFT image URL - convert .webp to full resolution if needed

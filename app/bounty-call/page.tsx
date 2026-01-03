@@ -3,6 +3,7 @@
 import { Header } from "@/components/header"
 import { CyberpunkBackground } from "@/components/cyberpunk-background"
 import { Sidebar } from "@/components/sidebar"
+import { Footer } from "@/components/footer"
 import { motion } from "framer-motion"
 import Image from "next/image"
 import { useState, useEffect } from "react"
@@ -506,6 +507,7 @@ export default function BountyCallPage() {
           </div>
         </section>
       </div>
+      <Footer />
     </div>
   )
 }
