@@ -42,6 +42,7 @@ export default function LeaderboardPage() {
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   const [currentOffset, setCurrentOffset] = useState(0)
   const [totalUsers, setTotalUsers] = useState(0)
+  const [leaderboardType, setLeaderboardType] = useState<"density" | "densityDeck">("density")
 
   // Check wallet connection status
   useEffect(() => {
@@ -71,8 +72,7 @@ export default function LeaderboardPage() {
   const router = useRouter()
 
   // Fetch initial top 50 leaderboard data (fast mode)
-  useEffect(() => {
-    const fetchInitialLeaderboard = async () => {
+  const fetchInitialLeaderboard = async () => {
       setIsLoading(true)
       setLoadingProgress(0)
       setError(null)
@@ -146,107 +146,36 @@ export default function LeaderboardPage() {
           return true
         })
 
-        // Process and enrich user data - fetch NFT data for accurate badge calculation
-        // Process in batches to avoid rate limiting
-        const BATCH_SIZE = 3 // Process 3 users at a time (reduced to avoid rate limiting)
-        const BATCH_DELAY = 400 // 400ms delay between batches (increased to avoid rate limiting)
-        const processedUsers: LeaderboardUser[] = []
-        
-        for (let i = 0; i < uniqueData.length; i += BATCH_SIZE) {
-          const batch = uniqueData.slice(i, i + BATCH_SIZE)
-          const batchResults = await Promise.all(
-            batch.map(async (user: any, batchIndex: number) => {
-              // Fetch NFT data for badge calculation - with retry logic
-              let oldRockNFTs: any[] = []
-              let goliathNFTs: any[] = []
-              
-              // Try fetching NFT data with retry
-              const maxRetries = 2
-              for (let retry = 0; retry <= maxRetries; retry++) {
-                try {
-                  if (retry > 0) {
-                    // Add delay between retries
-                    await new Promise(resolve => setTimeout(resolve, 500 * retry))
-                  }
-                  
-                  // Fetch directly from Amplify API to avoid auth overhead
-                  const nftResponse = await fetch(
-                    `${process.env.NEXT_PUBLIC_AMPLIFY_API_URL}/nfts/${user.address}`,
-                    {
-                      cache: "no-store",
-                      headers: {
-                        Accept: "application/json",
-                      },
-                      signal: AbortSignal.timeout(5000), // 5 second timeout
-                    }
-                  )
-                  
-                  if (nftResponse.ok) {
-                    const nftData = await nftResponse.json()
-                    oldRockNFTs = nftData?.data?.OldRocks || []
-                    goliathNFTs = nftData?.data?.Goliath || []
-                    break // Success, exit retry loop
-                  } else if (nftResponse.status === 429 || nftResponse.status >= 500) {
-                    // Rate limited or server error - retry
-                    if (retry < maxRetries) continue
-                  } else {
-                    // Other error (404, etc.) - don't retry
-                    break
-                  }
-                } catch (error) {
-                  // Network error or timeout - retry if attempts left
-                  if (retry < maxRetries) continue
-                  // Silently fail - will use empty arrays for badges
-                }
-              }
+        // Process and enrich user data - use NFT data from API response (no additional queries!)
+        const processedUsers: LeaderboardUser[] = await Promise.all(
+          uniqueData.map(async (user: any, index: number) => {
+            // Use NFT data from API response - no need to fetch again!
+            const oldRockNFTs = user.oldRockNFTs || []
+            const goliathNFTs = user.goliathNFTs || []
 
-              // Calculate badges using the NFT data we already fetched (avoid double API calls)
-              // This ensures we use the same data source and avoid rate limiting
-              const badgeData = {
-                totalDensity: user.totalDensity || 0,
-                oldRockNFTs,
-                goliathNFTs,
-              }
-              const badges = calculateAllBadges(badgeData)
-              const bestBadges = getBestBadges(badges)
-              
-              // Verify we have badges - if not, log for debugging
-              if (bestBadges.length === 0 && badges.length > 0) {
-                console.warn(`User ${user.address.slice(0, 8)}: ${badges.length} total badges but 0 best badges`, {
-                  unlocked: badges.filter(b => b.unlocked).length,
-                  categories: [...new Set(badges.map(b => b.category))],
-                  density: user.totalDensity,
-                  rocks: oldRockNFTs.length,
-                  goliaths: goliathNFTs.length,
-                })
-              } else if (bestBadges.length > 0) {
-                // Log successful badge calculation (can be removed in production)
-                console.log(`User ${user.address.slice(0, 8)}: ${bestBadges.length}/${badges.length} badges`, 
-                  bestBadges.map(b => `${b.name} (${b.category})`).join(', '))
-              }
+            // Calculate badges using the NFT data from API response
+            const badgeData = {
+              totalDensity: user.totalDensity || 0,
+              oldRockNFTs,
+              goliathNFTs,
+            }
+            const badges = calculateAllBadges(badgeData)
+            const bestBadges = getBestBadges(badges)
 
-              // Fetch avatar (non-blocking, can fail silently)
-              const avatar = await fetchENSAvatar(user.address).catch(() => null)
+            // Fetch avatar (non-blocking, can fail silently)
+            const avatar = await fetchENSAvatar(user.address).catch(() => null)
 
-              return {
-                ...user,
-                rank: i + batchIndex + 1,
-                badges,
-                bestBadges,
-                avatar: avatar || null,
-                totalDensity: user.totalDensity || 0,
-                unextractedDensity: user.unextractedDensity || 0,
-              }
-            })
-          )
-          
-          processedUsers.push(...batchResults)
-          
-          // Add delay between batches to avoid rate limiting
-          if (i + BATCH_SIZE < uniqueData.length) {
-            await new Promise(resolve => setTimeout(resolve, BATCH_DELAY))
-          }
-        }
+            return {
+              ...user,
+              rank: index + 1,
+              badges,
+              bestBadges,
+              avatar: avatar || null,
+              totalDensity: user.totalDensity || 0,
+              unextractedDensity: user.unextractedDensity || 0,
+            }
+          })
+        )
 
         setLeaderboardUsers(processedUsers)
         setCurrentOffset(50)
@@ -262,8 +191,15 @@ export default function LeaderboardPage() {
       }
     }
 
-    fetchInitialLeaderboard()
-  }, [])
+  useEffect(() => {
+    if (leaderboardType === "density") {
+      fetchInitialLeaderboard()
+    } else {
+      // For Density Deck, show empty state for now
+      setLeaderboardUsers([])
+      setIsLoading(false)
+    }
+  }, [leaderboardType])
 
   // Removed IntersectionObserver - using button instead
 
@@ -299,97 +235,36 @@ export default function LeaderboardPage() {
         return addr && !existingAddresses.has(addr)
       })
 
-      // Process and enrich new user data - fetch NFT data for accurate badge calculation
-      // Process in batches to avoid rate limiting
-      const BATCH_SIZE = 5 // Process 5 users at a time
-      const BATCH_DELAY = 200 // 200ms delay between batches
-      const processedUsers: LeaderboardUser[] = []
-      
-      for (let i = 0; i < newData.length; i += BATCH_SIZE) {
-        const batch = newData.slice(i, i + BATCH_SIZE)
-        const batchResults = await Promise.all(
-          batch.map(async (user: any, batchIndex: number) => {
-            // Fetch NFT data for badge calculation - with retry logic
-            let oldRockNFTs: any[] = []
-            let goliathNFTs: any[] = []
-            
-            // Try fetching NFT data with retry
-            const maxRetries = 2
-            for (let retry = 0; retry <= maxRetries; retry++) {
-              try {
-                if (retry > 0) {
-                  // Add delay between retries
-                  await new Promise(resolve => setTimeout(resolve, 500 * retry))
-                }
-                
-                // Fetch directly from Amplify API to avoid auth overhead
-                const amplifyApiUrl = process.env.NEXT_PUBLIC_AMPLIFY_API_URL
-                if (!amplifyApiUrl) {
-                  // Fallback to API route if env var not available (shouldn't happen)
-                  break
-                }
-                
-                const nftResponse = await fetch(
-                  `${amplifyApiUrl}/nfts/${user.address}`,
-                  {
-                    cache: "no-store",
-                    headers: {
-                      Accept: "application/json",
-                    },
-                    signal: AbortSignal.timeout(5000), // 5 second timeout
-                  }
-                )
-                
-                if (nftResponse.ok) {
-                  const nftData = await nftResponse.json()
-                  oldRockNFTs = nftData?.data?.OldRocks || []
-                  goliathNFTs = nftData?.data?.Goliath || []
-                  break // Success, exit retry loop
-                } else if (nftResponse.status === 429 || nftResponse.status >= 500) {
-                  // Rate limited or server error - retry
-                  if (retry < maxRetries) continue
-                } else {
-                  // Other error (404, etc.) - don't retry
-                  break
-                }
-              } catch (error) {
-                // Network error or timeout - retry if attempts left
-                if (retry < maxRetries) continue
-                // Silently fail - will use empty arrays for badges
-              }
-            }
+      // Process and enrich new user data - use NFT data from API response (no additional queries!)
+      const processedUsers: LeaderboardUser[] = await Promise.all(
+        newData.map(async (user: any, index: number) => {
+          // Use NFT data from API response - no need to fetch again!
+          const oldRockNFTs = user.oldRockNFTs || []
+          const goliathNFTs = user.goliathNFTs || []
 
-            // Calculate badges with actual NFT data (or density only if NFT fetch failed)
-            const badgeData = {
-              totalDensity: user.totalDensity || 0,
-              oldRockNFTs,
-              goliathNFTs,
-            }
-            const badges = calculateAllBadges(badgeData)
-            const bestBadges = getBestBadges(badges)
+          // Calculate badges using the NFT data from API response
+          const badgeData = {
+            totalDensity: user.totalDensity || 0,
+            oldRockNFTs,
+            goliathNFTs,
+          }
+          const badges = calculateAllBadges(badgeData)
+          const bestBadges = getBestBadges(badges)
 
-            // Fetch avatar (non-blocking, can fail silently)
-            const avatar = await fetchENSAvatar(user.address).catch(() => null)
+          // Fetch avatar (non-blocking, can fail silently)
+          const avatar = await fetchENSAvatar(user.address).catch(() => null)
 
-            return {
-              ...user,
-              rank: currentOffset + i + batchIndex + 1,
-              badges,
-              bestBadges,
-              avatar: avatar || null,
-              totalDensity: user.totalDensity || 0,
-              unextractedDensity: user.unextractedDensity || 0,
-            }
-          })
-        )
-        
-        processedUsers.push(...batchResults)
-        
-        // Add delay between batches to avoid rate limiting
-        if (i + BATCH_SIZE < newData.length) {
-          await new Promise(resolve => setTimeout(resolve, BATCH_DELAY))
-        }
-      }
+          return {
+            ...user,
+            rank: currentOffset + index + 1,
+            badges,
+            bestBadges,
+            avatar: avatar || null,
+            totalDensity: user.totalDensity || 0,
+            unextractedDensity: user.unextractedDensity || 0,
+          }
+        })
+      )
       
       setLeaderboardUsers((prev) => [...prev, ...processedUsers])
       
@@ -1759,8 +1634,8 @@ export default function LeaderboardPage() {
               transition={{ duration: 0.8 }}
               viewport={{ once: true }}
             >
-              <h1 className="text-4xl md:text-5xl font-black font-montserrat text-white mb-4">LEADERBOARD</h1>
-              <p className="text-gray-400 font-pt-mono text-lg">Top players ranked by performance • Updated daily</p>
+              <h1 className="text-3xl sm:text-4xl md:text-5xl font-black font-montserrat text-white mb-3 sm:mb-4">LEADERBOARD</h1>
+              <p className="text-gray-400 font-pt-mono text-sm sm:text-base md:text-lg">Top players ranked by performance • Updated daily</p>
             </motion.div>
 
             {/* Search and Filter */}
@@ -1776,61 +1651,96 @@ export default function LeaderboardPage() {
                 />
               </div>
               
-              {/* Sort Buttons */}
-              <div className="flex gap-2">
+              {/* Leaderboard Type Tabs */}
+              <div className="flex flex-wrap gap-2 mb-4">
                 <button
-                  onClick={() => handleSort("totalDensity")}
-                  className={`px-4 py-2 rounded-lg font-pt-mono text-sm font-bold transition-colors ${
-                    sortBy === "totalDensity"
-                      ? "bg-purple-600 text-white"
+                  onClick={() => {
+                    setLeaderboardType("density")
+                    setSortBy("rank")
+                    setSortDirection("asc")
+                  }}
+                  className={`px-3 sm:px-4 py-2 rounded-lg font-pt-mono text-xs sm:text-sm font-bold transition-colors ${
+                    leaderboardType === "density"
+                      ? "bg-cyan-600 text-white"
                       : "bg-gray-800/50 text-gray-300 hover:bg-gray-700/50"
                   }`}
                 >
-                  Sort by $DENSITY {sortBy === "totalDensity" && (sortDirection === "asc" ? "↑" : "↓")}
+                  $DENSITY
                 </button>
                 <button
-                  onClick={() => handleSort("densityDeck")}
-                  className={`px-4 py-2 rounded-lg font-pt-mono text-sm font-bold transition-colors ${
-                    sortBy === "densityDeck"
-                      ? "bg-purple-600 text-white"
+                  onClick={() => {
+                    setLeaderboardType("densityDeck")
+                    setSortBy("densityDeck")
+                    setSortDirection("desc")
+                  }}
+                  className={`px-3 sm:px-4 py-2 rounded-lg font-pt-mono text-xs sm:text-sm font-bold transition-colors ${
+                    leaderboardType === "densityDeck"
+                      ? "bg-cyan-600 text-white"
                       : "bg-gray-800/50 text-gray-300 hover:bg-gray-700/50"
                   }`}
                 >
-                  Sort by DENSITY DECK {sortBy === "densityDeck" && (sortDirection === "asc" ? "↑" : "↓")}
+                  DENSITY DECK
                 </button>
               </div>
+
+              {/* Sort Buttons - Only show for $DENSITY leaderboard */}
+              {leaderboardType === "density" && (
+                <div className="flex gap-2 mb-4">
+                  <button
+                    onClick={() => handleSort("totalDensity")}
+                    className={`px-3 sm:px-4 py-2 rounded-lg font-pt-mono text-xs sm:text-sm font-bold transition-colors ${
+                      sortBy === "totalDensity"
+                        ? "bg-purple-600 text-white"
+                        : "bg-gray-800/50 text-gray-300 hover:bg-gray-700/50"
+                    }`}
+                  >
+                    Sort by $DENSITY {sortBy === "totalDensity" && (sortDirection === "asc" ? "↑" : "↓")}
+                  </button>
+                </div>
+              )}
             </div>
 
-            {/* Leaderboard Table */}
+            {/* Leaderboard Table - Desktop */}
             <div className="bg-gray-900/50 backdrop-blur-sm rounded-xl overflow-hidden border border-gray-800">
-              <div className="overflow-x-auto">
+              {/* Desktop Table View */}
+              <div className="hidden md:block overflow-x-auto">
                 <table className="w-full">
                   <thead>
                     <tr className="border-b border-gray-800">
                       <th
-                        className="px-6 py-4 text-left text-sm font-pt-mono text-gray-400 cursor-pointer hover:text-white"
+                        className="px-4 sm:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm font-pt-mono text-gray-400 cursor-pointer hover:text-white"
                         onClick={() => handleSort("rank")}
                       >
                         RANK {sortBy === "rank" && (sortDirection === "asc" ? "↑" : "↓")}
                       </th>
-                      <th className="px-6 py-4 text-left text-sm font-pt-mono text-gray-400">PLAYER</th>
-                      <th
-                        className="px-6 py-4 text-left text-sm font-pt-mono text-gray-400 cursor-pointer hover:text-white"
-                        onClick={() => handleSort("totalDensity")}
-                      >
-                        TOTAL DENSITY {sortBy === "totalDensity" && (sortDirection === "asc" ? "↑" : "↓")}
-                      </th>
-                      <th className="px-6 py-4 text-left text-sm font-pt-mono text-gray-400">
-                        <div>DENSITY DECK</div>
-                        <div className="text-xs text-gray-500 font-normal mt-1">Coming Soon</div>
-                      </th>
-                      <th className="px-6 py-4 text-left text-sm font-pt-mono text-gray-400">BADGES</th>
+                      <th className="px-4 sm:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm font-pt-mono text-gray-400">PLAYER</th>
+                      {leaderboardType === "density" ? (
+                        <>
+                          <th
+                            className="px-4 sm:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm font-pt-mono text-gray-400 cursor-pointer hover:text-white"
+                            onClick={() => handleSort("totalDensity")}
+                          >
+                            TOTAL DENSITY {sortBy === "totalDensity" && (sortDirection === "asc" ? "↑" : "↓")}
+                          </th>
+                          <th className="px-4 sm:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm font-pt-mono text-gray-400">BADGES</th>
+                        </>
+                      ) : (
+                        <>
+                          <th
+                            className="px-4 sm:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm font-pt-mono text-gray-400 cursor-pointer hover:text-white"
+                            onClick={() => handleSort("densityDeck")}
+                          >
+                            WINS {sortBy === "densityDeck" && (sortDirection === "asc" ? "↑" : "↓")}
+                          </th>
+                          <th className="px-4 sm:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm font-pt-mono text-gray-400">WIN RATE</th>
+                        </>
+                      )}
                     </tr>
                   </thead>
                   <tbody>
                     {error ? (
                       <tr>
-                        <td colSpan={5} className="px-6 py-12">
+                        <td colSpan={4} className="px-4 sm:px-6 py-8 sm:py-12">
                           <div className="flex flex-col items-center justify-center gap-4">
                             <div className="bg-red-900/20 border border-red-500/50 rounded-lg p-6 max-w-2xl w-full">
                               <h3 className="text-red-400 text-xl font-bold mb-2">Configuration Error</h3>
@@ -1848,7 +1758,7 @@ export default function LeaderboardPage() {
                       </tr>
                     ) : isLoading ? (
                       <tr>
-                        <td colSpan={5} className="px-6 py-12">
+                        <td colSpan={4} className="px-4 sm:px-6 py-8 sm:py-12">
                           <div className="flex flex-col items-center justify-center gap-4">
                             <Loader2 className="w-8 h-8 text-purple-400 animate-spin" />
                             <div className="w-full max-w-xs">
@@ -1881,104 +1791,251 @@ export default function LeaderboardPage() {
                           }`}
                           onClick={() => handleRowClick(user.address)}
                         >
-                          <td className="px-6 py-4">
+                          <td className="px-3 sm:px-4 md:px-6 py-3 sm:py-4">
                             <div className="flex items-center">
-                              <span className="text-xl font-black font-montserrat">#{user.rank}</span>
+                              <span className="text-lg sm:text-xl font-black font-montserrat">#{user.rank}</span>
                             </div>
                           </td>
-                          <td className="px-6 py-4">
-                            <div className="flex items-center space-x-3">
-                              <div className="w-10 h-10 rounded-lg overflow-hidden bg-gray-800">
+                          <td className="px-3 sm:px-4 md:px-6 py-3 sm:py-4">
+                            <div className="flex items-center space-x-2 sm:space-x-3">
+                              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg overflow-hidden bg-gray-800 flex-shrink-0">
                                 <Image
                                   src={user.avatar || "/images/rock-logo.png"}
                                   alt={user.displayName}
                                   width={40}
                                   height={40}
-                                  className="object-cover"
+                                  className="object-cover w-full h-full"
                                   onError={(e) => {
                                     const target = e.target as HTMLImageElement
                                     target.src = "/images/rock-logo.png"
                                   }}
                                 />
                               </div>
-                              <div>
-                                <div className="font-bold text-white">{user.displayName}</div>
+                              <div className="min-w-0">
+                                <div className="font-bold text-white text-sm sm:text-base truncate">{user.displayName}</div>
                                 <div className="text-xs text-gray-400 font-mono">
                                   {user.address.slice(0, 6)}...{user.address.slice(-4)}
                                 </div>
                               </div>
                             </div>
                           </td>
-                          <td className="px-6 py-4">
-                            <div className="flex flex-col">
-                              <div className="flex items-center space-x-2">
-                                <Image
-                                  src="/images/density-white.svg"
-                                  alt="DENSITY"
-                                  width={20}
-                                  height={20}
-                                  className="w-5 h-5"
-                                />
-                              <span className="font-bold">
-                                {Math.round(user.totalDensity).toLocaleString()}
-                              </span>
-                              </div>
-                              {user.unextractedDensity > 0 && (
-                                <div className="text-xs text-gray-500 mt-1 ml-7">
-                                  {Math.round(user.unextractedDensity).toLocaleString()} unextracted
+                          {leaderboardType === "density" ? (
+                            <>
+                              <td className="px-3 sm:px-4 md:px-6 py-3 sm:py-4">
+                                <div className="flex flex-col">
+                                  <div className="flex items-center space-x-1 sm:space-x-2">
+                                    <Image
+                                      src="/images/density-white.svg"
+                                      alt="DENSITY"
+                                      width={20}
+                                      height={20}
+                                      className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0"
+                                    />
+                                    <span className="font-bold text-sm sm:text-base">
+                                      {Math.round(user.totalDensity).toLocaleString()}
+                                    </span>
+                                  </div>
+                                  {user.unextractedDensity > 0 && (
+                                    <div className="text-xs text-gray-500 mt-1 ml-5 sm:ml-7">
+                                      {Math.round(user.unextractedDensity).toLocaleString()} unextracted
+                                    </div>
+                                  )}
                                 </div>
-                              )}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4">
-                            <div className="text-gray-500 text-sm">
-                              <div>Wins: <span className="text-gray-400">—</span></div>
-                              <div>Win Rate: <span className="text-gray-400">—</span></div>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4">
-                            <div className="flex space-x-2">
-                              {user.bestBadges.length > 0 ? (
-                                user.bestBadges.map((badge) => (
-                                  <BadgeIconWithTooltip key={badge.id} badge={badge} />
-                                ))
-                              ) : (
-                                <span className="text-gray-500 text-sm">—</span>
-                              )}
-                            </div>
-                          </td>
+                              </td>
+                              <td className="px-3 sm:px-4 md:px-6 py-3 sm:py-4">
+                                <div className="flex space-x-1 sm:space-x-2 flex-wrap">
+                                  {user.bestBadges.length > 0 ? (
+                                    user.bestBadges.map((badge) => (
+                                      <BadgeIconWithTooltip key={badge.id} badge={badge} />
+                                    ))
+                                  ) : (
+                                    <span className="text-gray-500 text-xs sm:text-sm">—</span>
+                                  )}
+                                </div>
+                              </td>
+                            </>
+                          ) : (
+                            <>
+                              <td className="px-3 sm:px-4 md:px-6 py-3 sm:py-4">
+                                <div className="font-bold text-white text-sm sm:text-base">
+                                  {/* TODO: Replace with actual wins data from API */}
+                                  <span className="text-gray-400">—</span>
+                                </div>
+                              </td>
+                              <td className="px-3 sm:px-4 md:px-6 py-3 sm:py-4">
+                                <div className="font-bold text-white text-sm sm:text-base">
+                                  {/* TODO: Replace with actual winrate data from API */}
+                                  <span className="text-gray-400">—</span>
+                                </div>
+                              </td>
+                            </>
+                          )}
                         </tr>
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={5} className="px-6 py-8 text-center text-gray-400">
+                        <td colSpan={4} className="px-4 sm:px-6 py-6 sm:py-8 text-center text-gray-400 text-sm">
                           {searchQuery ? "No players found matching your search." : "No leaderboard data available."}
                         </td>
                       </tr>
                     )}
                   </tbody>
                 </table>
-                
-                {/* Load More Button - Only show after initial load is complete */}
-                {!isLoading && hasMore && !searchQuery && (
-                  <div className="py-8 text-center">
-                    <button
-                      onClick={loadMoreUsers}
-                      disabled={isLoadingMore}
-                      className="px-8 py-3 bg-gray-800 hover:bg-gray-700 border border-gray-700 hover:border-gray-600 text-white font-medium font-pt-mono rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 mx-auto"
-                    >
-                      {isLoadingMore ? (
-                        <>
-                          <Loader2 className="w-5 h-5 animate-spin" />
-                          <span>Loading more...</span>
-                        </>
-                      ) : (
-                        <span>Load More</span>
-                      )}
-                    </button>
+              </div>
+
+              {/* Mobile Card View */}
+              <div className="md:hidden space-y-3 p-4">
+                {error ? (
+                  <div className="bg-red-900/20 border border-red-500/50 rounded-lg p-6">
+                    <h3 className="text-red-400 text-lg font-bold mb-2">Configuration Error</h3>
+                    <p className="text-gray-300 text-sm mb-4">{error}</p>
+                    {error.includes("NEXT_PUBLIC_AMPLIFY_API_URL") && (
+                      <div className="text-left bg-gray-900/50 rounded p-4 mt-4">
+                        <p className="text-xs text-gray-400 mb-2">To fix this, add the following to your <code className="text-purple-400">.env.local</code> file:</p>
+                        <code className="text-green-400 text-xs block break-all">NEXT_PUBLIC_AMPLIFY_API_URL=your_api_url_here</code>
+                        <p className="text-xs text-gray-500 mt-2">After adding the variable, restart your development server.</p>
+                      </div>
+                    )}
+                  </div>
+                ) : isLoading ? (
+                  <div className="flex flex-col items-center justify-center gap-4 py-12">
+                    <Loader2 className="w-8 h-8 text-purple-400 animate-spin" />
+                    <div className="w-full max-w-xs">
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-gray-400 font-pt-mono text-xs">Loading leaderboard...</p>
+                        <p className="text-purple-400 font-pt-mono text-xs font-bold">
+                          {Math.round(loadingProgress)}%
+                        </p>
+                      </div>
+                      <div className="w-full bg-gray-800 rounded-lg h-2 overflow-hidden">
+                        <motion.div
+                          className="bg-purple-500 h-full rounded-lg"
+                          initial={{ width: 0 }}
+                          animate={{ width: `${loadingProgress}%` }}
+                          transition={{ duration: 0.3, ease: "easeOut" }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ) : filteredUsers.length > 0 ? (
+                  <>
+                    {filteredUsers.map((user) => (
+                      <div
+                        key={user.address}
+                        onClick={() => handleRowClick(user.address)}
+                        className={`bg-gray-800/50 rounded-lg p-4 border border-gray-700/50 cursor-pointer transition-colors ${
+                          userProfile?.address?.toLowerCase() === user.address.toLowerCase()
+                            ? "bg-purple-900/20 border-purple-500/50"
+                            : "hover:bg-gray-800/70"
+                        }`}
+                      >
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex items-center space-x-3 flex-1 min-w-0">
+                            <div className="w-12 h-12 rounded-lg overflow-hidden bg-gray-800 flex-shrink-0">
+                              <Image
+                                src={user.avatar || "/images/rock-logo.png"}
+                                alt={user.displayName}
+                                width={48}
+                                height={48}
+                                className="object-cover w-full h-full"
+                                onError={(e) => {
+                                  const target = e.target as HTMLImageElement
+                                  target.src = "/images/rock-logo.png"
+                                }}
+                              />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="font-bold text-white text-base truncate">{user.displayName}</div>
+                              <div className="text-xs text-gray-400 font-mono">
+                                {user.address.slice(0, 6)}...{user.address.slice(-4)}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="text-lg font-black font-montserrat text-cyan-400 flex-shrink-0 ml-2">
+                            #{user.rank}
+                          </div>
+                        </div>
+                        
+                        {leaderboardType === "density" ? (
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs text-gray-400 font-pt-mono">TOTAL DENSITY</span>
+                              <div className="flex items-center space-x-2">
+                                <Image
+                                  src="/images/density-white.svg"
+                                  alt="DENSITY"
+                                  width={16}
+                                  height={16}
+                                  className="w-4 h-4"
+                                />
+                                <span className="font-bold text-white">
+                                  {Math.round(user.totalDensity).toLocaleString()}
+                                </span>
+                              </div>
+                            </div>
+                            {user.unextractedDensity > 0 && (
+                              <div className="text-xs text-gray-500 text-right">
+                                {Math.round(user.unextractedDensity).toLocaleString()} unextracted
+                              </div>
+                            )}
+                            <div className="flex items-center justify-between pt-2 border-t border-gray-700/50">
+                              <span className="text-xs text-gray-400 font-pt-mono">BADGES</span>
+                              <div className="flex space-x-2">
+                                {user.bestBadges.length > 0 ? (
+                                  user.bestBadges.map((badge) => (
+                                    <BadgeIconWithTooltip key={badge.id} badge={badge} />
+                                  ))
+                                ) : (
+                                  <span className="text-gray-500 text-xs">—</span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs text-gray-400 font-pt-mono">WINS</span>
+                              <span className="font-bold text-white">
+                                <span className="text-gray-400">—</span>
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-between pt-2 border-t border-gray-700/50">
+                              <span className="text-xs text-gray-400 font-pt-mono">WIN RATE</span>
+                              <span className="font-bold text-white">
+                                <span className="text-gray-400">—</span>
+                              </span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </>
+                ) : (
+                  <div className="text-center py-8 text-gray-400 text-sm">
+                    {searchQuery ? "No players found matching your search." : "No leaderboard data available."}
                   </div>
                 )}
               </div>
+                
+              {/* Load More Button - Only show after initial load is complete */}
+              {!isLoading && hasMore && !searchQuery && (
+                <div className="py-6 md:py-8 text-center border-t border-gray-800">
+                  <button
+                    onClick={loadMoreUsers}
+                    disabled={isLoadingMore}
+                    className="px-6 sm:px-8 py-2 sm:py-3 bg-gray-800 hover:bg-gray-700 border border-gray-700 hover:border-gray-600 text-white text-sm sm:text-base font-medium font-pt-mono rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 mx-auto"
+                  >
+                    {isLoadingMore ? (
+                      <>
+                        <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin" />
+                        <span>Loading more...</span>
+                      </>
+                    ) : (
+                      <span>Load More</span>
+                    )}
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* How to Rank Up */}

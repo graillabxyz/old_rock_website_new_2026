@@ -253,6 +253,19 @@ async function processBatch(
         rankingScore,
         oldRockCount: oldRockNFTs.length,
         goliathCount: goliathNFTs.length,
+        // Include NFT data to avoid duplicate queries on frontend
+        oldRockNFTs: oldRockNFTs.map((nft: any) => ({
+          tokenId: nft.tokenId || nft.token_id,
+          name: nft.name,
+          image: nft.image,
+          attributes: nft.attributes,
+        })),
+        goliathNFTs: goliathNFTs.map((nft: any) => ({
+          tokenId: nft.tokenId || nft.token_id,
+          name: nft.name,
+          image: nft.image,
+          attributes: nft.attributes,
+        })),
       }
     } catch (error) {
       console.error(`Error fetching data for ${address}:`, error)
@@ -400,6 +413,19 @@ async function fetchTopUsersFast(limit: number, amplifyApiUrl: string): Promise<
             rankingScore,
             oldRockCount: oldRockNFTs.length,
             goliathCount: goliathNFTs.length,
+            // Include NFT data to avoid duplicate queries on frontend
+            oldRockNFTs: oldRockNFTs.map((nft: any) => ({
+              tokenId: nft.tokenId || nft.token_id,
+              name: nft.name,
+              image: nft.image,
+              attributes: nft.attributes,
+            })),
+            goliathNFTs: goliathNFTs.map((nft: any) => ({
+              tokenId: nft.tokenId || nft.token_id,
+              name: nft.name,
+              image: nft.image,
+              attributes: nft.attributes,
+            })),
           }
         } catch (error) {
           return null

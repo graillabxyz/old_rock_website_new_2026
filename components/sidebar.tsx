@@ -5,7 +5,7 @@ import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { motion, AnimatePresence } from "framer-motion"
-import { ChevronRight, FileText, BookOpen, BarChart3, Menu, X, Settings, User, Boxes, Package } from "lucide-react"
+import { ChevronRight, BookOpen, BarChart3, Menu, X, Settings, User, Boxes, Package } from "lucide-react"
 import { AudioPlayer } from "@/components/audio-player"
 import { WalletSelector } from "@/components/wallet-selector"
 
@@ -238,12 +238,6 @@ export function Sidebar() {
       name: "Leaderboard",
       icon: <BarChart3 className="w-5 h-5" />,
       href: "/leaderboard",
-    },
-    {
-      name: "Documentation",
-      icon: <FileText className="w-5 h-5" />,
-      href: "https://docs.oldrocknft.com",
-      isExternal: true,
     },
     {
       name: "Comic",
