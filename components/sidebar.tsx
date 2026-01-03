@@ -21,7 +21,7 @@ type MenuItem = {
   onClick?: () => void
   iconSize?: number
   hasSubmenu?: boolean
-  submenuItems?: { name: string; href: string; disabled?: boolean, disabledText?: string }[]
+  submenuItems?: { name: string; href: string; disabled?: boolean, disabledText?: string, isExternal?: boolean }[]
 }
 
 export function Sidebar() {
@@ -174,10 +174,34 @@ export function Sidebar() {
 
   const mainMenuItems: MenuItem[] = [
     {
-      name: "Airdrop",
-      icon: <Package className="w-5 h-5" />,
-      href: "https://airdrop.oldrocknft.com",
-      isExternal: true,
+      name: "Density",
+      icon: "/icons/density-icon.png",
+      href: "#",
+      disabled: true,
+      disabledText: "coming soon",
+    },
+    {
+      name: "NFTs",
+      icon: <Boxes className="w-5 h-5" />,
+      href: "#",
+      hasSubmenu: true,
+      submenuItems: [
+        {
+          name: "Collections",
+          href: "/collections",
+          isExternal: false,
+        },
+        {
+          name: "Staking",
+          href: "https://amplify.oldrocknft.com",
+          isExternal: true,
+        },
+        {
+          name: "Mint",
+          href: "https://mint.oldrocknft.com",
+          isExternal: true,
+        },
+      ],
     },
     {
       name: "Density Deck Beta",
@@ -196,16 +220,15 @@ export function Sidebar() {
       ],
     },
     {
-      name: "Amplify NFT Soft Staking",
-      icon: "/icons/amplify-icon.png",
-      href: "https://amplify.oldrocknft.com",
-      isExternal: true,
+      name: "Leaderboard",
+      icon: <BarChart3 className="w-5 h-5" />,
+      href: "/leaderboard",
     },
     {
-      name: "Goliath Mint",
-      icon: "/icons/goliath-icon.png",
-      href: "https://mint.oldrocknft.com",
-      isExternal: true,
+      name: "Comic",
+      icon: <BookOpen className="w-5 h-5" />,
+      href: "/comic",
+      isExternal: false,
     },
     {
       name: "Stonebound Souls",
@@ -229,28 +252,6 @@ export function Sidebar() {
       ],
     },
     {
-      name: "Density",
-      icon: "/icons/density-icon.png",
-      href: "#",
-      disabled: true,
-    },
-    {
-      name: "Leaderboard",
-      icon: <BarChart3 className="w-5 h-5" />,
-      href: "/leaderboard",
-    },
-    {
-      name: "Comic",
-      icon: <BookOpen className="w-5 h-5" />,
-      href: "/comic",
-      isExternal: false,
-    },
-    {
-      name: "NFT Collections",
-      icon: <Boxes className="w-5 h-5" />,
-      href: "/collections",
-    },
-    {
       name: "BountyCall",
       icon: "/icons/bc.png",
       href: "/bounty-call",
@@ -262,21 +263,29 @@ export function Sidebar() {
   const getMenuItems = () => {
     const items = [...mainMenuItems]
 
-    // Add profile item for connected users
-    if (
-      isWalletConnected &&
-      userProfile?.address
-    ) {
-      const profileItem = {
-        name: "Profile",
-        icon: <User className="w-5 h-5" />,
-        href: `/profile/${userProfile?.address}`,
-        hasArrow: true,
-        isProfile: true,
-      };
-
-      items.splice(6, 0, profileItem) // Insert profile after Density (index 5 + 1)
+    // Always show Profile item (after Leaderboard, before Comic)
+    // If not connected, clicking will prompt wallet connection
+    const profileItem = {
+      name: "Profile",
+      icon: <User className="w-5 h-5" />,
+      href: isWalletConnected && userProfile?.address 
+        ? `/profile/${userProfile.address}` 
+        : "#",
+      hasArrow: true,
+      isProfile: true,
+      onClick: isWalletConnected && userProfile?.address 
+        ? undefined 
+        : () => {
+            // Show wallet selector if not connected
+            setShowWalletSelector(true)
+            if (isMobile) {
+              setMobileMenuOpen(false)
+            }
+          },
     }
+
+    // Insert profile after Leaderboard (index 3)
+    items.splice(4, 0, profileItem)
 
     // Add admin item for authorized users
     if (
@@ -415,7 +424,7 @@ export function Sidebar() {
       return (
         <button
           onClick={() => {
-            item.onClick()
+            item.onClick?.()
             handleMobileMenuItemClick()
           }}
           className={`${baseClasses} cursor-pointer w-full text-left`}
@@ -567,7 +576,7 @@ export function Sidebar() {
         <div className="h-[72px] border-b border-white/20 flex items-center relative">
           <Link
             href="/"
-            className="absolute left-4 top-1/2 transform -translate-y-1/2 w-10 h-10 flex-shrink-0 transition-transform hover:scale-110"
+            className="absolute left-4 top-1/2 transform -translate-y-1/2 w-10 h-10 flex-shrink-0 transition-transform hover:scale-110 flex items-center justify-center"
           >
             <Image
               src="/images/rock-logo.png"
@@ -579,6 +588,29 @@ export function Sidebar() {
               sizes="40px"
             />
           </Link>
+          
+          {/* Airdrop Button - Top Right (only when expanded) */}
+          {(isExpanded || (isMobile && mobileMenuOpen)) && (
+            <motion.a
+              href="https://airdrop.oldrocknft.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="absolute right-4 top-[calc(50%-20px)] transform -translate-y-1/2 w-10 h-10 flex items-center justify-center rounded-lg bg-white/10 hover:bg-white/20 transition-all duration-200 group"
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.2, duration: 0.3 }}
+            >
+              <Package className="w-5 h-5 text-white" />
+              
+              {/* Tooltip */}
+              <div className="absolute right-full mr-2 top-1/2 transform -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none">
+                <div className="bg-gray-900 text-white text-xs font-pt-mono px-2 py-1 rounded whitespace-nowrap border border-white/20">
+                  Airdrop
+                  <div className="absolute left-full top-1/2 transform -translate-y-1/2 border-4 border-transparent border-l-gray-900"></div>
+                </div>
+              </div>
+            </motion.a>
+          )}
         </div>
 
         <div className="flex-1 overflow-y-auto py-4">
@@ -605,6 +637,16 @@ export function Sidebar() {
                             <span>{subItem.name}</span>
                             <span className="text-xs bg-gray-700 px-2 py-1 rounded-l">{subItem.disabledText || 'Coming Soon'}</span>
                           </div>
+                        ) : subItem.isExternal ? (
+                          <a
+                            href={subItem.href}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-sm text-white hover:text-gray-300 transition-colors"
+                            onClick={() => handleMobileMenuItemClick()}
+                          >
+                            {subItem.name}
+                          </a>
                         ) : (
                           <Link
                             href={subItem.href}
