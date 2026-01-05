@@ -253,19 +253,12 @@ export default function LeaderboardPage() {
     setCurrentOffset(0)
 
     try {
-      const response = await fetch("/api/density-deck-leaderboard")
+      // Fetch page 1 with limit 50
+      const response = await fetch("/api/density-deck-leaderboard?page=1&limit=50")
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
         console.error("❌ Density Deck leaderboard error response:", errorData)
-
-        // Log API response structure if available
-        if (errorData.apiResponse) {
-          console.error("❌ API Response Structure:", JSON.stringify(errorData.apiResponse, null, 2))
-        }
-
-        const errorMessage = errorData.details || errorData.error || "Unknown error"
-        const debugInfo = errorData.debug ? ` (Debug: ${JSON.stringify(errorData.debug)})` : ""
-        throw new Error(`Failed to fetch Density Deck leaderboard: ${response.status} - ${errorMessage}${debugInfo}`)
+        throw new Error(`Failed to fetch Density Deck leaderboard: ${response.status}`)
       }
 
       const result = await response.json()
@@ -278,28 +271,12 @@ export default function LeaderboardPage() {
         throw new Error("Invalid Density Deck leaderboard data")
       }
 
-      // Process Density Deck leaderboard data
-      const processedUsers: LeaderboardUser[] = result.data.map((entry: any) => ({
-        address: entry.address || "",
-        ensName: null,
-        displayName: entry.username || `${entry.address?.slice(0, 6)}...${entry.address?.slice(-4)}` || "Unknown",
-        totalDensity: 0,
-        unextractedDensity: 0,
-        hasOldRock: false,
-        hasGoliath: false,
-        rank: entry.rank || 0,
-        badges: [],
-        bestBadges: [],
-        avatar: entry.avatar || `https://effigy.im/a/${entry.address}.png`,
-        username: entry.username || null,
-        wins: entry.wins || 0,
-        winrate: entry.winrate || 0,
-      }))
-
-      setLeaderboardUsers(processedUsers)
-      setCurrentOffset(processedUsers.length)
-      setTotalUsers(result.total || processedUsers.length)
-      setHasMore(false) // Density Deck API returns all data at once
+      setLeaderboardUsers(result.data)
+      // Set offset to the number of users loaded
+      setCurrentOffset(result.data.length)
+      // If we got a full page (50), assume there's more
+      setHasMore(result.data.length === 50)
+      setTotalUsers(result.total || (result.data.length === 50 ? 9999 : result.data.length))
       setLoadingProgress(100)
     } catch (error) {
       console.error("Error fetching Density Deck leaderboard:", error)
@@ -325,78 +302,91 @@ export default function LeaderboardPage() {
 
     setIsLoadingMore(true)
     try {
-      // Load next 50 from cache (or full query if cache is stale)
-      const response = await fetch(`/api/leaderboard?limit=50&offset=${currentOffset}`)
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        console.error("Error loading more users:", response.status, errorData)
-        throw new Error(`Failed to fetch more leaderboard data: ${response.status}`)
-      }
+      let newData: any[] = []
 
-      const result = await response.json()
-      if (!result.success) {
-        console.warn("Load more API returned unsuccessful:", result.error || "Unknown error")
-        setHasMore(false)
-        return
-      }
+      if (leaderboardType === "density") {
+        // Load next 50 from cache (or full query if cache is stale)
+        const response = await fetch(`/api/leaderboard?limit=50&offset=${currentOffset}`)
+        if (!response.ok) {
+          throw new Error(`Failed to fetch more leaderboard data: ${response.status}`)
+        }
+        const result = await response.json()
+        if (!result.success || !result.data) {
+          setHasMore(false)
+          return
+        }
 
-      if (!result.data || result.data.length === 0) {
-        setHasMore(false)
-        return
-      }
-
-      // Deduplicate by address to prevent doubles BEFORE processing
-      const existingAddresses = new Set(leaderboardUsers.map(u => u.address.toLowerCase()))
-      const newData = result.data.filter((user: any) => {
-        const addr = user.address?.toLowerCase()
-        return addr && !existingAddresses.has(addr)
-      })
-
-      // Process and enrich new user data - use NFT data from API response (no additional queries!)
-      const processedUsers: LeaderboardUser[] = await Promise.all(
-        newData.map(async (user: any, index: number) => {
-          // Use NFT data from API response - no need to fetch again!
-          const oldRockNFTs = user.oldRockNFTs || []
-          const goliathNFTs = user.goliathNFTs || []
-
-          // Calculate badges using the NFT data from API response
-          const badgeData = {
-            totalDensity: user.totalDensity || 0,
-            oldRockNFTs,
-            goliathNFTs,
-          }
-          const badges = calculateAllBadges(badgeData)
-          const bestBadges = getBestBadges(badges)
-
-          // Avatar fetch disabled for performance
-          const avatar = null
-          const avatarFallbackLetter = getAvatarFallbackLetter(user.ensName, user.address)
-
-          return {
-            ...user,
-            rank: currentOffset + index + 1,
-            badges,
-            bestBadges,
-            avatar: avatar || null,
-            avatarFallbackLetter,
-            totalDensity: user.totalDensity || 0,
-            unextractedDensity: user.unextractedDensity || 0,
-          }
+        // Deduplicate by address to prevent doubles BEFORE processing
+        const existingAddresses = new Set(leaderboardUsers.map(u => u.address.toLowerCase()))
+        const filteredData = result.data.filter((user: any) => {
+          const addr = user.address?.toLowerCase()
+          return addr && !existingAddresses.has(addr)
         })
-      )
 
-      setLeaderboardUsers((prev) => [...prev, ...processedUsers])
+        // Process and enrich new user data
+        const processedUsers: LeaderboardUser[] = await Promise.all(
+          filteredData.map(async (user: any, index: number) => {
+            const oldRockNFTs = user.oldRockNFTs || []
+            const goliathNFTs = user.goliathNFTs || []
+            const badgeData = {
+              totalDensity: user.totalDensity || 0,
+              oldRockNFTs,
+              goliathNFTs,
+            }
+            const badges = calculateAllBadges(badgeData)
+            const bestBadges = getBestBadges(badges)
+            const avatarFallbackLetter = getAvatarFallbackLetter(user.ensName, user.address)
 
-      // Update offset and check if there are more users to load
-      const newOffset = currentOffset + processedUsers.length
-      setCurrentOffset(newOffset)
+            return {
+              ...user,
+              rank: currentOffset + index + 1,
+              badges,
+              bestBadges,
+              avatar: null,
+              avatarFallbackLetter,
+              totalDensity: user.totalDensity || 0,
+              unextractedDensity: user.unextractedDensity || 0,
+            }
+          })
+        )
+        newData = processedUsers
 
-      // Check if there are more users: either we got a full batch (50) and total is greater than new offset
-      // or if total is not available, check if we got a full batch
-      const hasMoreData = result.total
-        ? newOffset < result.total
-        : processedUsers.length === 50
-      setHasMore(hasMoreData)
+        // Check if there are more users
+        if (result.total) {
+          setHasMore(currentOffset + newData.length < result.total)
+        } else {
+          setHasMore(newData.length === 50)
+        }
+
+      } else {
+        // Density Deck pagination
+        // Calculate page number based on current offset and limit (50)
+        const limit = 50
+        const page = Math.floor(currentOffset / limit) + 1
+
+        const response = await fetch(`/api/density-deck-leaderboard?page=${page + 1}&limit=${limit}`)
+        if (!response.ok) {
+          throw new Error(`Failed to fetch more Density Deck data: ${response.status}`)
+        }
+
+        const result = await response.json()
+        if (!result.success || !result.data) {
+          setHasMore(false)
+          return
+        }
+
+        newData = result.data
+        // For Density Deck, we just check if we got a full page
+        setHasMore(newData.length === limit)
+      }
+
+      if (newData.length > 0) {
+        setLeaderboardUsers((prev) => [...prev, ...newData])
+        setCurrentOffset((prev) => prev + newData.length)
+      } else {
+        setHasMore(false)
+      }
+
     } catch (error) {
       console.error("Error loading more users:", error)
       setHasMore(false)
