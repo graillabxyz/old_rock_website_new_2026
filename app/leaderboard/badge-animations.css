@@ -1,157 +1,190 @@
-/* Standard Keyframes */
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+/* Badge Category "DNA" Constants */
+:root {
+  --badge-color: #ffffff;
+  --tier-intensity: 1;
+  --tier-scale: 1;
+  --tier-complexity: 1;
 }
 
-@keyframes reverse-spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(-360deg); }
+/* Category: Density (Mass/Gravity) */
+@keyframes density-pulse {
+
+  0%,
+  100% {
+    transform: scale(calc(1 * var(--tier-scale)));
+    opacity: calc(0.6 * var(--tier-intensity));
+  }
+
+  50% {
+    transform: scale(calc(1.15 * var(--tier-scale)));
+    opacity: calc(1 * var(--tier-intensity));
+  }
 }
 
-@keyframes pulse-opacity {
-  0%, 100% { opacity: 0.5; }
-  50% { opacity: 1; }
+@keyframes density-swirl {
+  from {
+    transform: rotate(0deg) scale(calc(0.9 * var(--tier-scale)));
+  }
+
+  to {
+    transform: rotate(360deg) scale(calc(1.1 * var(--tier-scale)));
+  }
 }
 
-@keyframes pulse-scale {
-  0%, 100% { transform: scale(1); opacity: 0.7; }
-  50% { transform: scale(1.15); opacity: 1; }
+/* Category: Ownership (Crystalline Growth) */
+@keyframes ownership-rotate {
+  from {
+    transform: rotate(0deg) scale(calc(0.8 * var(--tier-scale)));
+  }
+
+  to {
+    transform: rotate(calc(90deg * var(--tier-complexity))) scale(calc(1 * var(--tier-scale)));
+  }
 }
 
-@keyframes pulse-ring {
-  0% { transform: scale(0.8); opacity: 0.5; }
-  100% { transform: scale(1.3); opacity: 0; }
+@keyframes ownership-flicker {
+
+  0%,
+  100% {
+    opacity: 0.8;
+    filter: brightness(1);
+  }
+
+  50% {
+    opacity: 1;
+    filter: brightness(calc(1.2 * var(--tier-intensity)));
+  }
 }
 
-@keyframes orbit {
-  0% { transform: rotate(0deg) translateX(var(--orbit-radius)) rotate(0deg); }
-  100% { transform: rotate(360deg) translateX(var(--orbit-radius)) rotate(-360deg); }
+/* Category: Goliath (Titan Energy) */
+@keyframes goliath-rings {
+  0% {
+    transform: scale(0.5);
+    opacity: 0;
+  }
+
+  50% {
+    opacity: calc(0.5 * var(--tier-intensity));
+  }
+
+  100% {
+    transform: scale(calc(1.5 * var(--tier-scale)));
+    opacity: 0;
+  }
 }
 
-@keyframes flicker {
-  0%, 100% { opacity: 0.8; transform: scaleY(1); }
-  25% { opacity: 0.6; transform: scaleY(1.1); }
-  50% { opacity: 0.9; transform: scaleY(0.9); }
-  75% { opacity: 0.7; transform: scaleY(1.05); }
+@keyframes goliath-vibration {
+
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+
+  25% {
+    transform: translate(calc(-1px * var(--tier-intensity)), calc(1px * var(--tier-intensity)));
+  }
+
+  75% {
+    transform: translate(calc(1px * var(--tier-intensity)), calc(-1px * var(--tier-intensity)));
+  }
 }
 
-@keyframes float {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-5px); }
+/* Category: Reactive (Plasma/Flares) */
+@keyframes reactive-flare {
+
+  0%,
+  100% {
+    transform: scale(1) rotate(0deg);
+    opacity: 0.7;
+  }
+
+  33% {
+    transform: scale(calc(1.2 * var(--tier-scale))) rotate(calc(120deg * var(--tier-complexity)));
+    opacity: 1;
+  }
+
+  66% {
+    transform: scale(calc(0.8 * var(--tier-scale))) rotate(calc(240deg * var(--tier-complexity)));
+    opacity: 0.9;
+  }
 }
 
-/* Utility Animations */
-.animate-spin-slow {
-  animation: spin 8s linear infinite;
+/* DNA Classes */
+.dna-density {
+  animation: density-pulse calc(4s / var(--tier-intensity)) infinite ease-in-out;
+  background: radial-gradient(circle, var(--badge-color) 0%, transparent 70%);
+  filter: blur(2px);
 }
 
-.animate-reverse-spin-slow {
-  animation: reverse-spin 12s linear infinite;
+.dna-density-core {
+  animation: density-swirl calc(10s / var(--tier-intensity)) infinite linear;
+  border: 1px solid var(--badge-color);
+  opacity: 0.4;
 }
 
-.animate-pulse-slow {
-  animation: pulse-opacity 3s ease-in-out infinite;
+.dna-ownership {
+  animation: ownership-rotate calc(8s / var(--tier-intensity)) infinite alternate ease-in-out,
+    ownership-flicker calc(2s / var(--tier-intensity)) infinite ease-in-out;
 }
 
-.animate-pulse-scale {
-  animation: pulse-scale 3s ease-in-out infinite;
+.dna-goliath {
+  animation: goliath-vibration 0.1s infinite;
 }
 
-.animate-flicker {
-  animation: flicker 2s ease-in-out infinite;
-}
-
-/* Specific Badge Effects */
-
-/* Pure Badge */
-.pure-pulse {
-  animation: pulse-scale 4s ease-in-out infinite;
-}
-
-.pure-ring {
-  animation: pulse-ring 4s ease-out infinite;
-}
-
-/* Polar Badge */
-.fire-flame {
-  animation: flicker 1.5s ease-in-out infinite;
-  transform-origin: bottom center;
-}
-
-.black-hole-spin {
-  animation: spin 10s linear infinite;
-}
-
-.black-hole-pulse {
-  animation: pulse-scale 5s ease-in-out infinite;
-}
-
-/* Recurrent Badge */
-.recurrent-sparkle {
-  animation: pulse-opacity 2s ease-in-out infinite;
-}
-
-/* Singularity Badge */
-.singularity-ring {
-  animation: spin 10s linear infinite;
-}
-
-.singularity-core {
-  animation: pulse-scale 3s ease-in-out infinite;
-}
-
-/* Gravity Well */
-.gravity-ring {
-  animation: pulse-ring 3s ease-in infinite reverse; /* Implosion effect */
-}
-
-/* High/Medium/Low Density Core */
-.density-ring {
-  animation: pulse-ring 3s ease-out infinite;
-}
-
-.density-orbit {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: var(--particle-size);
-  height: var(--particle-size);
-  margin-top: calc(var(--particle-size) / -2);
-  margin-left: calc(var(--particle-size) / -2);
+.dna-goliath-ring {
+  animation: goliath-rings calc(3s / var(--tier-intensity)) infinite ease-out;
+  border: 2px solid var(--badge-color);
   border-radius: 50%;
-  animation: orbit var(--orbit-duration) linear infinite;
+  opacity: 0;
 }
 
-.density-core {
-  animation: pulse-scale 3s ease-in-out infinite;
+.dna-reactive {
+  animation: reactive-flare calc(0.5s / var(--tier-intensity)) infinite;
+  mix-blend-mode: screen;
 }
 
-/* Full Spectrum */
-.rainbow-spin {
-  animation: spin 5s linear infinite;
+/* Tier Modifiers */
+.tier-1 {
+  --tier-intensity: 0.8;
+  --tier-scale: 0.9;
+  --tier-complexity: 1;
 }
 
-.rainbow-orbit {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 100%;
-  height: 100%;
-  transform: translate(-50%, -50%);
-  animation: spin 6s linear infinite;
+.tier-2 {
+  --tier-intensity: 1.0;
+  --tier-scale: 1.0;
+  --tier-complexity: 1.5;
 }
 
-/* Lithic Council */
-.lithic-spin {
-  animation: spin 8s linear infinite;
+.tier-3 {
+  --tier-intensity: 1.3;
+  --tier-scale: 1.1;
+  --tier-complexity: 2;
 }
 
-/* Utility support for staggered animations */
-.delay-0 { animation-delay: 0s; }
-.delay-100 { animation-delay: 0.1s; }
-.delay-200 { animation-delay: 0.2s; }
-.delay-300 { animation-delay: 0.3s; }
-.delay-500 { animation-delay: 0.5s; }
-.delay-700 { animation-delay: 0.7s; }
-.delay-1000 { animation-delay: 1s; }
+.tier-4 {
+  --tier-intensity: 1.6;
+  --tier-scale: 1.2;
+  --tier-complexity: 3;
+}
+
+.tier-5 {
+  --tier-intensity: 2.0;
+  --tier-scale: 1.3;
+  --tier-complexity: 5;
+}
+
+/* Special Utility for Colors */
+.badge-rainbow {
+  animation: rainbow-glow 5s infinite linear;
+}
+
+@keyframes rainbow-glow {
+  0% {
+    filter: hue-rotate(0deg);
+  }
+
+  100% {
+    filter: hue-rotate(360deg);
+  }
+}

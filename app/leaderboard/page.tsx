@@ -50,6 +50,7 @@ export default function LeaderboardPage() {
   const [totalUsers, setTotalUsers] = useState(0)
   const [leaderboardType, setLeaderboardType] = useState<"density" | "densityDeck">("density")
   const [currentUserRank, setCurrentUserRank] = useState<LeaderboardUser | null>(null)
+  const activeFetchType = useRef<string>("density")
 
   // Check wallet connection status
   useEffect(() => {
@@ -94,19 +95,21 @@ export default function LeaderboardPage() {
               const bestBadges = getBestBadges(badges)
               const avatarFallbackLetter = getAvatarFallbackLetter(ensName, address)
 
-              setCurrentUserRank({
-                ...userData,
-                rank: userData.rank || 0, // Rank might need to be calculated by backend or inferred
-                badges,
-                bestBadges,
-                avatar: avatarUrl || null,
-                displayName: ensName || `${address.slice(0, 6)}...${address.slice(-4)}`,
-                ensName,
-                totalDensity: userData.totalDensity || 0,
-                unextractedDensity: userData.unextractedDensity || 0,
-                hasOldRock: oldRockNFTs.length > 0,
-                hasGoliath: goliathNFTs.length > 0,
-              } as LeaderboardUser)
+              if (activeFetchType.current === leaderboardType) {
+                setCurrentUserRank({
+                  ...userData,
+                  rank: userData.rank || 0, // Rank might need to be calculated by backend or inferred
+                  badges,
+                  bestBadges,
+                  avatar: avatarUrl || null,
+                  displayName: ensName || `${address.slice(0, 6)}...${address.slice(-4)}`,
+                  ensName,
+                  totalDensity: userData.totalDensity || 0,
+                  unextractedDensity: userData.unextractedDensity || 0,
+                  hasOldRock: oldRockNFTs.length > 0,
+                  hasGoliath: goliathNFTs.length > 0,
+                } as LeaderboardUser)
+              }
             }
           }
         } catch (error) {
@@ -129,6 +132,10 @@ export default function LeaderboardPage() {
     setLoadingProgress(0)
     setError(null)
     setCurrentOffset(0)
+    setLeaderboardUsers([]) // Clear existing users immediately
+    setCurrentUserRank(null) // Clear existing rank immediately
+
+    const fetchId = activeFetchType.current
 
     // Poll progress endpoint for real-time updates
     const progressInterval = setInterval(async () => {
@@ -231,6 +238,8 @@ export default function LeaderboardPage() {
         })
       )
 
+      if (activeFetchType.current !== fetchId) return
+
       setLeaderboardUsers(processedUsers)
       setCurrentOffset(50)
       setTotalUsers(result.total || processedUsers.length)
@@ -251,6 +260,10 @@ export default function LeaderboardPage() {
     setLoadingProgress(0)
     setError(null)
     setCurrentOffset(0)
+    setLeaderboardUsers([]) // Clear existing users immediately
+    setCurrentUserRank(null) // Clear existing rank immediately
+
+    const fetchId = activeFetchType.current
 
     try {
       // Fetch page 1 with limit 50
@@ -271,6 +284,8 @@ export default function LeaderboardPage() {
         throw new Error("Invalid Density Deck leaderboard data")
       }
 
+      if (activeFetchType.current !== fetchId) return
+
       setLeaderboardUsers(result.data)
       // Set offset to the number of users loaded
       setCurrentOffset(result.data.length)
@@ -288,6 +303,7 @@ export default function LeaderboardPage() {
   }
 
   useEffect(() => {
+    activeFetchType.current = leaderboardType
     if (leaderboardType === "density") {
       fetchInitialLeaderboard()
     } else {
@@ -619,7 +635,9 @@ export default function LeaderboardPage() {
                       >
                         <td className="px-3 sm:px-4 md:px-6 py-3 sm:py-4">
                           <div className="flex items-center">
-                            <span className="text-lg sm:text-xl font-black font-montserrat text-purple-400">#{currentUserRank.rank}</span>
+                            <span className="text-lg sm:text-xl font-black font-montserrat text-purple-400">
+                              {currentUserRank.rank > 0 ? `#${currentUserRank.rank}` : "—"}
+                            </span>
                             <span className="ml-2 text-xs font-bold bg-purple-500 text-white px-2 py-0.5 rounded-full">YOU</span>
                           </div>
                         </td>
@@ -720,7 +738,9 @@ export default function LeaderboardPage() {
                         >
                           <td className="px-3 sm:px-4 md:px-6 py-3 sm:py-4">
                             <div className="flex items-center">
-                              <span className="text-lg sm:text-xl font-black font-montserrat">#{user.rank}</span>
+                              <span className="text-lg sm:text-xl font-black font-montserrat">
+                                {user.rank > 0 ? `#${user.rank}` : "—"}
+                              </span>
                             </div>
                           </td>
                           {leaderboardType === "density" ? (
@@ -862,7 +882,7 @@ export default function LeaderboardPage() {
                         </div>
                       </div>
                       <div className="text-lg font-black font-montserrat text-purple-400 flex-shrink-0 ml-2 mt-4">
-                        #{currentUserRank.rank}
+                        {currentUserRank.rank > 0 ? `#${currentUserRank.rank}` : "—"}
                       </div>
                     </div>
 
@@ -981,7 +1001,7 @@ export default function LeaderboardPage() {
                             </div>
                           </div>
                           <div className="text-lg font-black font-montserrat text-cyan-400 flex-shrink-0 ml-2">
-                            #{user.rank}
+                            {user.rank > 0 ? `#${user.rank}` : "—"}
                           </div>
                         </div>
 

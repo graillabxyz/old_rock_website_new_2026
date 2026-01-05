@@ -267,16 +267,6 @@ export function Header() {
               setIsConnected(connected)
 
               if (connected && address) {
-                const result = await fetchUserDensity(address);
-
-                if (result.success) {
-                  setDensityAmount(result.data.amount)
-                  setDensityWalletAmount(0.00)
-                  setDensityAllocated(result.data.amountAllocated)
-                  setDensityLocked(result.data.amountLocked)
-                  setDensityUnclaimed(result.data.amountUnclaimed)
-                }
-
                 setWalletAddress(address)
               } else {
                 setWalletAddress("")
