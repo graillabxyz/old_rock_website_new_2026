@@ -599,8 +599,7 @@ export default function LeaderboardPage() {
                         </>
                       ) : (
                         <>
-                          <th className="px-4 sm:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm font-pt-mono text-gray-400">USERNAME</th>
-                          <th className="px-4 sm:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm font-pt-mono text-gray-400">AVATAR</th>
+                          <th className="px-4 sm:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm font-pt-mono text-gray-400">PLAYER</th>
                           <th
                             className="px-4 sm:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm font-pt-mono text-gray-400 cursor-pointer hover:text-white"
                             onClick={() => handleSort("densityDeck")}
@@ -655,8 +654,8 @@ export default function LeaderboardPage() {
                         </td>
                         <td className="px-3 sm:px-4 md:px-6 py-3 sm:py-4">
                           <div className="flex space-x-1 sm:space-x-2 flex-wrap">
-                            {currentUserRank.bestBadges.length > 0 ? (
-                              currentUserRank.bestBadges.map((badge) => (
+                            {(currentUserRank.bestBadges || []).length > 0 ? (
+                              (currentUserRank.bestBadges || []).map((badge) => (
                                 <BadgeIconWithTooltip key={badge.id} badge={badge} />
                               ))
                             ) : (
@@ -760,23 +759,23 @@ export default function LeaderboardPage() {
                           ) : (
                             <>
                               <td className="px-3 sm:px-4 md:px-6 py-3 sm:py-4">
-                                <div className="font-bold text-white text-sm sm:text-base">
-                                  {user.username || user.displayName || "Unknown"}
-                                </div>
-                              </td>
-                              <td className="px-3 sm:px-4 md:px-6 py-3 sm:py-4">
-                                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg overflow-hidden bg-gray-800 flex-shrink-0">
-                                  <Image
-                                    src={user.avatar || "/images/rock-logo.png"}
-                                    alt={user.username || user.displayName || "User"}
-                                    width={48}
-                                    height={48}
-                                    className="object-cover w-full h-full"
-                                    onError={(e) => {
-                                      const target = e.target as HTMLImageElement
-                                      target.src = "/images/rock-logo.png"
-                                    }}
-                                  />
+                                <div className="flex items-center space-x-3">
+                                  <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full overflow-hidden bg-gray-800 flex-shrink-0 border border-gray-700">
+                                    <Image
+                                      src={user.avatar || "/images/rock-logo.png"}
+                                      alt={user.username || user.displayName || "User"}
+                                      width={48}
+                                      height={48}
+                                      className="object-cover w-full h-full"
+                                      onError={(e) => {
+                                        const target = e.target as HTMLImageElement
+                                        target.src = "/images/rock-logo.png"
+                                      }}
+                                    />
+                                  </div>
+                                  <div className="font-bold text-white text-sm sm:text-base">
+                                    {user.username || user.displayName || "Unknown"}
+                                  </div>
                                 </div>
                               </td>
                             </>
@@ -806,8 +805,8 @@ export default function LeaderboardPage() {
                               </td>
                               <td className="px-3 sm:px-4 md:px-6 py-3 sm:py-4">
                                 <div className="flex space-x-1 sm:space-x-2 flex-wrap">
-                                  {user.bestBadges.length > 0 ? (
-                                    user.bestBadges.map((badge) => (
+                                  {(user.bestBadges || []).length > 0 ? (
+                                    (user.bestBadges || []).map((badge) => (
                                       <BadgeIconWithTooltip key={badge.id} badge={badge} />
                                     ))
                                   ) : (
@@ -949,7 +948,7 @@ export default function LeaderboardPage() {
                         <div className="flex items-start justify-between mb-3">
                           <div className="flex items-center space-x-3 flex-1 min-w-0">
                             {(user.avatar || leaderboardType !== 'density') && (
-                              <div className="w-12 h-12 rounded-lg overflow-hidden bg-gray-800 flex-shrink-0 flex items-center justify-center">
+                              <div className={`w-12 h-12 ${leaderboardType === 'densityDeck' ? 'rounded-full' : 'rounded-lg'} overflow-hidden bg-gray-800 flex-shrink-0 flex items-center justify-center`}>
                                 {user.avatar ? (
                                   <Image
                                     src={user.avatar}
@@ -1011,8 +1010,8 @@ export default function LeaderboardPage() {
                             <div className="flex items-center justify-between pt-2 border-t border-gray-700/50">
                               <span className="text-xs text-gray-400 font-pt-mono">BADGES</span>
                               <div className="flex space-x-2">
-                                {user.bestBadges.length > 0 ? (
-                                  user.bestBadges.map((badge) => (
+                                {(user.bestBadges || []).length > 0 ? (
+                                  (user.bestBadges || []).map((badge) => (
                                     <BadgeIconWithTooltip key={badge.id} badge={badge} />
                                   ))
                                 ) : (
