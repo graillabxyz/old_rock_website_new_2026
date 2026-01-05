@@ -24,7 +24,12 @@ type MenuItem = {
   submenuItems?: { name: string; href: string; disabled?: boolean, disabledText?: string, isExternal?: boolean }[]
 }
 
-export function Sidebar() {
+interface SidebarProps {
+  isWalletConnected?: boolean
+  userProfile?: { name: string; avatar: string | null; address: string } | null
+}
+
+export function Sidebar({ isWalletConnected: externalIsConnected, userProfile: externalUserProfile }: SidebarProps = {}) {
   const [isExpanded, setIsExpanded] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
   const [isHovering, setIsHovering] = useState(false)
@@ -34,9 +39,19 @@ export function Sidebar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [showWalletSelector, setShowWalletSelector] = useState(false)
 
-  // Local state for wallet connection
-  const [isWalletConnected, setIsWalletConnected] = useState(false)
-  const [userProfile, setUserProfile] = useState<{ name: string; avatar: string; address: string } | null>(null)
+  // Local state for wallet connection - initialize with external props if provided
+  const [isWalletConnected, setIsWalletConnected] = useState(externalIsConnected || false)
+  const [userProfile, setUserProfile] = useState<{ name: string; avatar: string | null; address: string } | null>(externalUserProfile || null)
+
+  // Sync external props with local state when they change
+  useEffect(() => {
+    if (externalIsConnected !== undefined) {
+      setIsWalletConnected(externalIsConnected)
+    }
+    if (externalUserProfile !== undefined) {
+      setUserProfile(externalUserProfile)
+    }
+  }, [externalIsConnected, externalUserProfile])
 
   // Load saved profile NFT on mount
   useEffect(() => {
@@ -75,36 +90,36 @@ export function Sidebar() {
 
   // Handle wallet selection from modal
   const handleWalletSelect = async (provider: any, walletName: string) => {
-      try {
-        // Check if there's already a pending request
+    try {
+      // Check if there's already a pending request
       const accounts = await provider.request({ method: "eth_accounts" })
-        if (accounts.length > 0) {
-          // Already connected, just update state
-          await handleConnection(accounts)
-          return
-        }
+      if (accounts.length > 0) {
+        // Already connected, just update state
+        await handleConnection(accounts)
+        return
+      }
 
-        // Request new connection
+      // Request new connection
       const newAccounts = await provider.request({ method: "eth_requestAccounts" })
-        if (newAccounts.length > 0) {
-          await handleConnection(newAccounts)
-        }
-      } catch (error: any) {
-        if (error.code === 4001) {
-          console.log("User rejected the request")
-        } else if (error.message?.includes("already pending")) {
-          console.log("Connection request already pending")
-          // Try to get current accounts instead
-          try {
+      if (newAccounts.length > 0) {
+        await handleConnection(newAccounts)
+      }
+    } catch (error: any) {
+      if (error.code === 4001) {
+        console.log("User rejected the request")
+      } else if (error.message?.includes("already pending")) {
+        console.log("Connection request already pending")
+        // Try to get current accounts instead
+        try {
           const accounts = await provider.request({ method: "eth_accounts" })
-            if (accounts.length > 0) {
-              await handleConnection(accounts)
-            }
-          } catch (secondError) {
-            console.error("Failed to get accounts:", secondError)
+          if (accounts.length > 0) {
+            await handleConnection(accounts)
           }
-        } else {
-          console.error("Failed to connect wallet:", error)
+        } catch (secondError) {
+          console.error("Failed to get accounts:", secondError)
+        }
+      } else {
+        console.error("Failed to connect wallet:", error)
       }
     }
   }
@@ -268,20 +283,20 @@ export function Sidebar() {
     const profileItem = {
       name: "Profile",
       icon: <User className="w-5 h-5" />,
-      href: isWalletConnected && userProfile?.address 
-        ? `/profile/${userProfile.address}` 
+      href: isWalletConnected && userProfile?.address
+        ? `/profile/${userProfile.address}`
         : "#",
       hasArrow: true,
       isProfile: true,
-      onClick: isWalletConnected && userProfile?.address 
-        ? undefined 
+      onClick: isWalletConnected && userProfile?.address
+        ? undefined
         : () => {
-            // Show wallet selector if not connected
-            setShowWalletSelector(true)
-            if (isMobile) {
-              setMobileMenuOpen(false)
-            }
-          },
+          // Show wallet selector if not connected
+          setShowWalletSelector(true)
+          if (isMobile) {
+            setMobileMenuOpen(false)
+          }
+        },
     }
 
     // Insert profile after Leaderboard (index 3)
@@ -588,7 +603,7 @@ export function Sidebar() {
               sizes="40px"
             />
           </Link>
-          
+
           {/* Airdrop Button - Top Right (only when expanded) */}
           {(isExpanded || (isMobile && mobileMenuOpen)) && (
             <motion.a
@@ -601,7 +616,7 @@ export function Sidebar() {
               transition={{ delay: 0.2, duration: 0.3 }}
             >
               <Package className="w-5 h-5 text-white" />
-              
+
               {/* Tooltip */}
               <div className="absolute right-full mr-2 top-1/2 transform -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none">
                 <div className="bg-gray-900 text-white text-xs font-pt-mono px-2 py-1 rounded whitespace-nowrap border border-white/20">
