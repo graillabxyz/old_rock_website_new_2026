@@ -12,10 +12,11 @@ export default function BadgeIconWithTooltip({ badge }: { badge: BadgeType }) {
 
   // Systemic Animation Mapping
   const getDnaConfig = (badge: BadgeType) => {
-    if (!badge.unlocked) return { dna: "", color: "rgba(75, 85, 99, 0.5)" }
+    if (!badge.unlocked) return { dna: "", color: "rgba(75, 85, 99, 0.5)", subType: "" }
 
     let dna = ""
     let color = badge.rockColor || "#ffffff"
+    let subType = ""
 
     switch (badge.category) {
       case "Density":
@@ -33,6 +34,15 @@ export default function BadgeIconWithTooltip({ badge }: { badge: BadgeType }) {
         break
       case "Rock Reactive":
         dna = "dna-reactive"
+        if (badge.id.includes("pure-reactor")) {
+          subType = "pure"
+        } else if (badge.id.includes("recurrent-reactor")) {
+          subType = "recurrent"
+        } else if (badge.id.includes("polar-reactor")) {
+          subType = "polar"
+        } else if (badge.id.includes("tri-reactive")) {
+          subType = "tri"
+        }
         break
       case "Rock Density":
         dna = "dna-density"
@@ -47,10 +57,10 @@ export default function BadgeIconWithTooltip({ badge }: { badge: BadgeType }) {
         }
     }
 
-    return { dna, color }
+    return { dna, color, subType }
   }
 
-  const { dna, color } = getDnaConfig(badge)
+  const { dna, color, subType } = getDnaConfig(badge)
   const tierClass = badge.tier ? `tier-${badge.tier}` : "tier-1"
   const isSpecial = dna !== "" && badge.unlocked
 
@@ -93,15 +103,70 @@ export default function BadgeIconWithTooltip({ badge }: { badge: BadgeType }) {
             className="absolute inset-0 z-0 overflow-hidden rounded-lg pointer-events-none"
             style={{ "--badge-color": color } as any}
           >
-            {/* Base DNA Layer */}
-            <div className={`absolute inset-0 ${dna} ${tierClass}`} />
+            {/* 1. Specific Reactive Overrides */}
+            {subType === "pure" && (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="w-full h-full reactive-hive scale-75" />
+                <div className="w-full h-full reactive-hive scale-110 opacity-10" style={{ animationDelay: '-2s' }} />
+              </div>
+            )}
 
-            {/* Evolution: Tier 3+ adds complexity */}
-            {(badge.tier ?? 0) >= 3 && (
+            {subType === "recurrent" && (
+              <div className="absolute inset-0">
+                {[
+                  { x: '20%', y: '30%', s: '4px', d: '0s', dur: '2s' },
+                  { x: '70%', y: '20%', s: '3px', d: '0.5s', dur: '1.5s' },
+                  { x: '40%', y: '70%', s: '5px', d: '1s', dur: '2.5s' },
+                  { x: '80%', y: '60%', s: '2px', d: '1.5s', dur: '1.2s' },
+                  { x: '10%', y: '80%', s: '3px', d: '0.2s', dur: '1.8s' },
+                ].map((dot, i) => (
+                  <div
+                    key={i}
+                    className="flux-dot"
+                    style={{
+                      '--x': dot.x,
+                      '--y': dot.y,
+                      '--size': dot.s,
+                      '--delay': dot.d,
+                      '--duration': dot.dur,
+                      '--dot-scale': 1.2,
+                      '--dot-opacity': 0.6
+                    } as any}
+                  />
+                ))}
+              </div>
+            )}
+
+            {subType === "polar" && (
+              <div className="absolute inset-0 flex items-center justify-center">
+                {(color.toUpperCase() === "#F8F8FF" || color.toUpperCase() === "#FFFFFF") ? (
+                  /* White Polar: Fire Animation */
+                  <div className="absolute inset-0 polar-fire opacity-40" />
+                ) : (color.toUpperCase() === "#000000" || color.toUpperCase() === "#000") ? (
+                  /* Black Polar: Black Hole Animation */
+                  <div className="relative w-full h-full flex items-center justify-center">
+                    <div className="absolute w-6 h-6 void-disk" />
+                    <div className="absolute w-8 h-8 void-disk" style={{ animationDelay: '-1.5s', opacity: 0.3 }} />
+                    <div className="w-3 h-3 void-core z-10" />
+                  </div>
+                ) : (
+                  /* Fallback for other Polar colors: default spin */
+                  <div className={`absolute inset-0 ${dna} ${tierClass}`} />
+                )}
+              </div>
+            )}
+
+            {/* 2. Standard DNA Layer (if not specifically overridden or for generic parts) */}
+            {(!subType || subType === "tri") && (
+              <div className={`absolute inset-0 ${dna} ${tierClass}`} />
+            )}
+
+            {/* 3. Global Evolution: Tier 3+ adds complexity */}
+            {(badge.tier ?? 0) >= 3 && !subType && (
               <div className={`absolute inset-0 ${dna} ${tierClass} opacity-50`} style={{ animationDelay: '-1s', filter: 'blur(4px)' }} />
             )}
 
-            {/* Evolution: Tier 4+ adds energy rings */}
+            {/* 4. Global Evolution: Tier 4+ adds energy rings */}
             {(badge.tier ?? 0) >= 4 && dna === "dna-goliath" && (
               <div className="absolute inset-0 flex items-center justify-center">
                 <div className={`w-full h-full dna-goliath-ring ${tierClass}`} />
@@ -109,7 +174,7 @@ export default function BadgeIconWithTooltip({ badge }: { badge: BadgeType }) {
               </div>
             )}
 
-            {/* Evolution: Tier 5 (Singularity/Tri-Reactive) adds a core pulse */}
+            {/* 5. Global Evolution: Tier 5 adds a core singularity pulse */}
             {(badge.tier ?? 0) >= 5 && (
               <div className="absolute inset-0 flex items-center justify-center">
                 <div className="w-2 h-2 rounded-full bg-white shadow-[0_0_10px_white] animate-pulse" />

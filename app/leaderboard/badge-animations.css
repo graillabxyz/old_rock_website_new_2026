@@ -109,6 +109,119 @@
   }
 }
 
+/* Sub-DNA: Pure Hive (Hexagons) */
+@keyframes hive-pulse {
+
+  0%,
+  100% {
+    transform: scale(0.8) rotate(0deg);
+    opacity: 0.2;
+  }
+
+  50% {
+    transform: scale(1.1) rotate(10deg);
+    opacity: 0.6;
+  }
+}
+
+.reactive-hive {
+  clip-path: polygon(50% 0%, 93.3% 25%, 93.3% 75%, 50% 100%, 6.7% 75%, 6.7% 25%);
+  background: var(--badge-color);
+  opacity: 0.3;
+  animation: hive-pulse 4s infinite ease-in-out;
+}
+
+/* Sub-DNA: Recurrent Flux (Pulsating Dots) */
+@keyframes dot-flux {
+
+  0%,
+  100% {
+    transform: scale(0);
+    opacity: 0;
+  }
+
+  50% {
+    transform: scale(var(--dot-scale, 1));
+    opacity: var(--dot-opacity, 0.8);
+  }
+}
+
+.flux-dot {
+  position: absolute;
+  border-radius: 50%;
+  background: var(--badge-color);
+  left: var(--x);
+  top: var(--y);
+  width: var(--size);
+  height: var(--size);
+  animation: dot-flux var(--duration) infinite ease-in-out;
+  animation-delay: var(--delay);
+}
+
+/* Sub-DNA: Polar Fire (Flicker) */
+@keyframes fire-flicker {
+
+  0%,
+  100% {
+    transform: translateY(0) scaleX(1);
+    filter: blur(2px) brightness(1);
+  }
+
+  25% {
+    transform: translateY(-1px) scaleX(1.1);
+    filter: blur(3px) brightness(1.2);
+  }
+
+  50% {
+    transform: translateY(-3px) scaleX(0.9);
+    filter: blur(2px) brightness(1.1);
+  }
+
+  75% {
+    transform: translateY(-1px) scaleX(1.05);
+    filter: blur(4px) brightness(1.3);
+  }
+}
+
+.polar-fire {
+  background: linear-gradient(to top, var(--badge-color), transparent);
+  mix-blend-mode: screen;
+  filter: blur(2px);
+  animation: fire-flicker 0.8s infinite ease-in-out;
+  border-radius: 50% 50% 20% 20% / 80% 80% 20% 20%;
+}
+
+/* Sub-DNA: Polar Void (Black Hole) */
+@keyframes void-swirl {
+  from {
+    transform: rotate(0deg) scale(1);
+  }
+
+  50% {
+    transform: rotate(180deg) scale(1.1);
+  }
+
+  to {
+    transform: rotate(360deg) scale(1);
+  }
+}
+
+.void-core {
+  background: black;
+  border-radius: 50%;
+  box-shadow: 0 0 15px 2px #4b0082, 0 0 5px 1px #8a2be2;
+}
+
+.void-disk {
+  border: 1px solid #8a2be2;
+  border-top: 3px solid #8a2be2;
+  border-right: 1px solid transparent;
+  border-radius: 50%;
+  animation: void-swirl 3s infinite linear;
+  filter: blur(1.5px);
+  opacity: 0.6;
+}
+
 /* DNA Classes */
 .dna-density {
   animation: density-pulse calc(4s / var(--tier-intensity)) infinite ease-in-out;
