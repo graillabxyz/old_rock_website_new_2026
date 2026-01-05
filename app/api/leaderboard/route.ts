@@ -694,13 +694,56 @@ async function fetchLeaderboardData(): Promise<any[]> {
  * Supports fast mode: ?fast=true (uses optimized top-N query)
  */
 export async function GET(request: NextRequest) {
+  const { searchParams } = new URL(request.url)
+  const forceRefresh = searchParams.get("refresh") === "true"
+  const limit = parseInt(searchParams.get("limit") || "0")
+  const offset = parseInt(searchParams.get("offset") || "0")
+  const fastMode = searchParams.get("fast") === "true"
+  const filterAddress = searchParams.get("filter")
+
   try {
-    const { searchParams } = new URL(request.url)
-    const forceRefresh = searchParams.get("refresh") === "true"
-    const limit = parseInt(searchParams.get("limit") || "0")
-    const offset = parseInt(searchParams.get("offset") || "0")
-    const fastMode = searchParams.get("fast") === "true"
-    const filterAddress = searchParams.get("filter")
+    // Optimization: If filtering for a specific user, try to get them directly first
+    // This avoids waiting for a full cache refresh
+    if (filterAddress) {
+      const addressLower = filterAddress.toLowerCase()
+      const cached = getCachedDataIncludingStale()
+      const userFromCache = cached?.find(u => u.address.toLowerCase() === addressLower)
+
+      // If we found them in stale cache, return quickly but still check if we need a deep fetch
+      if (userFromCache && !isCacheStale()) {
+        console.log(`✅ Quick-returning filtered user from cache: ${addressLower}`)
+        return NextResponse.json({
+          success: true,
+          data: [{ ...userFromCache, rank: cached!.indexOf(userFromCache) + 1 }],
+          cached: true,
+          total: 1
+        })
+      }
+
+      // If not in cache or cache stale, try a direct deep fetch for JUST this user
+      // This is much faster than refreshing the whole leaderboard
+      console.log(`🚀 Filter-direct: Performing deep fetch for filtered user: ${addressLower}`)
+      try {
+        const amplifyApiUrl = process.env.NEXT_PUBLIC_AMPLIFY_API_URL
+        if (amplifyApiUrl) {
+          // Process just this one user
+          const batchResults = await processBatch([addressLower], amplifyApiUrl, 1, 1)
+          if (batchResults && batchResults.length > 0) {
+            const user = batchResults[0]
+            // We don't know the exact rank without full list, but we can provide the data
+            // Frontend will handle it or show '—'
+            return NextResponse.json({
+              success: true,
+              data: [{ ...user, rank: userFromCache?.rank || 0 }],
+              cached: false,
+              total: 1
+            })
+          }
+        }
+      } catch (e) {
+        console.error("❌ Filter-direct error:", e)
+      }
+    }
 
     // Fast mode: Use optimized query for top N users
     if (fastMode && limit > 0) {
@@ -708,72 +751,45 @@ export async function GET(request: NextRequest) {
         const amplifyApiUrl = process.env.NEXT_PUBLIC_AMPLIFY_API_URL
         if (!amplifyApiUrl) {
           console.error("❌ NEXT_PUBLIC_AMPLIFY_API_URL environment variable is not set")
-          console.error("Available env vars:", Object.keys(process.env).filter(k => k.includes('AMPLIFY')).join(', ') || 'none')
-          console.error("Please set NEXT_PUBLIC_AMPLIFY_API_URL in your .env.local file")
-          // Return empty array instead of throwing to allow graceful degradation
           return NextResponse.json({
             success: true,
             data: [],
             cached: false,
             fast: true,
             total: 0,
-            error: "Amplify API URL not configured. Please set NEXT_PUBLIC_AMPLIFY_API_URL environment variable.",
+            error: "Amplify API URL not configured",
           })
         }
-
-        console.log("✅ Fast mode using Amplify API URL:", amplifyApiUrl.replace(/\/$/, ''))
 
         console.log(`🚀 Fast mode: Fetching top ${limit} users...`)
         const topUsers = await fetchTopUsersFast(limit, amplifyApiUrl)
         console.log(`✅ Fast mode: Got ${topUsers.length} users`)
 
         if (topUsers.length === 0) {
-          console.warn("⚠️ Fast mode returned 0 users, checking cache and falling back to full query")
           // Check if we have cached data first
           const cachedData = getCachedDataIncludingStale()
           if (cachedData && cachedData.length > 0) {
-            console.log(`✅ Using ${cachedData.length} cached entries instead`)
             const paginatedCached = limit > 0 ? cachedData.slice(offset, offset + limit) : cachedData
             return NextResponse.json({
               success: true,
               data: paginatedCached,
               cached: true,
               stale: isCacheStale(),
-              paginated: limit > 0,
-              offset: limit > 0 ? offset : undefined,
-              limit: limit > 0 ? limit : undefined,
               total: cachedData.length,
               fast: true,
             })
           }
-          // Fall through to regular query
         } else {
-          // Add rank, ENS names, and badges (lightweight)
-          const enrichedUsers = await Promise.all(
-            topUsers.map(async (user, index) => {
-              // Fetch ENS name (lightweight)
-              let ensName: string | undefined
-              try {
-                const ensResponse = await fetch(`https://api.ensideas.com/ens/resolve/${user.address}`)
-                if (ensResponse.ok) {
-                  const ensData = await ensResponse.json()
-                  ensName = ensData?.name || undefined
-                }
-              } catch (e) {
-                // Ignore ENS errors
-              }
-
-              return {
-                ...user,
-                rank: index + 1,
-                ensName: ensName || null,
-                displayName: ensName || `${user.address.slice(0, 6)}...${user.address.slice(-4)}`,
-                badges: [], // Will be calculated on frontend if needed
-                bestBadges: [],
-                avatar: null,
-              }
-            })
-          )
+          // Add rank and basic data - ENS resolved on client for performance
+          const enrichedUsers = topUsers.map((user: any, index: number) => ({
+            ...user,
+            rank: index + 1,
+            ensName: null,
+            displayName: `${user.address.slice(0, 6)}...${user.address.slice(-4)}`,
+            badges: [],
+            bestBadges: [],
+            avatar: null,
+          }))
 
           return NextResponse.json({
             success: true,
