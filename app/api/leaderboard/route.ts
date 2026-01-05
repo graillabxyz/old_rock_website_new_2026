@@ -4,20 +4,159 @@ import { getCachedData, getCachedDataIncludingStale, setCachedData, isCacheStale
 export const dynamic = "force-dynamic"
 
 /**
+ * Bulk density balance response type
+ */
+interface DensityBalance {
+  amount: number
+  amountUnclaimed: number
+  amountAllocated?: number
+  amountLocked?: number
+}
+
+/**
+ * Fetch density balances for multiple addresses in a single bulk API call
+ * Falls back to individual calls if bulk endpoint is unavailable
+ */
+async function fetchBulkDensityBalances(
+  addresses: string[],
+  amplifyApiUrl: string,
+  staleDensityMap?: Map<string, DensityBalance>
+): Promise<Map<string, DensityBalance>> {
+  // Initialize with stale data if available
+  const densityMap = new Map<string, DensityBalance>(staleDensityMap)
+
+  if (addresses.length === 0) {
+    return densityMap
+  }
+
+  console.log(`📡 Fetching bulk density balances for ${addresses.length} addresses (seeded with ${staleDensityMap?.size || 0} stale entries)...`)
+
+  try {
+    // Try bulk endpoint first
+    const bulkResponse = await fetch(`${amplifyApiUrl}/density/bulk`, {
+      method: "POST",
+      cache: "no-store",
+      headers: {
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+        "Origin": "https://oldrocknft.com",
+      },
+      body: JSON.stringify({ addresses }),
+      signal: AbortSignal.timeout(30000), // 30 second timeout for bulk
+    })
+
+    if (bulkResponse.ok) {
+      const bulkData = await bulkResponse.json()
+
+      // Handle response format: { data: { "0x...": { amount, amountUnclaimed, ... }, ... } }
+      const balances = bulkData?.data || bulkData
+
+      if (typeof balances === 'object' && balances !== null) {
+        for (const [addr, balance] of Object.entries(balances)) {
+          if (balance && typeof balance === 'object') {
+            const bal = balance as any
+            densityMap.set(addr.toLowerCase(), {
+              amount: parseFloat(bal.amount || "0") || 0,
+              amountUnclaimed: parseFloat(bal.amountUnclaimed || "0") || 0,
+              amountAllocated: parseFloat(bal.amountAllocated || "0") || 0,
+              amountLocked: parseFloat(bal.amountLocked || "0") || 0,
+            })
+          }
+        }
+        console.log(`✅ Bulk density fetch successful: ${Object.keys(balances).length} updated, total ${densityMap.size} balances`)
+        return densityMap
+      }
+    } else if (bulkResponse.status === 404) {
+      console.log("ℹ️ Bulk density endpoint not available, falling back to individual calls")
+    } else {
+      console.warn(`⚠️ Bulk density endpoint returned ${bulkResponse.status}, falling back to individual calls`)
+    }
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      console.warn("⚠️ Bulk density request timed out, falling back to individual calls")
+    } else {
+      console.warn("⚠️ Bulk density endpoint error, falling back to individual calls:", error instanceof Error ? error.message : error)
+    }
+  }
+
+  // Fallback: fetch individual balances in parallel with rate limiting
+  console.log(`🔄 Falling back to individual density fetches for ${addresses.length} addresses...`)
+
+  const BATCH_SIZE = 5 // Very small batch size to avoid rate limiting
+  let successes = 0
+  let failures = 0
+
+  for (let i = 0; i < addresses.length; i += BATCH_SIZE) {
+    const batch = addresses.slice(i, i + BATCH_SIZE)
+
+    const batchPromises = batch.map(async (address) => {
+      try {
+        const response = await fetch(`${amplifyApiUrl}/density/${address}`, {
+          cache: "no-store",
+          headers: { "Accept": "application/json", "Origin": "https://oldrocknft.com" },
+          signal: AbortSignal.timeout(10000), // Increase timeout to 10s
+        })
+
+        if (response.ok) {
+          const data = await response.json()
+          return {
+            address: address.toLowerCase(),
+            balance: {
+              amount: parseFloat(data?.data?.amount || "0") || 0,
+              amountUnclaimed: parseFloat(data?.data?.amountUnclaimed || "0") || 0,
+              amountAllocated: parseFloat(data?.data?.amountAllocated || "0") || 0,
+              amountLocked: parseFloat(data?.data?.amountLocked || "0") || 0,
+            },
+            success: true
+          }
+        }
+        console.warn(`⚠️ Density fetch failed for ${address}: ${response.status}`)
+        return { address: address.toLowerCase(), balance: null, success: false }
+      } catch (e) {
+        console.warn(`❌ Density fetch error for ${address}:`, e instanceof Error ? e.message : e)
+        return { address: address.toLowerCase(), balance: null, success: false }
+      }
+    })
+
+    const results = await Promise.allSettled(batchPromises)
+    results.forEach((result) => {
+      if (result.status === "fulfilled" && result.value.success && result.value.balance) {
+        densityMap.set(result.value.address, result.value.balance)
+        successes++
+      } else {
+        failures++
+      }
+    })
+
+    // Minimal delay between batches
+    if (i + BATCH_SIZE < addresses.length) {
+      await new Promise((resolve) => setTimeout(resolve, 50))
+    }
+  }
+
+  console.log(`✅ Individual density fetch complete: ${densityMap.size} balances`)
+  return densityMap
+}
+
+/**
  * Process a batch of addresses in parallel
+ * Uses pre-fetched density data from bulk API to avoid individual calls
  */
 async function processBatch(
   addresses: string[],
   amplifyApiUrl: string,
   batchNum: number,
-  totalBatches: number
+  totalBatches: number,
+  densityMap?: Map<string, DensityBalance>
 ): Promise<any[]> {
   const batchPromises = addresses.map(async (address: string) => {
     try {
       const addressLower = address.toLowerCase()
 
       // Fetch NFTs
-      const nftResponse = await fetch(`${amplifyApiUrl}/nfts/${address}`)
+      const nftResponse = await fetch(`${amplifyApiUrl}/nfts/${address}`, {
+        headers: { "Origin": "https://oldrocknft.com" }
+      })
       if (!nftResponse.ok) return null
 
       const nftData = await nftResponse.json()
@@ -26,69 +165,19 @@ async function processBatch(
       const hasOldRock = oldRockNFTs.length > 0
       const hasGoliath = goliathNFTs.length > 0
 
-          // Fetch DENSITY balance with retry logic to handle rate limiting and 500 errors
-          let density = 0
-          let unextractedDensity = 0
-          const maxRetries = 3
-          let retryCount = 0
-          let lastError: Error | null = null
-          
-          while (retryCount < maxRetries) {
-            try {
-              // Add exponential backoff delay to avoid rate limiting
-              if (retryCount > 0) {
-                const delay = Math.min(1000 * Math.pow(2, retryCount - 1), 5000) // 1s, 2s, 4s max
-                await new Promise((resolve) => setTimeout(resolve, delay))
-              }
-              
-              const densityResponse = await fetch(`${amplifyApiUrl}/density/${address}`, {
-                cache: "no-store",
-                headers: {
-                  "Accept": "application/json",
-                },
-                // Add timeout to prevent hanging
-                signal: AbortSignal.timeout(10000), // 10 second timeout
-              })
-              
-              if (densityResponse.ok) {
-                const densityData = await densityResponse.json()
-                density = parseFloat(densityData?.data?.amount || "0") || 0
-                unextractedDensity = parseFloat(densityData?.data?.amountUnclaimed || "0") || 0
-                break // Success, exit retry loop
-              } else if (densityResponse.status === 429 || densityResponse.status === 503 || densityResponse.status === 500) {
-                // Rate limited, service unavailable, or server error - retry
-                retryCount++
-                lastError = new Error(`API error (${densityResponse.status})`)
-                if (retryCount < maxRetries) {
-                  continue
-                }
-              } else if (densityResponse.status === 404) {
-                // Address not found - not an error, just no density
-                break
-              } else {
-                // Other error (4xx except 404) - log but don't retry
-                console.warn(`DENSITY query failed for ${address}: ${densityResponse.status}`)
-                break
-              }
-            } catch (e) {
-              retryCount++
-              // Handle timeout and network errors
-              if (e instanceof Error && (e.name === 'AbortError' || e.name === 'TimeoutError')) {
-                lastError = new Error(`Request timeout for ${address}`)
-              } else {
-                lastError = e instanceof Error ? e : new Error(String(e))
-              }
-              if (retryCount >= maxRetries) {
-                // Silently fail - we'll use 0 density which is fine
-                // Don't log every failure to avoid spam
-                if (retryCount === maxRetries && Math.random() < 0.1) { // Log 10% of failures
-                  console.warn(`DENSITY query failed after ${maxRetries} retries for ${address}:`, lastError.message)
-                }
-              }
-            }
-          }
-          
-          // If all retries failed, use 0 density (user still appears if they have NFTs)
+      // Get DENSITY balance from pre-fetched map (bulk API) or default to 0
+      let density = 0
+      let unextractedDensity = 0
+
+      if (densityMap) {
+        const balanceData = densityMap.get(addressLower)
+        if (balanceData) {
+          density = balanceData.amount
+          unextractedDensity = balanceData.amountUnclaimed
+        }
+      }
+
+      // If no density map provided, skip individual fetch (will be handled at higher level)
 
       // Fetch ENS name
       let ensName: string | undefined
@@ -107,9 +196,9 @@ async function processBatch(
       // 2. Old Rock rarity and quantity
       // 3. Goliath rarity and quantity
       // 4. Old Rock prioritized over Goliath
-      
+
       let rankingScore = density * 1000000 // $DENSITY is highest priority
-      
+
       // Calculate Old Rock score
       let rockScore = 0
       const rockReactiveScores: { [key: string]: number } = {
@@ -122,11 +211,11 @@ async function processBatch(
         "Medium": 200,
         "Low": 50,
       }
-      
+
       oldRockNFTs.forEach((nft: any) => {
         // Base score for owning a Rock
         rockScore += 100
-        
+
         // Reactive rarity score
         const reactive = nft.attributes?.Reactive || nft.attributes?.reactive
         if (reactive) {
@@ -149,7 +238,7 @@ async function processBatch(
             }
           }
         }
-        
+
         // Density rarity score
         const nftDensity = nft.attributes?.Density || nft.attributes?.density
         if (nftDensity) {
@@ -173,14 +262,14 @@ async function processBatch(
           }
         }
       })
-      
+
       // Bonus for Rock quantity (diminishing returns)
       if (oldRockNFTs.length > 0) {
         rockScore += Math.min(oldRockNFTs.length * 10, 200) // Max 200 bonus for quantity
       }
-      
+
       rankingScore += rockScore * 1000 // Multiply Rock score by 1000 to prioritize over Goliaths
-      
+
       // Calculate Goliath score
       let goliathScore = 0
       const goliathDensityScores: { [key: string]: number } = {
@@ -191,11 +280,11 @@ async function processBatch(
         "Common": 10,
         "Uninfected": 10,
       }
-      
+
       goliathNFTs.forEach((nft: any) => {
         // Base score for owning a Goliath
         goliathScore += 50
-        
+
         // Density/rarity score
         const density = nft.attributes?.Density || nft.attributes?.density
         if (density) {
@@ -218,7 +307,7 @@ async function processBatch(
             }
           }
         }
-        
+
         // Check for Mystic by name
         const name = nft.name || ""
         const MYSTIC_NAMES = [
@@ -229,14 +318,14 @@ async function processBatch(
           goliathScore += 2000 // Mystic bonus
         }
       })
-      
+
       // Bonus for Goliath quantity (diminishing returns)
       if (goliathNFTs.length > 0) {
         goliathScore += Math.min(goliathNFTs.length * 5, 100) // Max 100 bonus for quantity
       }
-      
+
       rankingScore += goliathScore
-      
+
       // Only include users with NFTs or DENSITY balance
       if (!hasOldRock && !hasGoliath && density === 0) {
         return null
@@ -285,21 +374,23 @@ async function processBatch(
 /**
  * Fast query for top N users - prioritizes $DENSITY holders and high-value NFTs
  * This is optimized to quickly get the top 50 without processing all addresses
+ * Now uses bulk density API for much faster fetching
  */
 async function fetchTopUsersFast(limit: number, amplifyApiUrl: string): Promise<any[]> {
   console.log(`🚀 Fast query for top ${limit} users...`)
-  
+
   // Strategy: Query DENSITY holders first (they're likely top ranked)
   // Then supplement with high-value NFT owners if needed
-  
+
   const topUsers: Map<string, any> = new Map()
-  
+
   // Step 1: Try to get DENSITY holders list (if endpoint exists)
   let densityHolders: string[] = []
   try {
     console.log(`📡 Fetching DENSITY holders from ${amplifyApiUrl}/density/holders`)
     const densityHoldersResponse = await fetch(`${amplifyApiUrl}/density/holders`, {
       cache: "no-store",
+      headers: { "Origin": "https://oldrocknft.com" }
     })
     if (densityHoldersResponse.ok) {
       const densityData = await densityHoldersResponse.json()
@@ -311,66 +402,70 @@ async function fetchTopUsersFast(limit: number, amplifyApiUrl: string): Promise<
   } catch (error) {
     console.warn("ℹ️ DENSITY holders endpoint not available:", error instanceof Error ? error.message : error)
   }
-  
-  // Step 2: Process DENSITY holders first (they're most likely to be top ranked)
-  // Process in smaller batches for speed
-  const densityBatchSize = 20
-  const densityBatches: string[][] = []
+
+  // Step 2: Fetch all density balances upfront using bulk API
   const maxDensityHoldersToProcess = Math.min(densityHolders.length, limit * 2)
-  for (let i = 0; i < maxDensityHoldersToProcess; i += densityBatchSize) {
-    densityBatches.push(densityHolders.slice(i, i + densityBatchSize))
+  const addressesToProcess = densityHolders.slice(0, maxDensityHoldersToProcess)
+
+  // Get stale data to seed density cache (incremental updates for fast mode too)
+  const staleData = getCachedDataIncludingStale() || []
+  const staleDensityMap = new Map<string, DensityBalance>()
+
+  if (staleData && Array.isArray(staleData)) {
+    staleData.forEach((item: any) => {
+      // For fast mode, we only care about density
+      if (item.address && (item.totalDensity > 0 || item.unextractedDensity > 0)) {
+        staleDensityMap.set(item.address.toLowerCase(), {
+          amount: item.totalDensity || 0,
+          amountUnclaimed: item.unextractedDensity || 0,
+          amountAllocated: 0,
+          amountLocked: 0
+        })
+      }
+    })
   }
-  
-  console.log(`🔄 Processing ${densityBatches.length} batches of DENSITY holders (max ${maxDensityHoldersToProcess} addresses)`)
-  
+
+  console.log(`📡 Fetching ${addressesToProcess.length} density balances via bulk API...`)
+  const densityMap = await fetchBulkDensityBalances(addressesToProcess, amplifyApiUrl, staleDensityMap)
+  console.log(`✅ Pre-fetched ${densityMap.size} density balances`)
+
+  // Step 3: Process DENSITY holders (they're most likely to be top ranked)
+  const densityBatchSize = 30 // Larger batch size since no individual density calls
+  const densityBatches: string[][] = []
+  for (let i = 0; i < addressesToProcess.length; i += densityBatchSize) {
+    densityBatches.push(addressesToProcess.slice(i, i + densityBatchSize))
+  }
+
+  console.log(`🔄 Processing ${densityBatches.length} batches of DENSITY holders`)
+
   for (const batch of densityBatches) {
     const batchResults = await Promise.allSettled(
       batch.map(async (address: string) => {
         try {
           const addressLower = address.toLowerCase()
-          
-          // Quick parallel fetch of NFTs and DENSITY with retry for DENSITY
-          const nftResponse = await fetch(`${amplifyApiUrl}/nfts/${address}`)
+
+          // Quick fetch of NFTs only - density already in map
+          const nftResponse = await fetch(`${amplifyApiUrl}/nfts/${address}`, {
+            headers: { "Origin": "https://oldrocknft.com" }
+          })
           if (!nftResponse.ok) return null
-          
+
           const nftData = await nftResponse.json()
           const oldRockNFTs = nftData?.data?.OldRocks || []
           const goliathNFTs = nftData?.data?.Goliath || []
-          
-          // Fetch DENSITY with retry logic (important for accuracy)
+
+          // Get density from pre-fetched map
           let density = 0
           let unextractedDensity = 0
-          const maxRetries = 2
-          for (let retry = 0; retry < maxRetries; retry++) {
-            try {
-              if (retry > 0) {
-                await new Promise((resolve) => setTimeout(resolve, 500 * retry))
-              }
-              const densityResponse = await fetch(`${amplifyApiUrl}/density/${address}`, { 
-                cache: "no-store",
-                headers: { "Accept": "application/json" },
-              })
-              if (densityResponse.ok) {
-                const densityData = await densityResponse.json()
-                density = parseFloat(densityData?.data?.amount || "0") || 0
-                unextractedDensity = parseFloat(densityData?.data?.amountUnclaimed || "0") || 0
-                break
-              } else if (densityResponse.status === 404) {
-                // No density for this address
-                break
-              } else if (densityResponse.status === 429 || densityResponse.status === 503) {
-                // Rate limited - retry
-                if (retry < maxRetries - 1) continue
-              }
-            } catch (e) {
-              // Retry on error
-              if (retry < maxRetries - 1) continue
-            }
+          const balanceData = densityMap.get(addressLower)
+          if (balanceData) {
+            density = balanceData.amount
+            unextractedDensity = balanceData.amountUnclaimed
           }
-          
+
           // Quick ranking score calculation
           let rankingScore = density * 1000000
-          
+
           // Quick Rock score (simplified)
           let rockScore = oldRockNFTs.length * 100
           oldRockNFTs.forEach((nft: any) => {
@@ -388,7 +483,7 @@ async function fetchTopUsersFast(limit: number, amplifyApiUrl: string): Promise<
             else if (densityValue.includes("Low")) rockScore += 50
           })
           rankingScore += rockScore * 1000
-          
+
           // Quick Goliath score (simplified)
           let goliathScore = goliathNFTs.length * 50
           goliathNFTs.forEach((nft: any) => {
@@ -399,11 +494,11 @@ async function fetchTopUsersFast(limit: number, amplifyApiUrl: string): Promise<
             else if (densityValue.includes("Medium")) goliathScore += 200
           })
           rankingScore += goliathScore
-          
+
           if (density === 0 && oldRockNFTs.length === 0 && goliathNFTs.length === 0) {
             return null
           }
-          
+
           return {
             address: addressLower,
             totalDensity: density,
@@ -432,7 +527,7 @@ async function fetchTopUsersFast(limit: number, amplifyApiUrl: string): Promise<
         }
       })
     )
-    
+
     batchResults.forEach((result) => {
       if (result.status === "fulfilled" && result.value) {
         const existing = topUsers.get(result.value.address)
@@ -442,13 +537,13 @@ async function fetchTopUsersFast(limit: number, amplifyApiUrl: string): Promise<
         }
       }
     })
-    
+
     // If we have enough high-scoring users, we can stop early
     if (topUsers.size >= limit * 1.5) {
       break
     }
   }
-  
+
   // Step 3: Sort and return top N (deduplicated)
   const sorted = Array.from(topUsers.values()).sort((a, b) => b.rankingScore - a.rankingScore)
   console.log(`✅ Fast query returned ${sorted.length} unique users`)
@@ -467,7 +562,7 @@ async function fetchLeaderboardData(): Promise<any[]> {
     console.error("Please set NEXT_PUBLIC_AMPLIFY_API_URL in your .env.local file")
     throw new Error("Amplify API URL not configured. Please set NEXT_PUBLIC_AMPLIFY_API_URL environment variable.")
   }
-  
+
   console.log("✅ Using Amplify API URL:", amplifyApiUrl.replace(/\/$/, '')) // Log without trailing slash
 
   console.log("🔄 Starting leaderboard data fetch...")
@@ -478,6 +573,7 @@ async function fetchLeaderboardData(): Promise<any[]> {
     console.log("📡 Fetching NFT owners from Amplify API...")
     const ownersResponse = await fetch(`${amplifyApiUrl}/nfts/owners`, {
       cache: "no-store",
+      headers: { "Origin": "https://oldrocknft.com" }
     })
     if (ownersResponse.ok) {
       const ownersData = await ownersResponse.json()
@@ -497,6 +593,7 @@ async function fetchLeaderboardData(): Promise<any[]> {
     console.log("📡 Attempting to fetch DENSITY holders...")
     const densityHoldersResponse = await fetch(`${amplifyApiUrl}/density/holders`, {
       cache: "no-store",
+      headers: { "Origin": "https://oldrocknft.com" }
     })
     if (densityHoldersResponse.ok) {
       const densityData = await densityHoldersResponse.json()
@@ -518,8 +615,32 @@ async function fetchLeaderboardData(): Promise<any[]> {
   const uniqueAddresses = Array.from(allAddresses)
   console.log(`📊 Total unique addresses to process: ${uniqueAddresses.length} (${owners.length} NFT owners + ${densityHolders.length} DENSITY holders)`)
 
-  // Process in smaller batches to avoid rate limiting on DENSITY queries
-  const BATCH_SIZE = 25 // Reduced from 50 to 25 to avoid rate limiting
+  // Get stale data to seed density cache (incremental updates)
+  const staleData = getCachedDataIncludingStale() || []
+  const staleDensityMap = new Map<string, DensityBalance>()
+
+  if (staleData && Array.isArray(staleData)) {
+    staleData.forEach((item: any) => {
+      if (item.address && (item.totalDensity > 0 || item.unextractedDensity > 0)) {
+        staleDensityMap.set(item.address.toLowerCase(), {
+          amount: item.totalDensity || 0,
+          amountUnclaimed: item.unextractedDensity || 0,
+          // Note: allocated/locked might be lost if not in cache, but better than 0
+          amountAllocated: 0,
+          amountLocked: 0
+        })
+      }
+    })
+  }
+  console.log(`💾 Found ${staleDensityMap.size} existing density balances in stale cache`)
+
+  // Fetch all density balances upfront using bulk API (single call instead of hundreds)
+  console.log("📡 Fetching all density balances via bulk API...")
+  const densityMap = await fetchBulkDensityBalances(uniqueAddresses, amplifyApiUrl, staleDensityMap)
+  console.log(`✅ Pre-fetched ${densityMap.size} density balances`)
+
+  // Process in batches (now only fetching NFTs, density already fetched)
+  const BATCH_SIZE = 50 // Can use larger batches now since we don't have per-address density calls
   const batches: string[][] = []
   for (let i = 0; i < uniqueAddresses.length; i += BATCH_SIZE) {
     batches.push(uniqueAddresses.slice(i, i + BATCH_SIZE))
@@ -527,34 +648,31 @@ async function fetchLeaderboardData(): Promise<any[]> {
 
   console.log(`🔄 Processing ${batches.length} batches of up to ${BATCH_SIZE} addresses each...`)
 
-  // Process batches sequentially to avoid rate limiting, but parallelize within each batch
-  // Use smaller batches and longer delays to avoid rate limiting on DENSITY queries
+  // Process batches - now much faster since density is pre-fetched
   const allResults: any[] = []
   for (let i = 0; i < batches.length; i++) {
     const batch = batches[i]
-    
-    const batchResults = await processBatch(batch, amplifyApiUrl, i + 1, batches.length)
+
+    const batchResults = await processBatch(batch, amplifyApiUrl, i + 1, batches.length, densityMap)
     allResults.push(...batchResults)
-    
+
     // Update progress after batch completes - calculate based on batches processed
     const progressPercent = Math.min(95, Math.round(((i + 1) / batches.length) * 100))
     setProgress(allResults.length, uniqueAddresses.length, i + 1, batches.length)
-    
-    // Longer delay between batches to avoid rate limiting on DENSITY queries
-    // Increase delay as we process more batches to be more conservative
+
+    // Shorter delay now since we're not rate-limited by density calls
     if (i < batches.length - 1) {
-      const delay = Math.min(500 + (i * 50), 2000) // Start at 500ms, increase up to 2s
-      await new Promise((resolve) => setTimeout(resolve, delay))
+      await new Promise((resolve) => setTimeout(resolve, 100))
     }
   }
-  
+
   // Count addresses with successful DENSITY queries
   const addressesWithDensity = allResults.filter(r => r.totalDensity > 0).length
   const addressesWithNFTs = allResults.filter(r => r.hasOldRock || r.hasGoliath).length
-  
+
   console.log(`✅ Processed ${allResults.length} valid leaderboard entries from ${uniqueAddresses.length} addresses`)
   console.log(`📊 Summary: ${addressesWithDensity} with $DENSITY, ${addressesWithNFTs} with NFTs`)
-  
+
   // Final progress update - set to 100% when complete (after sorting)
   setProgress(allResults.length, uniqueAddresses.length, batches.length, batches.length)
 
@@ -582,6 +700,7 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get("limit") || "0")
     const offset = parseInt(searchParams.get("offset") || "0")
     const fastMode = searchParams.get("fast") === "true"
+    const filterAddress = searchParams.get("filter")
 
     // Fast mode: Use optimized query for top N users
     if (fastMode && limit > 0) {
@@ -601,13 +720,13 @@ export async function GET(request: NextRequest) {
             error: "Amplify API URL not configured. Please set NEXT_PUBLIC_AMPLIFY_API_URL environment variable.",
           })
         }
-        
+
         console.log("✅ Fast mode using Amplify API URL:", amplifyApiUrl.replace(/\/$/, ''))
-        
+
         console.log(`🚀 Fast mode: Fetching top ${limit} users...`)
         const topUsers = await fetchTopUsersFast(limit, amplifyApiUrl)
         console.log(`✅ Fast mode: Got ${topUsers.length} users`)
-        
+
         if (topUsers.length === 0) {
           console.warn("⚠️ Fast mode returned 0 users, checking cache and falling back to full query")
           // Check if we have cached data first
@@ -643,7 +762,7 @@ export async function GET(request: NextRequest) {
               } catch (e) {
                 // Ignore ENS errors
               }
-              
+
               return {
                 ...user,
                 rank: index + 1,
@@ -655,7 +774,7 @@ export async function GET(request: NextRequest) {
               }
             })
           )
-          
+
           return NextResponse.json({
             success: true,
             data: enrichedUsers,
@@ -669,16 +788,47 @@ export async function GET(request: NextRequest) {
         // Fall through to regular query if fast mode fails
       }
     }
-    
+
     // Check cache first (including stale cache as fallback)
     const cachedData = getCachedData()
-    const cacheStale = isCacheStale()
+    let cacheStale = isCacheStale() // Allow reassignment
     const staleCachedData = getCachedDataIncludingStale()
-    
+
+    // Aggressive Refresh Policy ("Crawler Mode"): 
+    // If we have very few users with density (likely due to API failures), 
+    // treat cache as stale to trigger background retry even if TTL hasn't expired.
+    if (cachedData && !cacheStale) {
+      const densityCount = cachedData.filter((u: any) => u.totalDensity > 0).length
+      if (densityCount < 100) {
+        console.log(`🔄 Low density coverage (${densityCount} users), forcing background refresh to find more...`)
+        cacheStale = true
+      }
+    }
+
     console.log(`📦 Cache status: fresh=${!!cachedData}, stale=${cacheStale}, staleData=${!!staleCachedData}, staleDataLength=${staleCachedData?.length || 0}`)
 
     // If we have fresh cached data and not forcing refresh, return it
     if (cachedData && !cacheStale && !forceRefresh) {
+      // Apply filtering if requested (e.g. for finding specific user)
+      if (filterAddress) {
+        const index = cachedData.findIndex((u: any) => u.address.toLowerCase() === filterAddress.toLowerCase());
+        if (index !== -1) {
+          const user = cachedData[index];
+          return NextResponse.json({
+            success: true,
+            data: [{ ...user, rank: index + 1 }],
+            cached: true,
+            total: 1
+          });
+        }
+        return NextResponse.json({
+          success: true,
+          data: [],
+          cached: true,
+          total: 0
+        });
+      }
+
       // Apply pagination if requested
       if (limit > 0) {
         const paginatedData = cachedData.slice(offset, offset + limit)
@@ -692,7 +842,7 @@ export async function GET(request: NextRequest) {
           total: cachedData.length,
         })
       }
-      
+
       return NextResponse.json({
         success: true,
         data: cachedData,
@@ -708,11 +858,11 @@ export async function GET(request: NextRequest) {
         try {
           const freshData = await Promise.race([
             refreshPromise,
-            new Promise<any[]>((_, reject) => 
+            new Promise<any[]>((_, reject) =>
               setTimeout(() => reject(new Error("Refresh timeout")), 30000) // 30s timeout - return stale cache if refresh takes too long
             )
           ])
-          
+
           // Apply pagination if requested
           if (limit > 0) {
             const paginatedData = freshData.slice(offset, offset + limit)
@@ -726,7 +876,7 @@ export async function GET(request: NextRequest) {
               total: freshData.length,
             })
           }
-          
+
           return NextResponse.json({
             success: true,
             data: freshData,
@@ -776,13 +926,29 @@ export async function GET(request: NextRequest) {
     setRefreshPromise(refreshPromise)
 
     // If we have stale cache, return it immediately and refresh in background
-    if (cachedData && cacheStale) {
+    if (staleCachedData && staleCachedData.length > 0 && cacheStale) {
       // Don't await - let it refresh in background
       refreshPromise.catch((error) => {
         console.error("Background refresh failed:", error)
         // Keep stale cache on error
       })
-      
+
+      // Apply filtering if requested (e.g. for finding specific user)
+      if (filterAddress) {
+        const index = staleCachedData.findIndex((u: any) => u.address.toLowerCase() === filterAddress.toLowerCase());
+        if (index !== -1) {
+          const user = staleCachedData[index];
+          console.log(`✅ Returning specific user from stale cache: ${user.address} (Rank: ${index + 1})`)
+          return NextResponse.json({
+            success: true,
+            data: [{ ...user, rank: index + 1 }],
+            cached: true,
+            stale: true,
+            total: 1
+          });
+        }
+      }
+
       const staleData = limit > 0 ? staleCachedData.slice(offset, offset + limit) : staleCachedData
       console.log(`✅ Returning ${staleData.length} stale entries while refreshing in background`)
       return NextResponse.json({
@@ -802,11 +968,31 @@ export async function GET(request: NextRequest) {
     try {
       const freshData = await Promise.race([
         refreshPromise,
-        new Promise<any[]>((_, reject) => 
+        new Promise<any[]>((_, reject) =>
           setTimeout(() => reject(new Error("Request timeout - leaderboard data fetch took too long")), 30000) // 30s timeout for initial load
         )
       ])
-      
+
+      // Apply filtering if requested (e.g. for finding specific user)
+      if (filterAddress) {
+        const index = freshData.findIndex((u: any) => u.address.toLowerCase() === filterAddress.toLowerCase());
+        if (index !== -1) {
+          const user = freshData[index];
+          return NextResponse.json({
+            success: true,
+            data: [{ ...user, rank: index + 1 }],
+            cached: false,
+            total: 1
+          });
+        }
+        return NextResponse.json({
+          success: true,
+          data: [],
+          cached: false,
+          total: 0
+        });
+      }
+
       // Apply pagination if requested
       if (limit > 0) {
         const paginatedData = freshData.slice(offset, offset + limit)
@@ -820,7 +1006,7 @@ export async function GET(request: NextRequest) {
           total: freshData.length,
         })
       }
-      
+
       return NextResponse.json({
         success: true,
         data: freshData,
