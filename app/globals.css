@@ -2,6 +2,8 @@
 @tailwind components;
 @tailwind utilities;
 
+@import './leaderboard/badge-animations.css';
+
 @font-face {
   font-family: 'Montserrat';
   src: url('/Montserrat/Montserrat-VariableFont_wght.ttf') format('truetype');
@@ -47,12 +49,15 @@
   }
 
   .scrollbar-hide {
-    -ms-overflow-style: none; /* IE and Edge */
-    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none;
+    /* IE and Edge */
+    scrollbar-width: none;
+    /* Firefox */
   }
-  
+
   .scrollbar-hide::-webkit-scrollbar {
-    display: none; /* Chrome, Safari, Opera */
+    display: none;
+    /* Chrome, Safari, Opera */
   }
 
   p,

@@ -1,0 +1,157 @@
+/* Standard Keyframes */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes reverse-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(-360deg); }
+}
+
+@keyframes pulse-opacity {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+
+@keyframes pulse-scale {
+  0%, 100% { transform: scale(1); opacity: 0.7; }
+  50% { transform: scale(1.15); opacity: 1; }
+}
+
+@keyframes pulse-ring {
+  0% { transform: scale(0.8); opacity: 0.5; }
+  100% { transform: scale(1.3); opacity: 0; }
+}
+
+@keyframes orbit {
+  0% { transform: rotate(0deg) translateX(var(--orbit-radius)) rotate(0deg); }
+  100% { transform: rotate(360deg) translateX(var(--orbit-radius)) rotate(-360deg); }
+}
+
+@keyframes flicker {
+  0%, 100% { opacity: 0.8; transform: scaleY(1); }
+  25% { opacity: 0.6; transform: scaleY(1.1); }
+  50% { opacity: 0.9; transform: scaleY(0.9); }
+  75% { opacity: 0.7; transform: scaleY(1.05); }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
+
+/* Utility Animations */
+.animate-spin-slow {
+  animation: spin 8s linear infinite;
+}
+
+.animate-reverse-spin-slow {
+  animation: reverse-spin 12s linear infinite;
+}
+
+.animate-pulse-slow {
+  animation: pulse-opacity 3s ease-in-out infinite;
+}
+
+.animate-pulse-scale {
+  animation: pulse-scale 3s ease-in-out infinite;
+}
+
+.animate-flicker {
+  animation: flicker 2s ease-in-out infinite;
+}
+
+/* Specific Badge Effects */
+
+/* Pure Badge */
+.pure-pulse {
+  animation: pulse-scale 4s ease-in-out infinite;
+}
+
+.pure-ring {
+  animation: pulse-ring 4s ease-out infinite;
+}
+
+/* Polar Badge */
+.fire-flame {
+  animation: flicker 1.5s ease-in-out infinite;
+  transform-origin: bottom center;
+}
+
+.black-hole-spin {
+  animation: spin 10s linear infinite;
+}
+
+.black-hole-pulse {
+  animation: pulse-scale 5s ease-in-out infinite;
+}
+
+/* Recurrent Badge */
+.recurrent-sparkle {
+  animation: pulse-opacity 2s ease-in-out infinite;
+}
+
+/* Singularity Badge */
+.singularity-ring {
+  animation: spin 10s linear infinite;
+}
+
+.singularity-core {
+  animation: pulse-scale 3s ease-in-out infinite;
+}
+
+/* Gravity Well */
+.gravity-ring {
+  animation: pulse-ring 3s ease-in infinite reverse; /* Implosion effect */
+}
+
+/* High/Medium/Low Density Core */
+.density-ring {
+  animation: pulse-ring 3s ease-out infinite;
+}
+
+.density-orbit {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: var(--particle-size);
+  height: var(--particle-size);
+  margin-top: calc(var(--particle-size) / -2);
+  margin-left: calc(var(--particle-size) / -2);
+  border-radius: 50%;
+  animation: orbit var(--orbit-duration) linear infinite;
+}
+
+.density-core {
+  animation: pulse-scale 3s ease-in-out infinite;
+}
+
+/* Full Spectrum */
+.rainbow-spin {
+  animation: spin 5s linear infinite;
+}
+
+.rainbow-orbit {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 100%;
+  height: 100%;
+  transform: translate(-50%, -50%);
+  animation: spin 6s linear infinite;
+}
+
+/* Lithic Council */
+.lithic-spin {
+  animation: spin 8s linear infinite;
+}
+
+/* Utility support for staggered animations */
+.delay-0 { animation-delay: 0s; }
+.delay-100 { animation-delay: 0.1s; }
+.delay-200 { animation-delay: 0.2s; }
+.delay-300 { animation-delay: 0.3s; }
+.delay-500 { animation-delay: 0.5s; }
+.delay-700 { animation-delay: 0.7s; }
+.delay-1000 { animation-delay: 1s; }
