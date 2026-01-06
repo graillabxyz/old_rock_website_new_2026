@@ -93,7 +93,7 @@ export function calculateAllBadges(data: BadgeData): Badge[] {
  */
 function calculateDensityBadges(totalDensity: number): Badge[] {
   const badges: Badge[] = []
-  
+
   // Show all tiers unlocked (not just highest)
   if (totalDensity >= 100) {
     badges.push({
@@ -307,7 +307,7 @@ function calculateRockBadges(oldRockNFTs: any[]): Badge[] {
   // B. Rock REACTIVE Rarity
   const reactiveTypes = new Set<string>()
   const reactiveToColor: { [key: string]: string } = {} // Map reactive type to rock color
-  
+
   // Color mapping for Old Rock types
   const colorMap: { [key: string]: string } = {
     Common: "#8B4513",
@@ -322,12 +322,12 @@ function calculateRockBadges(oldRockNFTs: any[]): Badge[] {
     Black: "#000000",
     White: "#F8F8FF",
   }
-  
+
   // Helper to get rock color from NFT
   const getRockColor = (nft: any): string | null => {
     const typeAttr = nft.attributes?.Type
     if (!typeAttr) return null
-    
+
     let rockColor: string
     if (typeof typeAttr === 'string') {
       rockColor = typeAttr
@@ -338,11 +338,11 @@ function calculateRockBadges(oldRockNFTs: any[]): Badge[] {
     } else {
       rockColor = String(typeAttr)
     }
-    
+
     // Map to hex color
     return colorMap[rockColor] || colorMap[rockColor.toUpperCase()] || null
   }
-  
+
   oldRockNFTs.forEach((nft) => {
     // Attributes are accessed as object properties (attributes.Reactive)
     // Can be: string, object with .value, or array
@@ -360,7 +360,7 @@ function calculateRockBadges(oldRockNFTs: any[]): Badge[] {
       }
       if (reactiveValue) {
         reactiveTypes.add(reactiveValue)
-        
+
         // Get the rock's color and store it for this reactive type
         const rockColor = getRockColor(nft)
         if (rockColor) {
@@ -438,7 +438,7 @@ function calculateRockBadges(oldRockNFTs: any[]): Badge[] {
           .filter(r => r.includes("Recurrent"))
           .map(r => reactiveToColor[r])
           .filter(c => c) // Remove undefined
-        
+
         if (recurrentColors.length > 0) {
           // Pick random color if multiple, otherwise use the first one
           return recurrentColors[Math.floor(Math.random() * recurrentColors.length)]
@@ -463,7 +463,7 @@ function calculateRockBadges(oldRockNFTs: any[]): Badge[] {
   if (hasPure && hasPolar && hasRecurrent) {
     badges.push({
       id: "rock-tri-reactive-core",
-      name: "Tri-Reactive Core",
+      name: "Tri-Reactive",
       category: "Rock Reactive",
       tier: 5,
       unlocked: true,
@@ -473,7 +473,7 @@ function calculateRockBadges(oldRockNFTs: any[]): Badge[] {
   } else {
     badges.push({
       id: "rock-tri-reactive-core-locked",
-      name: "Tri-Reactive Core",
+      name: "Tri-Reactive",
       category: "Rock Reactive",
       tier: 5,
       unlocked: false,
@@ -485,7 +485,7 @@ function calculateRockBadges(oldRockNFTs: any[]): Badge[] {
   // C. Rock DENSITY Rarity
   const densityTypes = new Set<string>()
   const densityToColor: { [key: string]: string } = {} // Map density type to rock color
-  
+
   oldRockNFTs.forEach((nft) => {
     // Attributes are accessed as object properties (attributes.Density)
     // Can be: string, object with .value, or array
@@ -503,7 +503,7 @@ function calculateRockBadges(oldRockNFTs: any[]): Badge[] {
       }
       if (densityValue) {
         densityTypes.add(densityValue)
-        
+
         // Get the rock's color and store it for this density type
         const rockColor = getRockColor(nft)
         if (rockColor && !densityToColor[densityValue]) {
@@ -522,7 +522,7 @@ function calculateRockBadges(oldRockNFTs: any[]): Badge[] {
     const lowDensityColor = densityToColor["Low"] || densityToColor[Array.from(densityTypes).find(d => d.includes("Low")) || ""] || "#8B4513"
     badges.push({
       id: "rock-low-density-core",
-      name: "Low Density Core",
+      name: "Low Density",
       category: "Rock Density",
       tier: 1,
       unlocked: true,
@@ -533,7 +533,7 @@ function calculateRockBadges(oldRockNFTs: any[]): Badge[] {
   } else {
     badges.push({
       id: "rock-low-density-core-locked",
-      name: "Low Density Core",
+      name: "Low Density",
       category: "Rock Density",
       tier: 1,
       unlocked: false,
@@ -545,7 +545,7 @@ function calculateRockBadges(oldRockNFTs: any[]): Badge[] {
     const mediumDensityColor = densityToColor["Medium"] || densityToColor[Array.from(densityTypes).find(d => d.includes("Medium")) || ""] || "#FFB000"
     badges.push({
       id: "rock-medium-density-core",
-      name: "Medium Density Core",
+      name: "Medium Density",
       category: "Rock Density",
       tier: 2,
       unlocked: true,
@@ -556,7 +556,7 @@ function calculateRockBadges(oldRockNFTs: any[]): Badge[] {
   } else {
     badges.push({
       id: "rock-medium-density-core-locked",
-      name: "Medium Density Core",
+      name: "Medium Density",
       category: "Rock Density",
       tier: 2,
       unlocked: false,
@@ -568,7 +568,7 @@ function calculateRockBadges(oldRockNFTs: any[]): Badge[] {
     const highDensityColor = densityToColor["High"] || densityToColor[Array.from(densityTypes).find(d => d.includes("High")) || ""] || "#3B82F6"
     badges.push({
       id: "rock-high-density-core",
-      name: "High Density Core",
+      name: "High Density",
       category: "Rock Density",
       tier: 3,
       unlocked: true,
@@ -579,7 +579,7 @@ function calculateRockBadges(oldRockNFTs: any[]): Badge[] {
   } else {
     badges.push({
       id: "rock-high-density-core-locked",
-      name: "High Density Core",
+      name: "High Density",
       category: "Rock Density",
       tier: 3,
       unlocked: false,
@@ -590,7 +590,7 @@ function calculateRockBadges(oldRockNFTs: any[]): Badge[] {
   if (hasLow && hasMedium && hasHigh) {
     badges.push({
       id: "rock-full-spectrum-core",
-      name: "Full Spectrum Core",
+      name: "Full Spectrum",
       category: "Rock Density",
       tier: 4,
       unlocked: true,
@@ -600,7 +600,7 @@ function calculateRockBadges(oldRockNFTs: any[]): Badge[] {
   } else {
     badges.push({
       id: "rock-full-spectrum-core-locked",
-      name: "Full Spectrum Core",
+      name: "Full Spectrum",
       category: "Rock Density",
       tier: 4,
       unlocked: false,
@@ -807,7 +807,7 @@ function calculateGoliathBadges(goliathNFTs: any[]): Badge[] {
     const hasLow = densityTypes.has("Low") || Array.from(densityTypes).some(d => d.includes("Low"))
     const hasMedium = densityTypes.has("Medium") || Array.from(densityTypes).some(d => d.includes("Medium"))
     const hasHigh = densityTypes.has("High") || Array.from(densityTypes).some(d => d.includes("High"))
-    
+
     if (hasUninfected) {
       badges.push({
         id: "goliath-uninfected",
@@ -974,20 +974,20 @@ function calculateGoliathBadges(goliathNFTs: any[]): Badge[] {
     // 1. Array format: nft.attributes = [{ trait_type: "Goliath", value: "Yellow" }]
     // 2. Object format: nft.attributes = { Goliath: "Yellow" } or { Goliath: { value: "Yellow" } }
     // 3. Also check Type as fallback
-    
+
     let colorAttr: any = null
-    
+
     // Try array format first (most common from API)
     if (Array.isArray(nft.attributes)) {
       // First try "Goliath" attribute (primary)
-      const goliathAttrObj = nft.attributes.find((attr: any) => 
+      const goliathAttrObj = nft.attributes.find((attr: any) =>
         attr && (attr.trait_type === "Goliath" || attr.trait_type === "goliath" || attr.trait_type === "GOLIATH")
       )
       if (goliathAttrObj && goliathAttrObj.value) {
         colorAttr = goliathAttrObj.value
       } else {
         // Fallback to "Type" attribute
-        const typeAttrObj = nft.attributes.find((attr: any) => 
+        const typeAttrObj = nft.attributes.find((attr: any) =>
           attr && (attr.trait_type === "Type" || attr.trait_type === "type" || attr.trait_type === "TYPE")
         )
         if (typeAttrObj && typeAttrObj.value) {
@@ -997,9 +997,9 @@ function calculateGoliathBadges(goliathNFTs: any[]): Badge[] {
     } else if (nft.attributes) {
       // Try object format - check "Goliath" first, then "Type" as fallback
       colorAttr = nft.attributes.Goliath || nft.attributes.goliath || nft.attributes.GOLIATH ||
-                  nft.attributes.Type || nft.attributes.type || nft.attributes.TYPE
+        nft.attributes.Type || nft.attributes.type || nft.attributes.TYPE
     }
-    
+
     if (colorAttr) {
       let color: string
       if (typeof colorAttr === 'string') {
@@ -1075,7 +1075,7 @@ function calculateGoliathBadges(goliathNFTs: any[]): Badge[] {
  */
 function calculateMysticBadges(goliathNFTs: any[]): Badge[] {
   const badges: Badge[] = []
-  
+
   const ownedMystics = new Set<string>()
   const mysticBounties = new Map<string, string>() // mystic name -> bounty name
 
@@ -1084,7 +1084,7 @@ function calculateMysticBadges(goliathNFTs: any[]): Badge[] {
     MYSTIC_NAMES.forEach((mystic) => {
       if (name.includes(mystic)) {
         ownedMystics.add(mystic)
-        
+
         // Check for bounty
         const bounty = nft.attributes?.Bounty || nft.attributes?.bounty
         if (bounty) {
@@ -1260,7 +1260,7 @@ export function getBestBadges(badges: Badge[]): Badge[] {
   // Filter badges: only keep the highest tier density badge
   const densityBadges = badges.filter(b => b.category === "Density")
   const nonDensityBadges = badges.filter(b => b.category !== "Density")
-  
+
   // Find the highest tier density badge (unlocked first, then highest tier)
   let highestDensityBadge: Badge | null = null
   if (densityBadges.length > 0) {
@@ -1275,18 +1275,18 @@ export function getBestBadges(badges: Badge[]): Badge[] {
     })
     highestDensityBadge = sortedDensity[0]
   }
-  
+
   // Combine non-density badges with the highest density badge
-  const filteredBadges = highestDensityBadge 
+  const filteredBadges = highestDensityBadge
     ? [...nonDensityBadges, highestDensityBadge]
     : nonDensityBadges
-  
+
   // Sort badges by priority:
   // 1. Unlocked first
   // 2. Mystic Hybrid (tier 10) highest
   // 3. Then by tier (higher is better)
   // 4. Then by category priority (Mystic > Prestige > Density > others)
-  
+
   const categoryPriority: { [key: string]: number } = {
     // Highest priority: Mystics and Mystic-related
     "Mystic Hybrid": 100,
@@ -1314,27 +1314,27 @@ export function getBestBadges(badges: Badge[]): Badge[] {
     if (a.unlocked !== b.unlocked) {
       return a.unlocked ? -1 : 1
     }
-    
+
     // Special handling for Pure reactive badge (highest reactive tier)
     const isPureA = a.id === "rock-pure-reactor" && a.unlocked
     const isPureB = b.id === "rock-pure-reactor" && b.unlocked
     if (isPureA && !isPureB) return -1
     if (!isPureA && isPureB) return 1
-    
+
     // Then by category priority (Mystics, Pure reactive, $DENSITY, High density rocks, etc.)
     const priorityA = categoryPriority[a.category] || 0
     const priorityB = categoryPriority[b.category] || 0
     if (priorityA !== priorityB) {
       return priorityB - priorityA
     }
-    
+
     // Then by tier (higher is better)
     const tierA = a.tier || 0
     const tierB = b.tier || 0
     if (tierA !== tierB) {
       return tierB - tierA
     }
-    
+
     return 0
   })
 
