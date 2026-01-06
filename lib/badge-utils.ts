@@ -803,32 +803,12 @@ function calculateGoliathBadges(goliathNFTs: any[]): Badge[] {
     })
 
     // Show all density tiers (unlocked and locked)
-    const hasUninfected = densityTypes.has("Uninfected") || Array.from(densityTypes).some(d => d.includes("Uninfected"))
+
     const hasLow = densityTypes.has("Low") || Array.from(densityTypes).some(d => d.includes("Low"))
     const hasMedium = densityTypes.has("Medium") || Array.from(densityTypes).some(d => d.includes("Medium"))
     const hasHigh = densityTypes.has("High") || Array.from(densityTypes).some(d => d.includes("High"))
 
-    if (hasUninfected) {
-      badges.push({
-        id: "goliath-uninfected",
-        name: "Uninfected Goliath",
-        category: "Goliath Density",
-        tier: 1,
-        unlocked: true,
-        description: "Owns Uninfected density",
-        icon: "uninfected-goliath",
-      })
-    } else {
-      badges.push({
-        id: "goliath-uninfected-locked",
-        name: "Uninfected Goliath",
-        category: "Goliath Density",
-        tier: 1,
-        unlocked: false,
-        description: "Owns Uninfected density",
-        icon: "uninfected-goliath",
-      })
-    }
+
     if (hasLow) {
       badges.push({
         id: "goliath-low-density",

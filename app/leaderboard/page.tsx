@@ -13,7 +13,7 @@ import { useRouter } from "next/navigation"
 import { calculateAllBadges, getBestBadges, Badge as BadgeType } from "@/lib/badge-utils"
 import { Award, Loader2 } from "lucide-react"
 import { createPortal } from "react-dom"
-import BadgeIconWithTooltip from "./badge-icon-with-tooltip"
+import BadgeIconWithTooltip from "@/components/badge-icon-with-tooltip"
 
 interface LeaderboardUser {
   address: string
