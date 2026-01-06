@@ -13,7 +13,7 @@ import { useRouter } from "next/navigation"
 import { calculateAllBadges, getBestBadges, Badge as BadgeType } from "@/lib/badge-utils"
 import { Award, Loader2 } from "lucide-react"
 import { createPortal } from "react-dom"
-import BadgeIconWithTooltip from "./badge-icon-with-tooltip"
+import BadgeIconWithTooltip from "@/components/badge-icon-with-tooltip"
 
 interface LeaderboardUser {
   address: string
@@ -120,6 +120,22 @@ export default function LeaderboardPage() {
 
     checkWalletConnection()
   }, [leaderboardType]) // Re-run when leaderboard type changes to fetch appropriate rank
+
+  // Sync current user rank with loaded leaderboard data
+  // This fixes the issue where the "filter" API returns rank 0 but the user is visible in the list
+  useEffect(() => {
+    if (currentUserRank && leaderboardUsers.length > 0) {
+      // Find user in the list
+      const userInList = leaderboardUsers.find(
+        (u) => u.address.toLowerCase() === currentUserRank.address.toLowerCase()
+      )
+
+      if (userInList && userInList.rank > 0 && userInList.rank !== currentUserRank.rank) {
+        console.log(`🔄 Syncing user rank from list: ${currentUserRank.rank} -> ${userInList.rank}`)
+        setCurrentUserRank((prev) => prev ? ({ ...prev, rank: userInList.rank }) : null)
+      }
+    }
+  }, [leaderboardUsers, currentUserRank?.address])
 
 
 
