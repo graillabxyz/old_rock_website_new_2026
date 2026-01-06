@@ -6,29 +6,232 @@
   --tier-complexity: 1;
 }
 
-/* Category: Density (Mass/Gravity) */
-@keyframes density-pulse {
+/* Category: Density (Progressive Gravitational Effects) */
+
+/* Tier 1: Dust Holder - Floating dust particles */
+@keyframes dust-float {
 
   0%,
   100% {
-    transform: scale(calc(1 * var(--tier-scale)));
-    opacity: calc(0.6 * var(--tier-intensity));
+    transform: translate(var(--float-x), var(--float-y)) scale(0.8);
+    opacity: 0.3;
   }
 
   50% {
-    transform: scale(calc(1.15 * var(--tier-scale)));
-    opacity: calc(1 * var(--tier-intensity));
+    transform: translate(calc(var(--float-x) * -1), calc(var(--float-y) * -1)) scale(1);
+    opacity: 0.6;
   }
 }
 
-@keyframes density-swirl {
+.density-dust {
+  position: absolute;
+  width: 2px;
+  height: 2px;
+  border-radius: 50%;
+  background: var(--badge-color);
+  left: var(--x);
+  top: var(--y);
+  animation: dust-float var(--duration, 6s) infinite ease-in-out;
+  animation-delay: var(--delay);
+  box-shadow: 0 0 1px var(--badge-color);
+}
+
+/* Tier 2: Weight Bearer - Dual spiral arms */
+@keyframes weight-spiral {
   from {
-    transform: rotate(0deg) scale(calc(0.9 * var(--tier-scale)));
+    transform: rotate(0deg) scale(1.0);
+    opacity: 0;
+  }
+
+  50% {
+    opacity: 0.4;
   }
 
   to {
-    transform: rotate(360deg) scale(calc(1.1 * var(--tier-scale)));
+    transform: rotate(360deg) scale(0.3);
+    opacity: 0;
   }
+}
+
+.density-weight-arm {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 100%;
+  height: 1.5px;
+  background: linear-gradient(to right, transparent, var(--badge-color), transparent);
+  transform-origin: left center;
+  animation: weight-spiral 10s infinite ease-in;
+  animation-delay: var(--delay);
+}
+
+/* Tier 3: Mass Builder - Distortion field */
+@keyframes mass-distort {
+
+  0%,
+  100% {
+    transform: scale(1) rotate(0deg);
+    border-radius: 50%;
+  }
+
+  25% {
+    transform: scale(1.1, 0.9) rotate(5deg);
+    border-radius: 45% 55% 50% 50%;
+  }
+
+  50% {
+    transform: scale(0.9, 1.1) rotate(0deg);
+    border-radius: 50% 50% 45% 55%;
+  }
+
+  75% {
+    transform: scale(1.1, 0.9) rotate(-5deg);
+    border-radius: 55% 45% 50% 50%;
+  }
+}
+
+.density-distortion {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 65%;
+  height: 65%;
+  border: 2px solid var(--badge-color);
+  background: radial-gradient(circle at center, var(--badge-color), transparent 60%);
+  transform: translate(-50%, -50%);
+  animation: mass-distort 6s infinite ease-in-out;
+  opacity: 0.5;
+}
+
+/* Tier 4: Gravity Well - Spiraling vortex */
+@keyframes vortex-spiral {
+  from {
+    transform: rotate(calc(var(--rotation-offset, 0deg) + 0deg)) scale(1.1);
+    opacity: 0;
+  }
+
+  50% {
+    opacity: 0.6;
+  }
+
+  to {
+    transform: rotate(calc(var(--rotation-offset, 0deg) + 720deg)) scale(0.25);
+    opacity: 0;
+  }
+}
+
+.density-vortex {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 100%;
+  height: 100%;
+  transform: translate(-50%, -50%);
+}
+
+.vortex-arm {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(to right, transparent, var(--badge-color), transparent);
+  transform-origin: left center;
+  animation: vortex-spiral 12s infinite ease-in;
+  animation-delay: var(--delay);
+}
+
+/* Tier 5: Singularity - Collapsing matter */
+@keyframes singularity-collapse {
+  0% {
+    transform: translate(var(--start-x), var(--start-y)) scale(0.75);
+    opacity: 1;
+  }
+
+  80% {
+    opacity: 0.8;
+  }
+
+  100% {
+    transform: translate(0, 0) scale(0);
+    opacity: 0;
+  }
+}
+
+@keyframes singularity-core-pulse {
+
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 5px var(--badge-color), 0 0 10px var(--badge-color);
+  }
+
+  50% {
+    transform: scale(1.3);
+    box-shadow: 0 0 10px var(--badge-color), 0 0 20px var(--badge-color), 0 0 30px var(--badge-color);
+  }
+}
+
+.singularity-particle {
+  position: absolute;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: var(--badge-color);
+  left: 50%;
+  top: 50%;
+  animation: singularity-collapse var(--duration, 4s) infinite ease-in;
+  animation-delay: var(--delay);
+}
+
+.singularity-core {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--badge-color);
+  transform: translate(-50%, -50%);
+  animation: singularity-core-pulse 4s infinite ease-in-out;
+}
+
+/* Category: Ownership (Orbital Nodes) */
+@keyframes orbit-rotate {
+  from {
+    transform: rotate(0deg) translateX(10px) rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg) translateX(10px) rotate(-360deg);
+  }
+}
+
+.ownership-node {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: radial-gradient(circle at center, var(--badge-color), transparent 70%);
+  box-shadow: 0 0 3px var(--badge-color);
+  animation: orbit-rotate var(--orbit-duration, 4s) infinite linear;
+  animation-delay: var(--delay);
+  left: 50%;
+  top: 50%;
+  margin-left: -2px;
+  margin-top: -2px;
+}
+
+.ownership-core {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 1.5px solid var(--badge-color);
+  background: radial-gradient(circle at center, var(--badge-color), transparent 60%);
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
 }
 
 /* Category: Ownership (Crystalline Growth) */
@@ -56,37 +259,57 @@
   }
 }
 
-/* Category: Goliath (Titan Energy) */
-@keyframes goliath-rings {
+/* Category: Goliath (Titan Energy - Pulsing Squares) */
+@keyframes goliath-square-pulse {
+
+  0%,
+  100% {
+    transform: translate(-50%, -50%) scale(0.8);
+    opacity: 0.3;
+  }
+
+  50% {
+    transform: translate(-50%, -50%) scale(1.1);
+    opacity: 0.7;
+  }
+}
+
+.goliath-square {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  background: radial-gradient(circle at center, var(--badge-color), transparent 60%);
+  border: 1px solid var(--badge-color);
+  animation: goliath-square-pulse calc(4s / var(--tier-intensity)) infinite ease-in-out;
+  animation-delay: var(--delay);
+}
+
+/* Category: Density (Expanding Circles) */
+@keyframes density-circle-expand {
   0% {
-    transform: scale(0.5);
+    transform: translate(-50%, -50%) scale(0.5);
     opacity: 0;
   }
 
   50% {
-    opacity: calc(0.5 * var(--tier-intensity));
+    opacity: 0.6;
   }
 
   100% {
-    transform: scale(calc(1.5 * var(--tier-scale)));
+    transform: translate(-50%, -50%) scale(2);
     opacity: 0;
   }
 }
 
-@keyframes goliath-vibration {
-
-  0%,
-  100% {
-    transform: translate(0, 0);
-  }
-
-  25% {
-    transform: translate(calc(-1px * var(--tier-intensity)), calc(1px * var(--tier-intensity)));
-  }
-
-  75% {
-    transform: translate(calc(1px * var(--tier-intensity)), calc(-1px * var(--tier-intensity)));
-  }
+.density-circle {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  border-radius: 50%;
+  border: 2px solid var(--badge-color);
+  background: radial-gradient(circle at center, var(--badge-color), transparent 50%);
+  animation: density-circle-expand calc(5s / var(--tier-intensity)) infinite ease-out;
+  animation-delay: var(--delay);
 }
 
 /* Category: Reactive (Plasma/Flares) */
@@ -109,26 +332,43 @@
   }
 }
 
-/* Sub-DNA: Pure Hive (Hexagons) */
+/* Sub-DNA: Tri-Reactive (Reverse Explosion) */
+@keyframes particle-implode {
+  0% {
+    transform: translate(var(--start-x), var(--start-y)) scale(1);
+    opacity: 0.8;
+  }
+
+  100% {
+    transform: translate(0, 0) scale(0.2);
+    opacity: 0;
+  }
+}
+
+.tri-particle {
+  position: absolute;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: var(--badge-color);
+  left: 50%;
+  top: 50%;
+  animation: particle-implode var(--duration, 4s) infinite ease-in;
+  animation-delay: var(--delay);
+  box-shadow: 0 0 3px var(--badge-color);
+}
+
+/* Sub-DNA: Pure Reactor SVG Animation */
 @keyframes hive-pulse {
 
   0%,
   100% {
-    transform: scale(0.8) rotate(0deg);
-    opacity: 0.2;
+    opacity: 0.4;
   }
 
   50% {
-    transform: scale(1.1) rotate(10deg);
-    opacity: 0.6;
+    opacity: 1;
   }
-}
-
-.reactive-hive {
-  clip-path: polygon(50% 0%, 93.3% 25%, 93.3% 75%, 50% 100%, 6.7% 75%, 6.7% 25%);
-  background: var(--badge-color);
-  opacity: 0.3;
-  animation: hive-pulse 4s infinite ease-in-out;
 }
 
 /* Sub-DNA: Recurrent Flux (Pulsating Dots) */
@@ -158,37 +398,64 @@
   animation-delay: var(--delay);
 }
 
-/* Sub-DNA: Polar Fire (Flicker) */
-@keyframes fire-flicker {
+/* Sub-DNA: White Polar "Rising Embers" Fire */
+@keyframes ember-rise {
+  0% {
+    transform: translate(var(--start-x), 0) scale(1);
+    opacity: 0;
+  }
 
-  0%,
+  20% {
+    opacity: 1;
+  }
+
   100% {
-    transform: translateY(0) scaleX(1);
-    filter: blur(2px) brightness(1);
-  }
-
-  25% {
-    transform: translateY(-1px) scaleX(1.1);
-    filter: blur(3px) brightness(1.2);
-  }
-
-  50% {
-    transform: translateY(-3px) scaleX(0.9);
-    filter: blur(2px) brightness(1.1);
-  }
-
-  75% {
-    transform: translateY(-1px) scaleX(1.05);
-    filter: blur(4px) brightness(1.3);
+    transform: translate(calc(var(--start-x) + var(--sway)), -20px) scale(0.2);
+    opacity: 0;
   }
 }
 
-.polar-fire {
-  background: linear-gradient(to top, var(--badge-color), transparent);
-  mix-blend-mode: screen;
+@keyframes flame-core-pulse {
+
+  0%,
+  100% {
+    transform: translate(-50%, 0) scale(1);
+    opacity: 0.5;
+    filter: blur(2px);
+  }
+
+  50% {
+    transform: translate(-50%, -2px) scale(1.1);
+    opacity: 0.8;
+    filter: blur(3px);
+  }
+}
+
+.fire-ember {
+  position: absolute;
+  bottom: 20%;
+  left: 50%;
+  width: 3px;
+  height: 3px;
+  background: var(--badge-color);
+  border-radius: 50%;
+  box-shadow: 0 0 4px var(--badge-color);
+  pointer-events: none;
+  animation: ember-rise var(--duration) infinite ease-out;
+  animation-delay: var(--delay);
+}
+
+.fire-core {
+  position: absolute;
+  bottom: 15%;
+  left: 50%;
+  width: 60%;
+  height: 40%;
+  background: radial-gradient(ellipse at bottom, var(--badge-color) 0%, transparent 70%);
+  transform: translateX(-50%);
   filter: blur(2px);
-  animation: fire-flicker 0.8s infinite ease-in-out;
-  border-radius: 50% 50% 20% 20% / 80% 80% 20% 20%;
+  animation: flame-core-pulse 4s infinite ease-in-out;
+  pointer-events: none;
 }
 
 /* Sub-DNA: Polar Void (Black Hole) */
@@ -217,7 +484,7 @@
   border-top: 3px solid #8a2be2;
   border-right: 1px solid transparent;
   border-radius: 50%;
-  animation: void-swirl 3s infinite linear;
+  animation: void-swirl 6s infinite linear;
   filter: blur(1.5px);
   opacity: 0.6;
 }
@@ -285,6 +552,58 @@
   --tier-intensity: 2.0;
   --tier-scale: 1.3;
   --tier-complexity: 5;
+}
+
+/* Category: Spectrum (Concentric Triangles) */
+@keyframes triangle-rotate-cw {
+  from {
+    transform: translate(-50%, -50%) rotate(0deg);
+  }
+
+  to {
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
+}
+
+@keyframes triangle-rotate-ccw {
+  from {
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
+
+  to {
+    transform: translate(-50%, -50%) rotate(0deg);
+  }
+}
+
+.spectrum-triangle {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  clip-path: polygon(50% 0%, 100% 100%, 0% 100%);
+  border: 1px solid var(--badge-color);
+  background: linear-gradient(45deg, var(--badge-color), transparent);
+  mix-blend-mode: screen;
+}
+
+.spectrum-triangle-1 {
+  width: 90%;
+  height: 90%;
+  animation: triangle-rotate-cw 12s infinite linear;
+  opacity: 0.4;
+}
+
+.spectrum-triangle-2 {
+  width: 70%;
+  height: 70%;
+  animation: triangle-rotate-ccw 9s infinite linear;
+  opacity: 0.6;
+}
+
+.spectrum-triangle-3 {
+  width: 50%;
+  height: 50%;
+  animation: triangle-rotate-cw 6s infinite linear;
+  opacity: 0.8;
 }
 
 /* Special Utility for Colors */
