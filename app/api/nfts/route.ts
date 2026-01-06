@@ -10,21 +10,19 @@ export async function GET(request: NextRequest) {
     // Only use server-side environment variable
     const ALCHEMY_API_KEY = process.env.ALCHEMY_API_KEY
 
-    if (!ALCHEMY_API_KEY) {
-      console.error("❌ No server-side Alchemy API key found")
-      return NextResponse.json({ success: false, error: "No server-side API key configured" }, { status: 500 })
-    }
-
     switch (action) {
       case "goliath-random":
         return await fetchRandomNFTs('goliath')
       case "oldrock-random":
         return await fetchRandomNFTs('oldrock')
       case "oldrock-collection":
+        if (!ALCHEMY_API_KEY) return NextResponse.json({ success: false, error: "Alchemy API key missing" }, { status: 500 })
         return await fetchOldRockNFTs(ALCHEMY_API_KEY)
       case "goliath-collection-density":
+        if (!ALCHEMY_API_KEY) return NextResponse.json({ success: false, error: "Alchemy API key missing" }, { status: 500 })
         return await fetchGoliathNFTsByDensity(ALCHEMY_API_KEY)
       case "collection-stats":
+        if (!ALCHEMY_API_KEY) return NextResponse.json({ success: false, error: "Alchemy API key missing" }, { status: 500 })
         return await fetchCollectionStats(ALCHEMY_API_KEY)
       case "user-data":
         return await fetchUserData(request)
@@ -127,7 +125,7 @@ async function fetchUserData(request: NextRequest) {
 
     if (!authData?.data?.token) {
       console.error(`❌ Amplify API authorization error: No token found`);
-      return NextResponse.json({ success: false, error: `API Error: no authorization token found`});
+      return NextResponse.json({ success: false, error: `API Error: no authorization token found` });
     }
 
     const response = await fetch(
@@ -163,7 +161,7 @@ async function fetchUserData(request: NextRequest) {
           },
         },
       )
-      
+
       if (nftResponse.ok) {
         const nftData = await nftResponse.json()
         oldRockNFTs = nftData?.data?.OldRocks || []

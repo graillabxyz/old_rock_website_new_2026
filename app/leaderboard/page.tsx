@@ -604,7 +604,7 @@ export default function LeaderboardPage() {
                       </th>
                       {leaderboardType === "density" ? (
                         <>
-                          <th className="px-4 sm:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm font-pt-mono text-gray-400">PLAYER</th>
+                          <th className="px-4 sm:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm font-pt-mono text-gray-400">USER</th>
                           <th
                             className="px-4 sm:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm font-pt-mono text-gray-400 cursor-pointer hover:text-white"
                             onClick={() => handleSort("totalDensity")}
@@ -615,7 +615,7 @@ export default function LeaderboardPage() {
                         </>
                       ) : (
                         <>
-                          <th className="px-4 sm:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm font-pt-mono text-gray-400">PLAYER</th>
+                          <th className="px-4 sm:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm font-pt-mono text-gray-400">USER</th>
                           <th
                             className="px-4 sm:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm font-pt-mono text-gray-400 cursor-pointer hover:text-white"
                             onClick={() => handleSort("densityDeck")}

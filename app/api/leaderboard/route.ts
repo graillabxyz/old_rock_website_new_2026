@@ -726,8 +726,26 @@ export async function GET(request: NextRequest) {
       try {
         const amplifyApiUrl = process.env.NEXT_PUBLIC_AMPLIFY_API_URL
         if (amplifyApiUrl) {
+          // Fetch density for this user first so processBatch has it
+          const densityMap = new Map<string, DensityBalance>()
+          try {
+            const densityResponse = await fetch(`${amplifyApiUrl}/density/${addressLower}`, {
+              cache: "no-store",
+              headers: { "Accept": "application/json", "Origin": "https://oldrocknft.com" }
+            })
+            if (densityResponse.ok) {
+              const d = await densityResponse.json()
+              densityMap.set(addressLower, {
+                amount: parseFloat(d?.data?.amount || "0") || 0,
+                amountUnclaimed: parseFloat(d?.data?.amountUnclaimed || "0") || 0,
+              })
+            }
+          } catch (e) {
+            console.warn(`⚠️ Filter-direct: Could not fetch density for ${addressLower}`)
+          }
+
           // Process just this one user
-          const batchResults = await processBatch([addressLower], amplifyApiUrl, 1, 1)
+          const batchResults = await processBatch([addressLower], amplifyApiUrl, 1, 1, densityMap)
           if (batchResults && batchResults.length > 0) {
             const user = batchResults[0]
             // We don't know the exact rank without full list, but we can provide the data
