@@ -28,8 +28,8 @@ const Particle = ({ velocityY }: { velocityY: any }) => {
         '--s': `${0.5 + Math.random() * 1.5}`,
         '--d': `${7 + Math.random() * 10}s`,
         '--del': `${Math.random() * 12}s`,
-        top: '52%',
-        left: '77%',
+        top: '43%',
+        left: '71%',
         boxShadow: '0 0 12px 3px rgba(168, 85, 247, 0.7)',
     } as React.CSSProperties;
 
@@ -41,15 +41,15 @@ const Particle = ({ velocityY }: { velocityY: any }) => {
     )
 }
 
-const DustParticles = () => {
+const DensityOrb = () => {
     return (
         <div className="absolute inset-0 pointer-events-none h-full w-full">
             {/* Background Glow */}
             <div
                 className="absolute w-64 h-64 bg-purple-600/20 rounded-full blur-[80px]"
                 style={{
-                    top: '52%',
-                    left: '77%',
+                    top: '43%',
+                    left: '71%',
                     transform: 'translate(-50%, -50%)',
                 }}
             />
@@ -57,9 +57,10 @@ const DustParticles = () => {
             <motion.div
                 className="absolute w-32 h-32 z-0 pointer-events-none"
                 style={{
-                    top: '52%',
-                    left: '77%',
-                    transform: 'translate(-50%, -50%)',
+                    top: '43%',
+                    left: '71%',
+                    x: '-50%',
+                    y: '-50%',
                 }}
                 animate={{
                     scale: [1, 1.05, 1],
@@ -81,7 +82,13 @@ const DustParticles = () => {
                     <source src="/videos/density/density_hero.webm" type="video/webm" />
                 </video>
             </motion.div>
+        </div>
+    )
+}
 
+const DustOverlay = () => {
+    return (
+        <div className="absolute inset-0 pointer-events-none h-full w-full z-20">
             {/* Particles - Higher Quantity - In Front of Image */}
             {[...Array(120)].map((_, i) => (
                 <Particle key={i} velocityY={0} />
@@ -646,13 +653,14 @@ export default function DensityPage() {
                                         viewport={{ once: true }}
                                     >
                                         <div className="relative aspect-square w-full">
-                                            <DustParticles />
+                                            <DensityOrb />
                                             <Image
                                                 src="/images/density/dustdealer_v2.webp"
                                                 alt="Dust Dealer"
                                                 fill
                                                 className="object-contain relative z-10 pointer-events-none"
                                             />
+                                            <DustOverlay />
                                         </div>
                                     </motion.div>
                                 </div>
