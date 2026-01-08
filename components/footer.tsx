@@ -190,14 +190,9 @@ export function Footer() {
                   >
                     Goliath Collection
                   </a>
-                  <a
-                    href="https://mint.oldrocknft.com"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="block text-gray-400 hover:text-purple-400 transition-colors"
-                  >
+                  <Link href="/mint" className="block text-gray-400 hover:text-purple-400 transition-colors">
                     Mint Page
-                  </a>
+                  </Link>
                 </div>
               </motion.div>
             </div>
