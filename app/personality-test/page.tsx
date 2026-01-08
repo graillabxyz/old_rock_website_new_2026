@@ -15,6 +15,7 @@ const rockColors = [
     name: "COMMON",
     element: "EARTH",
     color: "#8B4513",
+    textColor: "text-white",
     rarity: "Common",
     positive: "Grounded, reliable, practical, stable, dependable",
     negative: "Boring, predictable, stubborn, unimaginative, rigid",
@@ -24,6 +25,7 @@ const rockColors = [
     name: "YELLOW",
     element: "GAS",
     color: "#FFB000",
+    textColor: "text-black",
     rarity: "Uncommon",
     positive: "Cheerful, adaptable, optimistic, energetic, light-hearted",
     negative: "Unpredictable, inconsistent, superficial, flighty, impulsive",
@@ -33,6 +35,7 @@ const rockColors = [
     name: "TURQUOISE",
     element: "ELECTRICITY",
     color: "#40E0D0",
+    textColor: "text-black",
     rarity: "Uncommon",
     positive: "Quick-witted, adaptable, creative, energetic, inspiring",
     negative: "Unpredictable, impulsive, restless, volatile, erratic",
@@ -42,6 +45,7 @@ const rockColors = [
     name: "BLUE",
     element: "ICE",
     color: "#0F52BA",
+    textColor: "text-white",
     rarity: "Rare",
     positive: "Calm, rational, introspective, patient, stable",
     negative: "Cold, aloof, unemotional, indecisive, detached",
@@ -51,6 +55,7 @@ const rockColors = [
     name: "PURPLE",
     element: "FORCE/MIND",
     color: "#9966CC",
+    textColor: "text-white",
     rarity: "Rare",
     positive: "Wise, intuitive, thoughtful, intellectual, sensitive",
     negative: "Overthinking, secretive, indecisive, overly complex, mysterious",
@@ -60,6 +65,7 @@ const rockColors = [
     name: "RED",
     element: "FIRE",
     color: "#E0115F",
+    textColor: "text-white",
     rarity: "Rare",
     positive: "Passionate, assertive, confident, courageous, energetic",
     negative: "Impulsive, hot-headed, aggressive, domineering, volatile",
@@ -69,6 +75,7 @@ const rockColors = [
     name: "SILVER",
     element: "PHYSICAL ENHANCEMENTS",
     color: "#C0C0C0",
+    textColor: "text-black",
     rarity: "Epic",
     positive: "Agile, resilient, competitive, disciplined, strong",
     negative: "Over-competitive, stubborn, uncompromising, aggressive",
@@ -78,6 +85,7 @@ const rockColors = [
     name: "GOLD",
     element: "WEALTH/PROSPERITY",
     color: "#FFD700",
+    textColor: "text-black",
     rarity: "Epic",
     positive: "Ambitious, successful, confident, charismatic, influential",
     negative: "Greedy, materialistic, arrogant, superficial, selfish",
@@ -87,6 +95,7 @@ const rockColors = [
     name: "AQUAMARINE",
     element: "WATER/HEALING",
     color: "#7FFFD4",
+    textColor: "text-black",
     rarity: "Legendary",
     positive: "Healing, peaceful, empathetic, nurturing, harmonious",
     negative: "Overly emotional, passive, indecisive, escapist, dependent",
@@ -96,6 +105,7 @@ const rockColors = [
     name: "BLACK",
     element: "VOID/SHADOW",
     color: "#000000",
+    textColor: "text-white",
     rarity: "Mythic",
     positive: "Mysterious, powerful, protective, sophisticated, elegant",
     negative: "Dark, pessimistic, secretive, intimidating, destructive",
@@ -105,6 +115,7 @@ const rockColors = [
     name: "WHITE",
     element: "LIGHT/PURITY",
     color: "#FFFFFF",
+    textColor: "text-black",
     rarity: "Mythic",
     positive: "Pure, enlightened, peaceful, spiritual, transcendent",
     negative: "Naive, detached, perfectionist, judgmental, sterile",
@@ -472,7 +483,7 @@ export default function PersonalityTestPage() {
       const header = document.querySelector("header") as HTMLElement | null
       const originalSidebarDisplay = sidebar?.style.display || ""
       const originalHeaderDisplay = header?.style.display || ""
-      
+
       if (sidebar) sidebar.style.display = "none"
       if (header) header.style.display = "none"
 
@@ -531,7 +542,7 @@ export default function PersonalityTestPage() {
       alert("Failed to generate image. Please try again.")
     } finally {
       setIsGeneratingImage(false)
-      
+
       // Restore original styles and remove temporary elements
       if (content) {
         if (originalContentStyle) {
@@ -552,8 +563,8 @@ export default function PersonalityTestPage() {
       const contentElements = Array.from(contentToCaptureRef.current?.children || []) as HTMLElement[]
       contentElements.forEach((el) => {
         if (el.style) {
-        el.style.position = ""
-        el.style.zIndex = ""
+          el.style.position = ""
+          el.style.zIndex = ""
         }
       })
 
@@ -636,11 +647,10 @@ export default function PersonalityTestPage() {
                     <button
                       key={index}
                       onClick={() => handleAnswer(index)}
-                      className={`w-full text-left p-3 rounded-lg border transition-all duration-200 ${
-                        answers[currentQuestionIndex] === index
+                      className={`w-full text-left p-3 rounded-lg border transition-all duration-200 ${answers[currentQuestionIndex] === index
                           ? "bg-purple-600/30 border-purple-500 text-white"
                           : "bg-gray-800/50 border-gray-700 hover:bg-gray-700/50 text-gray-300"
-                      }`}
+                        }`}
                     >
                       <span className="font-pt-mono text-base">{option.text}</span>
                     </button>
@@ -699,7 +709,7 @@ export default function PersonalityTestPage() {
                         <h3 className="text-3xl font-black font-montserrat text-white mb-1">{resultColor.name}</h3>
                         <p className="text-lg font-pt-mono text-purple-400 mb-3">{resultColor.element}</p>
                         <span
-                          className={`text-white text-xs font-bold px-2 py-0.5 rounded-full font-pt-mono`}
+                          className={`${resultColor.textColor} text-xs font-bold px-3 py-1 rounded-full font-pt-mono tracking-wider`}
                           style={{ backgroundColor: resultColor.color }}
                         >
                           {resultColor.rarity.toUpperCase()}

@@ -65,3 +65,25 @@
     @apply font-pt-mono;
   }
 }
+
+@keyframes particle-float {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0) scale(0);
+  }
+
+  15% {
+    opacity: 0.9;
+    transform: translate(calc(var(--tx) * 0.15), calc(var(--ty) * 0.15)) scale(var(--s));
+  }
+
+  85% {
+    opacity: 0.9;
+    transform: translate(calc(var(--tx) * 0.85), calc(var(--ty) * 0.85)) scale(var(--s));
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate(var(--tx), var(--ty)) scale(0);
+  }
+}
