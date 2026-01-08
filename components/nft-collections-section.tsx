@@ -4,9 +4,12 @@ import { motion } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import Image from "next/image"
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { fetchRandomGoliathNFTs, fetchRandomOldRockNFTs } from "@/app/actions/fetch-nfts"
+import MintWidget from "@/components/mint-widget"
 
 export function NFTCollectionsSection() {
+  const router = useRouter()
   // Create array for 4x4 grid
   const gridItems = Array.from({ length: 16 }, (_, i) => i)
 
@@ -85,9 +88,8 @@ export function NFTCollectionsSection() {
               <button
                 type="button"
                 onClick={() => setActiveCollection("OLD_ROCK")}
-                className={`text-3xl md:text-4xl font-black font-montserrat transition-colors cursor-pointer ${
-                  activeCollection === "OLD_ROCK" ? "text-white hover:text-purple-400" : "text-purple-400"
-                }`}
+                className={`text-3xl md:text-4xl font-black font-montserrat transition-colors cursor-pointer ${activeCollection === "OLD_ROCK" ? "text-white hover:text-purple-400" : "text-purple-400"
+                  }`}
               >
                 OLD ROCK
               </button>
@@ -98,9 +100,8 @@ export function NFTCollectionsSection() {
               <button
                 type="button"
                 onClick={() => setActiveCollection("GOLIATH")}
-                className={`text-3xl md:text-4xl font-black font-montserrat transition-colors cursor-pointer ${
-                  activeCollection === "GOLIATH" ? "text-white hover:text-purple-300" : "text-purple-400"
-                }`}
+                className={`text-3xl md:text-4xl font-black font-montserrat transition-colors cursor-pointer ${activeCollection === "GOLIATH" ? "text-white hover:text-purple-300" : "text-purple-400"
+                  }`}
               >
                 GOLIATH
               </button>
@@ -137,15 +138,10 @@ export function NFTCollectionsSection() {
               <p>If you have any questions please join our Discord and open a ticket.</p>
             </div>
 
-            <div className="flex items-center gap-4">
-              {activeCollection === "GOLIATH" && (
-                <Button
-                  className="bg-purple-500 hover:bg-purple-600 text-white px-8 py-3 text-lg font-bold rounded-lg font-pt-mono transition-colors duration-300"
-                  onClick={() => window.open("https://mint.oldrocknft.com", "_blank")}
-                >
-                  GO TO MINT PAGE
-                </Button>
-              )}
+            {/* Mint Widget for Goliath */}
+            {activeCollection === "GOLIATH" && <MintWidget />}
+
+            <div className="flex items-center gap-4 mt-4">
               <a
                 href={activeCollection === "GOLIATH" ? "https://opensea.io/collection/oldrock-goliath" : "https://opensea.io/collection/oldrock"}
                 target="_blank"
@@ -184,7 +180,7 @@ export function NFTCollectionsSection() {
                 transition: { duration: 0.2 },
               }}
               viewport={{ once: true }}
-              onClick={() => window.open("https://mint.oldrocknft.com", "_blank")}
+              onClick={() => router.push("/mint")}
             >
               {isLoadingNFTs ? (
                 <div className="w-full h-full bg-gray-700/50 animate-pulse flex items-center justify-center">

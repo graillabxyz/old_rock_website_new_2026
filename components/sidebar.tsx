@@ -191,9 +191,7 @@ export function Sidebar({ isWalletConnected: externalIsConnected, userProfile: e
     {
       name: "Density",
       icon: "/icons/density-icon.png",
-      href: "#",
-      disabled: true,
-      disabledText: "coming soon",
+      href: "/density",
     },
     {
       name: "NFTs",
@@ -213,8 +211,8 @@ export function Sidebar({ isWalletConnected: externalIsConnected, userProfile: e
         },
         {
           name: "Mint",
-          href: "https://mint.oldrocknft.com",
-          isExternal: true,
+          href: "/mint",
+          isExternal: false,
         },
       ],
     },

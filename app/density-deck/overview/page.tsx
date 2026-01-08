@@ -144,7 +144,7 @@ export default function DensityDeckOverview() {
                     <div className="space-y-2 sm:space-y-3 text-xs sm:text-sm font-pt-mono text-gray-300">
                       <div className="flex justify-between items-center">
                         <span className="break-words">Players:</span>
-                        <span className="text-white font-bold ml-2 flex-shrink-0">2-4</span>
+                        <span className="text-white font-bold ml-2 flex-shrink-0">4</span>
                       </div>
                       <div className="flex justify-between items-center">
                         <span className="break-words">Game Time:</span>

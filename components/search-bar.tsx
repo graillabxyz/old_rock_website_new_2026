@@ -156,10 +156,10 @@ export function SearchBar() {
     },
     {
       id: "goliath-mint",
-      type: "app",
+      type: "page",
       title: "Goliath Mint",
       description: "Mint new Goliath NFTs from the collection",
-      url: "https://mint.oldrocknft.com",
+      url: "/mint",
       icon: <Sprout className="w-4 h-4" />,
       category: "NFTs",
     },
@@ -186,18 +186,18 @@ export function SearchBar() {
   // Function to fetch user wallet data (cached)
   const fetchUserWalletData = async (address: string): Promise<{ oldRock: boolean; goliath: boolean; density: number; ensName?: string } | null> => {
     const addressLower = address.toLowerCase();
-    
+
     // Check cache first
     if (userWalletData.has(addressLower)) {
       return userWalletData.get(addressLower)!;
     }
-    
+
     try {
       // Fetch user NFTs and density through API route to avoid CORS
       let hasOldRock = false;
       let hasGoliath = false;
       let density = 0;
-      
+
       try {
         const nftResponse = await fetch(`/api/nfts?action=user-data&walletAddress=${address}`);
         if (nftResponse.ok) {
@@ -210,7 +210,7 @@ export function SearchBar() {
       } catch (e) {
         // Ignore NFT fetch errors
       }
-      
+
       // Fetch DENSITY balance through API route
       try {
         const densityResponse = await fetch(`/api/nfts?action=user-density&walletAddress=${address}`);
@@ -223,7 +223,7 @@ export function SearchBar() {
       } catch (e) {
         // Ignore density fetch errors
       }
-      
+
       // Fetch ENS name
       let ensName: string | undefined;
       try {
@@ -235,17 +235,17 @@ export function SearchBar() {
       } catch (e) {
         // Ignore ENS fetch errors
       }
-      
+
       const walletData = {
         oldRock: hasOldRock,
         goliath: hasGoliath,
         density,
         ensName,
       };
-      
+
       // Cache the result
       setUserWalletData(prev => new Map(prev).set(addressLower, walletData));
-      
+
       return walletData;
     } catch (e) {
       return null;
@@ -273,7 +273,7 @@ export function SearchBar() {
           console.warn("NEXT_PUBLIC_METADATA_SERVICE_URL not configured, skipping Goliath limit fetch");
           return;
         }
-        
+
         const response = await fetch(`${process.env.NEXT_PUBLIC_METADATA_SERVICE_URL}/goliath/limit`);
 
         if (!response.ok) {
@@ -294,7 +294,7 @@ export function SearchBar() {
       try {
         // Use API route to avoid CORS issues
         const response = await fetch("/api/leaderboard?limit=0"); // Get all users for search index
-        
+
         if (!response.ok) {
           // If leaderboard fails, try to get from cache or skip
           console.warn("Could not fetch NFT owners list from leaderboard");
@@ -321,7 +321,7 @@ export function SearchBar() {
         const result = await response.json();
         if (result.success && result.data) {
           setLeaderboardData(result.data);
-          
+
           // Pre-populate userWalletData cache with leaderboard data
           const walletDataMap = new Map<string, { oldRock: boolean; goliath: boolean; density: number; ensName?: string }>();
           result.data.forEach((user: any) => {
@@ -411,7 +411,7 @@ export function SearchBar() {
                 if (walletData.oldRock) descriptionParts.push("Old Rock holder");
                 if (walletData.goliath) descriptionParts.push("Goliath holder");
                 if (walletData.density > 0) descriptionParts.push(`${walletData.density.toLocaleString()} $DENSITY`);
-                
+
                 mockResults.push({
                   id: address,
                   type: "profile",
@@ -435,12 +435,12 @@ export function SearchBar() {
         try {
           const queryLower = query.toLowerCase();
           const matchingENS: Array<{ name: string; address: string; data: any; priority: number }> = [];
-          
+
           // Search through leaderboard data first (source of truth)
           leaderboardData.forEach((user) => {
             if (user.ensName) {
               const ensNameLower = user.ensName.toLowerCase();
-              
+
               // Priority: exact match > starts with > contains
               let priority = 3;
               if (ensNameLower === queryLower) {
@@ -452,7 +452,7 @@ export function SearchBar() {
               } else {
                 return; // No match
               }
-              
+
               matchingENS.push({
                 name: user.ensName,
                 address: user.address.toLowerCase(),
@@ -471,10 +471,10 @@ export function SearchBar() {
           userWalletData.forEach((data, address) => {
             // Skip if already in leaderboard results
             if (matchingENS.some(e => e.address === address)) return;
-            
+
             if (data.ensName) {
               const ensNameLower = data.ensName.toLowerCase();
-              
+
               // Priority: exact match > starts with > contains
               let priority = 3;
               if (ensNameLower === queryLower) {
@@ -486,7 +486,7 @@ export function SearchBar() {
               } else {
                 return; // No match
               }
-              
+
               matchingENS.push({
                 name: data.ensName,
                 address: address,
@@ -505,13 +505,13 @@ export function SearchBar() {
             .slice(0, 10)
             .forEach(ensMatch => {
               const walletData = ensMatch.data;
-              
+
               if (walletData) {
                 const descriptionParts: string[] = [];
                 if (walletData.oldRock) descriptionParts.push("Old Rock holder");
                 if (walletData.goliath) descriptionParts.push("Goliath holder");
                 if (walletData.density > 0) descriptionParts.push(`${walletData.density.toLocaleString()} $DENSITY`);
-                
+
                 mockResults.push({
                   id: ensMatch.address,
                   type: "profile",
@@ -544,35 +544,35 @@ export function SearchBar() {
       if (queryTrimmed.length >= 3) {
         const queryLower = query.toLowerCase();
         const queryWithoutPrefix = query.replace('0x', '').toLowerCase();
-        
+
         // Filter based on search criteria
         const searchForOldRock = originalQuery.toLowerCase().includes('old rock') || originalQuery.toLowerCase().includes('oldrock');
         const searchForGoliath = originalQuery.toLowerCase().includes('goliath');
         const searchForDensity = originalQuery.toLowerCase().includes('density') || originalQuery.toLowerCase().includes('$density');
-        
+
         // Search through leaderboard data first (source of truth)
         leaderboardData.forEach((user) => {
           const addressLower = user.address.toLowerCase();
           const addressWithoutPrefix = user.address.replace('0x', '').toLowerCase();
           const ensNameLower = user.ensName?.toLowerCase() || '';
           const displayNameLower = user.displayName.toLowerCase();
-          
+
           // Match by address, ENS name, or display name
           const matchesAddress = addressLower.includes(queryLower) || addressWithoutPrefix.includes(queryWithoutPrefix);
           const matchesENS = ensNameLower.includes(queryLower);
           const matchesDisplayName = displayNameLower.includes(queryLower);
-          
+
           if (matchesAddress || matchesENS || matchesDisplayName) {
             // If specific collection is searched, only show if they have it
             if (searchForOldRock && !user.hasOldRock) return;
             if (searchForGoliath && !user.hasGoliath) return;
             if (searchForDensity && user.totalDensity === 0) return;
-            
+
             const descriptionParts: string[] = [];
             if (user.hasOldRock) descriptionParts.push("Old Rock holder");
             if (user.hasGoliath) descriptionParts.push("Goliath holder");
             if (user.totalDensity > 0) descriptionParts.push(`${user.totalDensity.toLocaleString()} $DENSITY`);
-            
+
             mockResults.push({
               id: user.address,
               type: "profile",
@@ -584,31 +584,31 @@ export function SearchBar() {
             });
           }
         });
-        
+
         // Also search through cached wallet data for additional matches not in leaderboard
         userWalletData.forEach((data, address) => {
           // Skip if already in leaderboard results
           if (leaderboardData.some(u => u.address.toLowerCase() === address)) return;
-          
+
           const addressLower = address.toLowerCase();
           const addressWithoutPrefix = address.replace('0x', '').toLowerCase();
           const ensNameLower = data.ensName?.toLowerCase() || '';
-          
+
           // Match by address or ENS name
           const matchesAddress = addressLower.includes(queryLower) || addressWithoutPrefix.includes(queryWithoutPrefix);
           const matchesENS = ensNameLower.includes(queryLower);
-          
+
           if (matchesAddress || matchesENS) {
             // If specific collection is searched, only show if they have it
             if (searchForOldRock && !data.oldRock) return;
             if (searchForGoliath && !data.goliath) return;
             if (searchForDensity && data.density === 0) return;
-            
+
             const descriptionParts: string[] = [];
             if (data.oldRock) descriptionParts.push("Old Rock holder");
             if (data.goliath) descriptionParts.push("Goliath holder");
             if (data.density > 0) descriptionParts.push(`${data.density.toLocaleString()} $DENSITY`);
-            
+
             mockResults.push({
               id: address,
               type: "profile",
