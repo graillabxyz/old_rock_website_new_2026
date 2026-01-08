@@ -152,8 +152,16 @@ export function DensityBalanceDisplay({ onConnectWallet }: DensityBalanceDisplay
                             href="https://amplify.oldrocknft.com"
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="bg-orange-500/10 border border-orange-400/30 rounded-xl p-4 hover:bg-orange-500/20 transition-colors group cursor-pointer"
+                            className="bg-orange-500/10 border border-orange-400/30 rounded-xl p-4 transition-colors group cursor-pointer relative overflow-hidden"
                         >
+                            {/* Hover Overlay */}
+                            <div className="absolute inset-0 bg-orange-950/80 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 z-10">
+                                <span className="text-orange-400 font-pt-mono font-bold tracking-widest uppercase text-sm flex items-center space-x-2">
+                                    <span>Extract</span>
+                                    <span className="transform group-hover:translate-x-1 transition-transform">→</span>
+                                </span>
+                            </div>
+
                             <div className="text-xs text-gray-400 font-pt-mono font-bold uppercase tracking-wider mb-2 group-hover:text-orange-300 transition-colors">
                                 UNEXTRACTED BALANCE
                             </div>
@@ -170,9 +178,6 @@ export function DensityBalanceDisplay({ onConnectWallet }: DensityBalanceDisplay
                                         {isLoading ? "..." : formatBalance(unextractedBalance)}
                                     </span>
                                 </div>
-                                <span className="text-xs text-orange-400 font-pt-mono group-hover:text-orange-300">
-                                    Extract →
-                                </span>
                             </div>
                         </a>
                     </div>

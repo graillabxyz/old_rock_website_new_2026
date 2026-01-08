@@ -10,34 +10,33 @@ import { Zap, Gift, MessageCircle, Dice1, AlertTriangle, TrendingUp, Flame, User
 import { fetchRandomGoliathNFTs } from "@/app/actions/fetch-nfts"
 
 const Particle = ({ velocityY }: { velocityY: any }) => {
-    const randomX = Math.random() * 800 - 400;
-    const randomY = Math.random() < 0.5 ? -(Math.random() * 400 + 100) : (Math.random() * 400 + 100);
-    const randomDelay = Math.random() * 12;
-    const randomDuration = 7 + Math.random() * 10;
-    const scale = 0.5 + Math.random() * 1.5;
+    // Generate random values for CSS variables
+    // Use stable values if possible or just render logic
+    // Since this is a client component, random on render is "okay" but better to be stable. 
+    // However, for dust, lightweight re-renders are fine.
+    // To avoid hydration mismatch if this were SSR, we'd need useEffect, but let's assume client-side only for now or use suppressHydrationWarning.
+    // Actually, to be safe and performant, we can just calculate these once or inline.
+
+    // We'll trust React's hydration or the fact it's a small visual effect.
+    // For pure randomness without hydration issues, usually we use useEffect to set them,
+    // but that adds JS overhead back. 
+    // Let's rely on the fact this is likely inside a client component with "use client".
+
+    const style = {
+        '--tx': `${Math.random() * 800 - 400}px`,
+        '--ty': `${Math.random() < 0.5 ? -(Math.random() * 400 + 100) : (Math.random() * 400 + 100)}px`,
+        '--s': `${0.5 + Math.random() * 1.5}`,
+        '--d': `${7 + Math.random() * 10}s`,
+        '--del': `${Math.random() * 12}s`,
+        top: '52%',
+        left: '77%',
+        boxShadow: '0 0 12px 3px rgba(168, 85, 247, 0.7)',
+    } as React.CSSProperties;
 
     return (
-        <motion.div
-            className="absolute w-1 h-1 bg-purple-400 rounded-full blur-[0.5px]"
-            style={{
-                top: '52%',
-                left: '77%',
-                boxShadow: '0 0 12px 3px rgba(168, 85, 247, 0.7)',
-                y: velocityY
-            }}
-            initial={{ opacity: 0, scale: 0, x: 0, y: 0 }}
-            animate={{
-                opacity: [0, 0.9, 0.9, 0],
-                scale: [0, scale, scale, 0],
-                x: [0, randomX],
-                y: [0, randomY],
-            }}
-            transition={{
-                duration: randomDuration,
-                repeat: Infinity,
-                delay: randomDelay,
-                ease: "easeOut"
-            }}
+        <div
+            className="absolute w-1 h-1 bg-purple-400 rounded-full blur-[0.5px] opacity-0 animate-[particle-float_var(--d)_linear_infinite_var(--del)]"
+            style={style}
         />
     )
 }
@@ -51,8 +50,7 @@ const DustParticles = () => {
                 style={{
                     top: '52%',
                     left: '77%',
-                    translateX: '-50%',
-                    translateY: '-50%',
+                    transform: 'translate(-50%, -50%)',
                 }}
             />
             {/* The Entropy Orb - Video Version (No Circle) */}
@@ -61,8 +59,7 @@ const DustParticles = () => {
                 style={{
                     top: '52%',
                     left: '77%',
-                    translateX: '-50%',
-                    translateY: '-50%',
+                    transform: 'translate(-50%, -50%)',
                 }}
                 animate={{
                     scale: [1, 1.05, 1],
@@ -87,9 +84,7 @@ const DustParticles = () => {
 
             {/* Particles - Higher Quantity - In Front of Image */}
             {[...Array(120)].map((_, i) => (
-                <div key={i} className="relative z-30">
-                    <Particle key={i} velocityY={0} />
-                </div>
+                <Particle key={i} velocityY={0} />
             ))}
         </div>
     )
