@@ -569,7 +569,7 @@ export default function DensityPage() {
                                     MEET THE DUST DEALER
                                 </h2>
                                 <p className="text-lg font-pt-mono text-gray-400 max-w-3xl mx-auto">
-                                    A live, community-driven $DENSITY distribution system that lives directly inside the <span className="text-purple-400 font-bold">Old Rock Discord</span>.
+                                    A live, community-driven $DENSITY distribution system that lives directly inside the <a href="https://discord.gg/oldrocknft" target="_blank" rel="noopener noreferrer" className="text-purple-400 font-bold hover:underline">Old Rock Discord</a>.
                                 </p>
                             </motion.div>
 
