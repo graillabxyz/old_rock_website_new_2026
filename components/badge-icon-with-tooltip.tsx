@@ -71,7 +71,8 @@ export default function BadgeIconWithTooltip({ badge, size = "xs", className = "
                 }
                 break
             case "Rock Color":
-                dna = "dna-ownership"
+                dna = "dna-reactive" // Use reactive base but override with diamond
+                subType = "diamond-colored" // New subtype for colored diamond
                 break
             case "Goliath Bounty":
                 dna = "dna-bounty"
@@ -202,6 +203,36 @@ export default function BadgeIconWithTooltip({ badge, size = "xs", className = "
                                         strokeWidth="4"
                                         strokeLinejoin="round"
                                         style={{ animation: 'hive-pulse 4s infinite ease-in-out' }}
+                                    />
+                                </svg>
+                            </div>
+                        )}
+
+                        {subType === "diamond-colored" && (
+                            <div className="absolute inset-0 flex items-center justify-center">
+                                <svg
+                                    viewBox="0 0 100 100"
+                                    className="w-[100%] h-[100%] opacity-90"
+                                    style={{ overflow: 'visible' }}
+                                >
+                                    {/* Main Diamond Stroke */}
+                                    <polygon
+                                        points="50,10 90,50 50,90 10,50"
+                                        fill="none"
+                                        stroke={color}
+                                        strokeWidth="3"
+                                        strokeLinejoin="round"
+                                        className="animate-pulse"
+                                        style={{ animation: 'hive-pulse 3s infinite ease-in-out' }}
+                                    />
+                                    {/* Inner Faint Filled Diamond */}
+                                    <polygon
+                                        points="50,15 85,50 50,85 15,50"
+                                        fill={color}
+                                        fillOpacity="0.1"
+                                        stroke="none"
+                                        className="animate-pulse"
+                                        style={{ animation: 'hive-pulse 3s infinite ease-in-out', animationDelay: '0.1s' }}
                                     />
                                 </svg>
                             </div>
