@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { useParams } from "next/navigation";
 import Image from "next/image"
 import { motion, AnimatePresence } from "framer-motion"
-import { Edit2, X, Plus, Trash2, CheckCircle, AlertCircle } from "lucide-react"
+import { Edit2, X, Plus, Trash2, CheckCircle, AlertCircle, Link as LinkIcon } from "lucide-react"
 import { fetchUserNFTs, fetchUserStats } from "@/app/actions/fetch-user-nfts"
 import { fetchUserDensity } from "@/app/actions/fetch-user-density"
 import { saveProfileNFT } from "@/app/actions/save-profile-nft"
@@ -25,7 +25,7 @@ interface NFT {
   image: string
   collection: string
   contractAddress: string
-  attributes?: any[]
+  attributes?: any
   backgroundColor?: string
 }
 
@@ -39,7 +39,8 @@ interface UserStats {
 }
 
 export default function ProfilePage() {
-  const { targetAddress } = useParams();
+  const params = useParams();
+  const targetAddress = params?.targetAddress as string;
   const [isLoading, setIsLoading] = useState(true)
   const [walletAddress, setWalletAddress] = useState<string>("")
   const [connectedWallet, setConnectedWallet] = useState<string>("")
@@ -155,7 +156,7 @@ export default function ProfilePage() {
   }, [])
 
   useEffect(() => {
-    const targetWallet = targetAddress || connectedWallet
+    const targetWallet = (targetAddress as string) || connectedWallet
 
     if (targetWallet) {
       setWalletAddress(targetWallet)
@@ -407,7 +408,7 @@ export default function ProfilePage() {
     const fileName = file.name.toLowerCase()
     const validExtensions = [".png", ".jpg", ".jpeg", ".webp"]
     const hasValidExtension = validExtensions.some(ext => fileName.endsWith(ext))
-    
+
     if (!hasValidExtension) {
       setUploadError(`Unsupported file format. Please upload: PNG, JPG, or WebP`)
       return
@@ -415,7 +416,7 @@ export default function ProfilePage() {
 
     // Validate file type - only images allowed
     const isImage = SUPPORTED_IMAGE_TYPES.includes(file.type)
-    
+
     if (!isImage) {
       setUploadError(`Unsupported file type. Please upload an image file (PNG, JPG, or WebP)`)
       return
@@ -430,7 +431,7 @@ export default function ProfilePage() {
 
     setIsUploadingHeader(true)
     setUploadProgress(10) // Start progress
-    
+
     try {
       // Simulate progress for better UX
       const progressInterval = setInterval(() => {
@@ -443,10 +444,10 @@ export default function ProfilePage() {
       // Upload to IPFS
       setUploadProgress(30)
       const ipfsHash = await uploadToIPFS(file)
-      
+
       clearInterval(progressInterval)
       setUploadProgress(90)
-      
+
       if (!ipfsHash) {
         throw new Error("Failed to upload to IPFS - no hash returned")
       }
@@ -473,21 +474,21 @@ export default function ProfilePage() {
       // Save to state and localStorage
       setHeaderMedia(ipfsHash)
       setHeaderMediaType("image")
-      
+
       const headerData = {
         hash: ipfsHash,
         type: "image",
         uploadedAt: new Date().toISOString(),
       }
-      
+
       localStorage.setItem(`header-media-${walletAddress}`, JSON.stringify(headerData))
-      
+
       // Show success message
       setUploadSuccess(true)
-      
+
       // Wait a moment to show completion and success message
       await new Promise(resolve => setTimeout(resolve, 1500))
-      
+
       // Close edit mode and reset states
       setIsEditingHeader(false)
       setUploadProgress(0)
@@ -495,14 +496,14 @@ export default function ProfilePage() {
       setUploadSuccess(false)
     } catch (error: any) {
       console.error("Error uploading header media:", error)
-      
+
       // Clear progress interval if still running
       setUploadProgress(0)
       setUploadSuccess(false)
-      
+
       // Provide specific, user-friendly error messages
       let errorMessage = "Failed to upload header media."
-      
+
       if (error?.message?.includes("too large") || error?.message?.includes("Image is too large")) {
         errorMessage = `Image is too large. Please try a smaller or less detailed image. PNG and JPG files are automatically converted to WebP for optimal storage.`
       } else if (error?.message?.includes("Unsupported file format") || error?.message?.includes("Unsupported file type")) {
@@ -522,7 +523,7 @@ export default function ProfilePage() {
       } else {
         errorMessage = "An unexpected error occurred. Please try again."
       }
-      
+
       setUploadError(errorMessage)
     } finally {
       setIsUploadingHeader(false)
@@ -612,7 +613,7 @@ export default function ProfilePage() {
     try {
       // Use the NFT image URL - convert .webp to full resolution if needed
       let imageUrl = nft.image
-      
+
       // If it's a -300.webp thumbnail, try to get the full resolution version
       if (imageUrl.includes("-300.webp")) {
         imageUrl = imageUrl.replace("-300.webp", ".webp")
@@ -701,7 +702,7 @@ export default function ProfilePage() {
       }
     } catch (error: any) {
       console.error("Error setting ENS avatar:", error)
-      
+
       let errorMessage = "Failed to set profile picture. "
       if (error?.message?.includes("user rejected") || error?.code === 4001 || error?.message?.includes("rejected")) {
         errorMessage += "Transaction was rejected."
@@ -718,7 +719,7 @@ export default function ProfilePage() {
       } else {
         errorMessage += "Please try again."
       }
-      
+
       showNotification(errorMessage, "error")
     } finally {
       setIsSettingAvatar(false)
@@ -731,8 +732,8 @@ export default function ProfilePage() {
   if (isLoading) {
     return (
       <>
-        <Header onMenuClick={() => setIsSidebarOpen(true)} />
-        <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
+        <Header />
+        <Sidebar />
         <div className="min-h-screen bg-black flex items-center justify-center pt-[72px]">
           <div className="text-white text-xl">Loading profile...</div>
         </div>
@@ -743,8 +744,8 @@ export default function ProfilePage() {
   if (!walletAddress) {
     return (
       <>
-        <Header onMenuClick={() => setIsSidebarOpen(true)} />
-        <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
+        <Header />
+        <Sidebar />
         <div className="min-h-screen bg-black flex items-center justify-center pt-[72px]">
           <div className="text-center">
             <h1 className="text-white text-2xl mb-4">No wallet connected</h1>
@@ -757,12 +758,12 @@ export default function ProfilePage() {
 
   return (
     <>
-      <Header onMenuClick={() => setIsSidebarOpen(true)} />
-      <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
+      <Header />
+      <Sidebar />
 
       <div className="min-h-screen bg-black pt-[72px]">
         {/* Hero Section with Profile Info */}
-        <div className="relative h-[500px] bg-gradient-to-b from-purple-900/20 to-black border-b border-gray-800 overflow-hidden">
+        <div className="relative h-auto min-h-[300px] md:h-[500px] bg-gradient-to-b from-purple-900/20 to-black border-b border-gray-800 overflow-hidden pb-6 md:pb-0">
           {/* Header Media (Image) */}
           {headerMedia ? (
             <Image
@@ -781,7 +782,7 @@ export default function ProfilePage() {
               unoptimized
             />
           )}
-          
+
           {/* Edit Header Button (only for own profile) */}
           {isOwnProfile && (
             <div className="absolute top-4 right-4 z-10">
@@ -820,7 +821,7 @@ export default function ProfilePage() {
                       Cancel
                     </button>
                   </div>
-                  
+
                   {/* Upload Progress Bar */}
                   {isUploadingHeader && (
                     <div className="w-full max-w-xs bg-gray-800 rounded-full h-2 overflow-hidden">
@@ -830,7 +831,7 @@ export default function ProfilePage() {
                       />
                     </div>
                   )}
-                  
+
                   {/* Success Message */}
                   {uploadSuccess && (
                     <div className="bg-green-900/50 border border-green-600 text-green-200 px-3 py-2 rounded-lg text-sm max-w-xs font-pt-mono flex items-center gap-2">
@@ -840,7 +841,7 @@ export default function ProfilePage() {
                       Header uploaded successfully!
                     </div>
                   )}
-                  
+
                   {/* Error Message */}
                   {uploadError && (
                     <div className="bg-red-900/50 border border-red-600 text-red-200 px-3 py-2 rounded-lg text-sm max-w-xs font-pt-mono">
@@ -852,7 +853,7 @@ export default function ProfilePage() {
                       </div>
                     </div>
                   )}
-                  
+
                   {/* File Info */}
                   {!isUploadingHeader && !uploadError && !uploadSuccess && (
                     <p className="text-xs text-gray-400 text-right font-pt-mono max-w-xs">
@@ -872,12 +873,12 @@ export default function ProfilePage() {
             </div>
           )}
 
-          <div className="relative container mx-auto px-6 h-full flex items-end pb-12">
-            <div className="flex items-end space-x-8">
+          <div className="relative container mx-auto px-4 md:px-6 h-full flex flex-col md:flex-row md:items-end pb-6 md:pb-12 pt-6 md:pt-0">
+            <div className="flex flex-col md:flex-row md:items-end gap-4 md:gap-0 md:space-x-8">
               {/* Profile NFT */}
-              <div className="relative group">
+              <div className="relative group flex-shrink-0 mx-auto md:mx-0">
                 <div
-                  className="w-56 h-56 rounded-xl overflow-hidden shadow-2xl relative"
+                  className="w-28 h-28 md:w-56 md:h-56 rounded-xl overflow-hidden shadow-2xl relative"
                   style={{ backgroundColor: selectedProfileNFT?.backgroundColor || "#6B46C1" }}
                 >
                   <Image
@@ -887,13 +888,13 @@ export default function ProfilePage() {
                     height={224}
                     className="w-full h-full object-cover"
                   />
-                  
+
                   {/* Loading Overlay */}
                   {isSettingAvatar && (
                     <div className="absolute inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-10 rounded-xl">
                       <div className="flex flex-col items-center gap-3">
                         <svg
-                          className="animate-spin h-8 w-8 text-purple-400"
+                          className="animate-spin h-6 w-6 md:h-8 md:w-8 text-purple-400"
                           xmlns="http://www.w3.org/2000/svg"
                           fill="none"
                           viewBox="0 0 24 24"
@@ -912,32 +913,22 @@ export default function ProfilePage() {
                             d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                           ></path>
                         </svg>
-                        <p className="text-white text-sm font-pt-mono">Updating...</p>
+                        <p className="text-white text-xs md:text-sm font-pt-mono">Updating...</p>
                       </div>
                     </div>
                   )}
                 </div>
-                {/*}
-                  {isOwnProfile && (
-                    <button
-                      onClick={() => setIsSelectingProfileNFT(true)}
-                      className="absolute bottom-2 right-2 bg-purple-600 hover:bg-purple-700 text-white p-2 rounded-lg transition-colors"
-                    >
-                      <Edit2 className="w-4 h-4" />
-                    </button>
-                  )}
-                {*/}
               </div>
 
               {/* User Info */}
-              <div className="pb-4 flex-1">
+              <div className="pb-0 md:pb-4 flex-1 text-center md:text-left">
                 <div className={isBadgeExpanded ? 'opacity-0 pointer-events-none' : ''}>
-                  <h1 className="text-4xl font-bold text-white mb-2">{ensName}</h1>
-                  <p className="text-gray-400 font-mono mb-4">
+                  <h1 className="text-2xl md:text-4xl font-bold text-white mb-1 md:mb-2">{ensName}</h1>
+                  <p className="text-gray-400 font-mono text-sm md:text-base mb-2 md:mb-4">
                     {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}
                   </p>
                 </div>
-                
+
                 {/* Badges Display */}
                 {userBadges.length > 0 && (
                   <div className="mt-4">
@@ -978,19 +969,19 @@ export default function ProfilePage() {
             </div>
 
             {/* Stats */}
-            <div className="ml-auto flex items-end space-x-8 pb-4">
+            <div className="md:ml-auto flex items-center md:items-end justify-center md:justify-end gap-6 md:space-x-8 pb-0 md:pb-4 mt-4 md:mt-0">
               <div className="text-center">
-                <div className="text-3xl font-bold text-white">{oldRockNFTs.length + goliathNFTs.length}</div>
-                <div className="text-sm text-gray-400">NFTs</div>
+                <div className="text-2xl md:text-3xl font-bold text-white">{oldRockNFTs.length + goliathNFTs.length}</div>
+                <div className="text-xs md:text-sm text-gray-400">NFTs</div>
               </div>
               {/*}
               <div className="text-center">
-                <div className="text-3xl font-bold text-purple-400">{userStats?.totalDensity || "0"}</div>
-                <div className="text-sm text-gray-400">DENSITY</div>
+                <div className="text-2xl md:text-3xl font-bold text-purple-400">{userStats?.totalDensity || "0"}</div>
+                <div className="text-xs md:text-sm text-gray-400">DENSITY</div>
               </div>
               <div className="text-center">
-                <div className="text-3xl font-bold text-white">{userStats?.rank || "Unranked"}</div>
-                <div className="text-sm text-gray-400">Rank</div>
+                <div className="text-2xl md:text-3xl font-bold text-white">{userStats?.rank || "Unranked"}</div>
+                <div className="text-xs md:text-sm text-gray-400">Rank</div>
               </div>
               {*/}
             </div>
@@ -1124,26 +1115,26 @@ export default function ProfilePage() {
 
           {/* NFT Collection */}
           <div>
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold text-white">NFT Collection</h2>
-              <div className="flex items-center space-x-2">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+              <h2 className="text-xl md:text-2xl font-bold text-white">NFT Collection</h2>
+              <div className="flex items-center gap-2 overflow-x-auto pb-2 md:pb-0 -mx-4 px-4 md:mx-0 md:px-0 scrollbar-hide">
                 <button
                   onClick={() => setSelectedFilter("all")}
-                  className={`px-4 py-2 rounded-lg transition-colors ${selectedFilter === "all" ? "bg-purple-600 text-white" : "bg-gray-800 text-gray-400"
+                  className={`px-3 md:px-4 py-2 rounded-lg transition-colors whitespace-nowrap text-sm md:text-base flex-shrink-0 ${selectedFilter === "all" ? "bg-purple-600 text-white" : "bg-gray-800 text-gray-400"
                     }`}
                 >
                   All ({allNFTs.length})
                 </button>
                 <button
                   onClick={() => setSelectedFilter("oldrock")}
-                  className={`px-4 py-2 rounded-lg transition-colors ${selectedFilter === "oldrock" ? "bg-purple-600 text-white" : "bg-gray-800 text-gray-400"
+                  className={`px-3 md:px-4 py-2 rounded-lg transition-colors whitespace-nowrap text-sm md:text-base flex-shrink-0 ${selectedFilter === "oldrock" ? "bg-purple-600 text-white" : "bg-gray-800 text-gray-400"
                     }`}
                 >
                   Old Rock ({oldRockNFTs.length})
                 </button>
                 <button
                   onClick={() => setSelectedFilter("goliath")}
-                  className={`px-4 py-2 rounded-lg transition-colors ${selectedFilter === "goliath" ? "bg-purple-600 text-white" : "bg-gray-800 text-gray-400"
+                  className={`px-3 md:px-4 py-2 rounded-lg transition-colors whitespace-nowrap text-sm md:text-base flex-shrink-0 ${selectedFilter === "goliath" ? "bg-purple-600 text-white" : "bg-gray-800 text-gray-400"
                     }`}
                 >
                   Goliath ({goliathNFTs.length})
@@ -1151,13 +1142,13 @@ export default function ProfilePage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 md:gap-4">
+
               {filteredNFTs.map((nft) => (
                 <div
                   key={`${nft.collection}-${nft.tokenId}`}
-                  className={`bg-gray-900 rounded-xl overflow-hidden border border-gray-800 hover:border-purple-500 transition-all group ${
-                    isOwnProfile ? "cursor-pointer" : ""
-                  } relative`}
+                  className={`bg-gray-900 rounded-xl overflow-hidden border border-gray-800 hover:border-purple-500 transition-all group ${isOwnProfile ? "cursor-pointer" : ""
+                    } relative`}
                   onClick={() => isOwnProfile && handleNFTClick(nft)}
                 >
                   <div className="relative aspect-square" style={{ backgroundColor: nft.backgroundColor }}>
@@ -1200,8 +1191,23 @@ export default function ProfilePage() {
                     )}
                   </div>
                   <div className="p-3">
-                    <h3 className="text-sm font-semibold text-white truncate">{nft.name}</h3>
-                    <p className="text-xs text-gray-400">{nft.collection}</p>
+                    <div className="flex justify-between items-start">
+                      <h3 className="text-sm font-semibold text-white truncate flex-1">{nft.name}</h3>
+                      {nft.collection === "Goliath" && nft.attributes?.LinkedRock && (
+                        <div className="flex items-center gap-1 text-[10px] text-cyan-400 font-black">
+                          <LinkIcon className="w-2.5 h-2.5" />
+                          <span>#{nft.attributes.LinkedRock}</span>
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex justify-between items-end mt-1">
+                      <p className="text-xs text-gray-400">{nft.collection}</p>
+                      {nft.collection === "Old Rock" && (
+                        <div className="text-[10px] text-[#6BC482] font-black">
+                          {nft.attributes?.UnextractedDensity ? Number(nft.attributes.UnextractedDensity).toFixed(2) : "0.00"} $DENSITY
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}
@@ -1348,14 +1354,13 @@ export default function ProfilePage() {
               initial={{ opacity: 0, y: -50, x: "-50%" }}
               animate={{ opacity: 1, y: 0, x: "-50%" }}
               exit={{ opacity: 0, y: -50, x: "-50%" }}
-              className={`fixed top-20 left-1/2 z-[100] max-w-md w-full mx-4 ${
-                notification.type === "success"
-                  ? "bg-black/90 backdrop-blur-md border border-cyan-400/50 shadow-lg shadow-cyan-500/20"
-                  : "bg-black/90 backdrop-blur-md border border-red-400/50 shadow-lg shadow-red-500/20"
-              } rounded-xl p-4`}
+              className={`fixed top-20 left-1/2 z-[100] max-w-md w-full mx-4 ${notification.type === "success"
+                ? "bg-black/90 backdrop-blur-md border border-cyan-400/50 shadow-lg shadow-cyan-500/20"
+                : "bg-black/90 backdrop-blur-md border border-red-400/50 shadow-lg shadow-red-500/20"
+                } rounded-xl p-4`}
               style={{
-                boxShadow: notification.type === "success" 
-                  ? '0 0 30px rgba(34, 211, 238, 0.3), 0 0 60px rgba(34, 211, 238, 0.1)' 
+                boxShadow: notification.type === "success"
+                  ? '0 0 30px rgba(34, 211, 238, 0.3), 0 0 60px rgba(34, 211, 238, 0.1)'
                   : '0 0 30px rgba(239, 68, 68, 0.3), 0 0 60px rgba(239, 68, 68, 0.1)',
               }}
             >
@@ -1365,16 +1370,14 @@ export default function ProfilePage() {
                 ) : (
                   <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
                 )}
-                <p className={`flex-1 text-sm font-['PT_Mono'] ${
-                  notification.type === "success" ? "text-cyan-100" : "text-red-100"
-                } leading-relaxed`}>
+                <p className={`flex-1 text-sm font-['PT_Mono'] ${notification.type === "success" ? "text-cyan-100" : "text-red-100"
+                  } leading-relaxed`}>
                   {notification.message}
                 </p>
                 <button
                   onClick={() => setNotification(null)}
-                  className={`flex-shrink-0 ${
-                    notification.type === "success" ? "text-cyan-400 hover:text-cyan-300" : "text-red-400 hover:text-red-300"
-                  } transition-colors`}
+                  className={`flex-shrink-0 ${notification.type === "success" ? "text-cyan-400 hover:text-cyan-300" : "text-red-400 hover:text-red-300"
+                    } transition-colors`}
                 >
                   <X className="w-4 h-4" />
                 </button>

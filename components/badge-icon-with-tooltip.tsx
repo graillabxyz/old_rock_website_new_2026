@@ -14,7 +14,37 @@ interface BadgeIconWithTooltipProps {
 export default function BadgeIconWithTooltip({ badge, size = "xs", className = "" }: BadgeIconWithTooltipProps) {
     const [showCustomTooltip, setShowCustomTooltip] = useState(false)
     const [tooltipPosition, setTooltipPosition] = useState({ top: 0, left: 0 })
+    const [isMobile, setIsMobile] = useState(false)
     const badgeRef = useRef<HTMLDivElement>(null)
+
+    // Detect mobile/touch devices (no hover capability)
+    useEffect(() => {
+        const checkMobile = () => {
+            setIsMobile(window.matchMedia('(hover: none)').matches)
+        }
+        checkMobile()
+        window.addEventListener('resize', checkMobile)
+        return () => window.removeEventListener('resize', checkMobile)
+    }, [])
+
+    // Close tooltip when clicking outside on mobile
+    useEffect(() => {
+        if (!isMobile || !showCustomTooltip) return
+
+        const handleClickOutside = (e: MouseEvent | TouchEvent) => {
+            if (badgeRef.current && !badgeRef.current.contains(e.target as Node)) {
+                setShowCustomTooltip(false)
+            }
+        }
+
+        document.addEventListener('mousedown', handleClickOutside)
+        document.addEventListener('touchstart', handleClickOutside)
+
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside)
+            document.removeEventListener('touchstart', handleClickOutside)
+        }
+    }, [isMobile, showCustomTooltip])
 
     // Map sizes to dimensions
     const sizeClasses = {
@@ -171,16 +201,34 @@ export default function BadgeIconWithTooltip({ badge, size = "xs", className = "
         }
     }, [showCustomTooltip])
 
+    // Handle click/tap for mobile devices
+    const handleBadgeClick = (e: React.MouseEvent | React.TouchEvent) => {
+        if (isMobile) {
+            e.preventDefault()
+            e.stopPropagation()
+            setShowCustomTooltip(!showCustomTooltip)
+            updateTooltipPosition()
+        }
+    }
+
     return (
         <>
             <div
                 ref={badgeRef}
                 className={`relative ${currentSizeClass} flex items-center justify-center rounded-lg bg-gray-800/80 border border-gray-700 cursor-help overflow-visible backdrop-blur-sm ${className}`}
                 onMouseEnter={() => {
-                    setShowCustomTooltip(true)
-                    updateTooltipPosition()
+                    if (!isMobile) {
+                        setShowCustomTooltip(true)
+                        updateTooltipPosition()
+                    }
                 }}
-                onMouseLeave={() => setShowCustomTooltip(false)}
+                onMouseLeave={() => {
+                    if (!isMobile) {
+                        setShowCustomTooltip(false)
+                    }
+                }}
+                onClick={handleBadgeClick}
+                onTouchEnd={handleBadgeClick}
             >
                 {/* DNA Animation Layers */}
                 {isSpecial && (

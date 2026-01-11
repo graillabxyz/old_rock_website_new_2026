@@ -64,6 +64,7 @@ export default function MintSection() {
   const [error, setError] = useState<string | null>(null)
   const [userBalance, setUserBalance] = useState<string | null>(null)
   const [count, setCount] = useState(1);
+  const [isSwitchingNetwork, setIsSwitchingNetwork] = useState(false);
 
   useReloadOnNetworkChange();
 
@@ -243,6 +244,51 @@ export default function MintSection() {
     }
   }
 
+  // Switch to Ethereum mainnet
+  const switchToEthereum = async () => {
+    if (typeof window === "undefined" || !window.ethereum) {
+      alert("Please install MetaMask or another Ethereum wallet extension")
+      return
+    }
+
+    setIsSwitchingNetwork(true)
+    try {
+      await window.ethereum.request({
+        method: "wallet_switchEthereumChain",
+        params: [{ chainId: "0x1" }], // 0x1 is Ethereum mainnet
+      })
+      // The page will reload due to useReloadOnNetworkChange hook
+    } catch (error: any) {
+      // Error code 4902 means the chain hasn't been added to MetaMask
+      if (error.code === 4902) {
+        try {
+          await window.ethereum.request({
+            method: "wallet_addEthereumChain",
+            params: [
+              {
+                chainId: "0x1",
+                chainName: "Ethereum Mainnet",
+                nativeCurrency: {
+                  name: "Ether",
+                  symbol: "ETH",
+                  decimals: 18,
+                },
+                rpcUrls: ["https://mainnet.infura.io/v3/"],
+                blockExplorerUrls: ["https://etherscan.io"],
+              },
+            ],
+          })
+        } catch (addError) {
+          console.error("Error adding Ethereum mainnet:", addError)
+        }
+      } else {
+        console.error("Error switching network:", error)
+      }
+    } finally {
+      setIsSwitchingNetwork(false)
+    }
+  }
+
   // Handle mint button click
   const handleMint = async () => {
     if (!isConnected) {
@@ -405,7 +451,16 @@ export default function MintSection() {
       </Button>
 
       {invalidNetwork ? (
-        <div className="text-center text-red-500 p-3 bg-red-500/10 rounded-lg">Incorrect network set. Please connect to Ethereum mainnet and refresh the page.</div>
+        <div className="text-center p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg space-y-3">
+          <div className="text-amber-500 font-medium">Wrong network detected</div>
+          <Button
+            onClick={switchToEthereum}
+            disabled={isSwitchingNetwork}
+            className="w-full py-3 text-md font-bold bg-amber-500 hover:bg-amber-600 text-black disabled:opacity-50 transition-colors"
+          >
+            {isSwitchingNetwork ? "SWITCHING..." : "SWITCH TO ETHEREUM MAINNET"}
+          </Button>
+        </div>
       ) : null}
 
       {/* Error Message */}

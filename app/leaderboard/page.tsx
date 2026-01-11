@@ -976,12 +976,13 @@ export default function LeaderboardPage() {
                       <div
                         key={user.address}
                         onClick={() => handleRowClick(user.address)}
-                        className={`bg-gray-800/50 rounded-lg p-4 border border-gray-700/50 cursor-pointer transition-colors ${userProfile?.address?.toLowerCase() === user.address.toLowerCase()
+                        className={`bg-gray-800/50 rounded-lg p-4 md:p-4 border border-gray-700/50 cursor-pointer transition-colors active:scale-[0.98] ${userProfile?.address?.toLowerCase() === user.address.toLowerCase()
                           ? "bg-purple-900/20 border-purple-500/50"
                           : "hover:bg-gray-800/70"
                           }`}
                       >
                         <div className="flex items-start justify-between mb-3">
+
                           <div className="flex items-center space-x-3 flex-1 min-w-0">
                             {(user.avatar || leaderboardType !== 'density') && (
                               <div className={`w-12 h-12 ${leaderboardType === 'densityDeck' ? 'rounded-full' : 'rounded-lg'} overflow-hidden bg-gray-800 flex-shrink-0 flex items-center justify-center`}>
@@ -1045,7 +1046,8 @@ export default function LeaderboardPage() {
                             )}
                             <div className="flex items-center justify-between pt-2 border-t border-gray-700/50">
                               <span className="text-xs text-gray-400 font-pt-mono">BADGES</span>
-                              <div className="flex space-x-2">
+                              <div className="flex space-x-3">
+
                                 {(user.bestBadges || []).length > 0 ? (
                                   (user.bestBadges || []).map((badge) => (
                                     <BadgeIconWithTooltip key={badge.id} badge={badge} />

@@ -206,8 +206,8 @@ export function Sidebar({ isWalletConnected: externalIsConnected, userProfile: e
         },
         {
           name: "Staking",
-          href: "https://amplify.oldrocknft.com",
-          isExternal: true,
+          href: "/staking",
+          isExternal: false,
         },
         {
           name: "Mint",
