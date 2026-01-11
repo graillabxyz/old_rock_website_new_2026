@@ -54,6 +54,7 @@ export async function fetchUserNFTs(walletAddress: string) {
           contractAddress: "0x05ab5a50f77b9957b51145b259f05e805d84e92e",
           attributes: nft.attributes,
           backgroundColor: getBackgroundColor(nft.attributes, "goliath"),
+          linkedRock: nft.linkedRock || null,
         })) || []
 
       return {

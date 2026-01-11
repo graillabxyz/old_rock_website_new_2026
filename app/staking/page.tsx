@@ -15,7 +15,6 @@ import { RocksCarousel } from '@/components/staking/rocks-carousel';
 import { GoliathGallery } from '@/components/staking/goliath-gallery';
 import { DensityDisplay } from '@/components/staking/density-display';
 import { LinkedGoliathsDisplay } from '@/components/staking/linked-goliaths-display';
-import { ConfirmLinkModal, UnlinkModal } from '@/components/staking/staking-modals';
 
 import { useStakingStore } from '@/lib/staking-store';
 import {
@@ -60,9 +59,7 @@ export default function StakingPage() {
     const moveLink = useMoveLink();
     const { checkCooldown } = useLinkCooldown();
 
-    // Local state for modals
-    const [showLinkModal, setShowLinkModal] = useState(false);
-    const [showUnlinkModal, setShowUnlinkModal] = useState(false);
+    // Local state
     const [selectedGoliath, setSelectedGoliath] = useState<GoliathNFT | null>(null);
     const [actionLoading, setActionLoading] = useState(false);
 
@@ -107,55 +104,33 @@ export default function StakingPage() {
         }
 
         setSelectedGoliath(goliath);
-
-        if (isLinkedToCurrentRock) {
-            setShowUnlinkModal(true);
-        } else if (isLinkedToOtherRock) {
-            setGoliathToMove(goliath);
-            setShowLinkModal(true);
-        } else {
-            setShowLinkModal(true);
-        }
-    }, [selectedRock, checkCooldown, setGoliathToMove]);
-
-    // Handle linked goliath click (from planetary display - for unlinking)
-    const handleLinkedGoliathClick = useCallback(async (goliath: GoliathNFT) => {
-        if (!selectedRock) return;
-
-        setSelectedGoliath(goliath);
-        setShowUnlinkModal(true);
-    }, [selectedRock]);
-
-    // Handle link confirmation
-    const handleConfirmLink = async () => {
-        if (!selectedGoliath || !selectedRock) return;
-
         setActionLoading(true);
-        setNFTLoading(selectedGoliath.id.toString());
-        updateGoliath(selectedGoliath.id, { status: 'linking' });
+        setNFTLoading(goliath.id.toString());
+        updateGoliath(goliath.id, { status: 'linking' });
 
         try {
-            if (goliathToMove && goliathToMove.linkedRock !== null) {
+            if (isLinkedToOtherRock) {
+                setGoliathToMove(goliath);
                 await moveLink.mutateAsync({
-                    goliathId: selectedGoliath.id,
-                    fromRockId: goliathToMove.linkedRock,
+                    goliathId: goliath.id,
+                    fromRockId: goliath.linkedRock!,
                     toRockId: selectedRock.id,
                 });
                 toast.success('Goliath moved successfully!');
-            } else {
+            } else if (!isLinkedToCurrentRock) {
                 await createLink.mutateAsync({
                     rockId: selectedRock.id,
-                    goliathId: selectedGoliath.id,
+                    goliathId: goliath.id,
                 });
                 playSound('connectGoliathSuccess');
                 toast.success('Goliath linked successfully!');
             }
 
-            updateGoliath(selectedGoliath.id, { status: 'linked', linkedRock: selectedRock.id });
+            updateGoliath(goliath.id, { status: 'linked', linkedRock: selectedRock.id });
             await refetchNFTs();
         } catch (error: any) {
             console.error('Link error:', error);
-            updateGoliath(selectedGoliath.id, { status: 'failed' });
+            updateGoliath(goliath.id, { status: 'failed' });
 
             if (error.message === 'Transaction rejected') {
                 toast.error('Transaction rejected');
@@ -165,33 +140,33 @@ export default function StakingPage() {
         } finally {
             setActionLoading(false);
             setNFTLoading('');
-            setShowLinkModal(false);
             setSelectedGoliath(null);
             setGoliathToMove(null);
         }
-    };
+    }, [selectedRock, checkCooldown, setGoliathToMove, moveLink, createLink, updateGoliath, setNFTLoading, refetchNFTs]);
 
-    // Handle unlink confirmation
-    const handleConfirmUnlink = async () => {
-        if (!selectedGoliath || !selectedRock) return;
+    // Handle linked goliath click (from planetary display - for unlinking)
+    const handleLinkedGoliathClick = useCallback(async (goliath: GoliathNFT) => {
+        if (!selectedRock) return;
 
+        setSelectedGoliath(goliath);
         setActionLoading(true);
-        setNFTLoading(selectedGoliath.id.toString());
-        updateGoliath(selectedGoliath.id, { status: 'unlinking' });
+        setNFTLoading(goliath.id.toString());
+        updateGoliath(goliath.id, { status: 'unlinking' });
 
         try {
             await deleteLink.mutateAsync({
                 rockId: selectedRock.id,
-                goliathId: selectedGoliath.id,
+                goliathId: goliath.id,
             });
 
             playSound('disconnectGoliath');
             toast.success('Goliath unlinked successfully!');
-            updateGoliath(selectedGoliath.id, { status: 'free', linkedRock: null });
+            updateGoliath(goliath.id, { status: 'free', linkedRock: null });
             await refetchNFTs();
         } catch (error: any) {
             console.error('Unlink error:', error);
-            updateGoliath(selectedGoliath.id, { status: 'failed' });
+            updateGoliath(goliath.id, { status: 'failed' });
 
             if (error.message === 'Transaction rejected') {
                 toast.error('Transaction rejected');
@@ -201,10 +176,9 @@ export default function StakingPage() {
         } finally {
             setActionLoading(false);
             setNFTLoading('');
-            setShowUnlinkModal(false);
             setSelectedGoliath(null);
         }
-    };
+    }, [selectedRock, deleteLink, updateGoliath, setNFTLoading, refetchNFTs]);
 
     // Handle claim density
     const handleClaimDensity = async () => {
@@ -363,32 +337,6 @@ export default function StakingPage() {
                 <Footer />
             </div>
 
-            {/* Modals */}
-            <ConfirmLinkModal
-                isOpen={showLinkModal}
-                onClose={() => {
-                    setShowLinkModal(false);
-                    setSelectedGoliath(null);
-                    setGoliathToMove(null);
-                }}
-                goliath={selectedGoliath}
-                fromRock={linkedFromRock || null}
-                toRock={selectedRock}
-                onConfirm={handleConfirmLink}
-                isLoading={actionLoading}
-            />
-
-            <UnlinkModal
-                isOpen={showUnlinkModal}
-                onClose={() => {
-                    setShowUnlinkModal(false);
-                    setSelectedGoliath(null);
-                }}
-                goliath={selectedGoliath}
-                rock={selectedRock}
-                onConfirm={handleConfirmUnlink}
-                isLoading={actionLoading}
-            />
         </div>
     );
 }

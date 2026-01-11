@@ -109,8 +109,7 @@ export function RocksCarousel({ rocks, onRockSelect }: RocksCarouselProps) {
                     if (!isFirstRender) playSound('changeRock');
                     setSwiperIndex('oldrocks', swiperCore.activeIndex);
                     const rock = rocks[swiperCore.activeIndex];
-                    const linkedGoliaths = allGoliaths.filter(g => g.linkedRock === rock?.id);
-                    setActivePlanetIndex(linkedGoliaths.length === 0 ? null : 0);
+                    setActivePlanetIndex(0);
                     onRockSelect?.(rock, swiperCore.activeIndex);
                 }}
                 slideToClickedSlide

@@ -18,6 +18,7 @@ import { Upload } from "lucide-react"
 import { ENSConfirmationModal } from "@/components/ens-confirmation-modal"
 import { BadgeDisplay } from "@/components/badge-display"
 import { calculateAllBadges, Badge } from "@/lib/badge-utils"
+import { Footer } from "@/components/footer"
 
 interface NFT {
   tokenId: string
@@ -27,6 +28,7 @@ interface NFT {
   contractAddress: string
   attributes?: any
   backgroundColor?: string
+  linkedRock?: number | null
 }
 
 interface UserStats {
@@ -1189,14 +1191,26 @@ export default function ProfilePage() {
                         isSettingAvatar={isSettingAvatar}
                       />
                     )}
+
+                    {/* Linked Rock Indicator for Goliaths */}
+                    {nft.collection === "Goliath" && nft.linkedRock && (
+                      <div className="absolute top-2 left-2 z-10">
+                        <div className="flex items-center gap-1.5 bg-black/80 px-2 py-1 rounded-md border border-green-500/30 shadow-[0_0_10px_rgba(34,197,94,0.2)]">
+                          <LinkIcon className="w-3 h-3 text-green-400" />
+                          <span className="text-[10px] font-black text-green-400 uppercase tracking-wider">
+                            LINKED TO ROCK #{nft.linkedRock}
+                          </span>
+                        </div>
+                      </div>
+                    )}
                   </div>
                   <div className="p-3">
                     <div className="flex justify-between items-start">
                       <h3 className="text-sm font-semibold text-white truncate flex-1">{nft.name}</h3>
-                      {nft.collection === "Goliath" && nft.attributes?.LinkedRock && (
+                      {nft.collection === "Goliath" && nft.linkedRock && (
                         <div className="flex items-center gap-1 text-[10px] text-cyan-400 font-black">
                           <LinkIcon className="w-2.5 h-2.5" />
-                          <span>#{nft.attributes.LinkedRock}</span>
+                          <span>STAKED TO #{nft.linkedRock}</span>
                         </div>
                       )}
                     </div>
@@ -1324,6 +1338,22 @@ export default function ProfilePage() {
           )}
         </AnimatePresence>
 
+        {/* Click-outside backdrop for NFT Overlay */}
+        <AnimatePresence>
+          {isOverlayOpen && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-40 bg-transparent"
+              onClick={() => {
+                setIsOverlayOpen(false)
+                setSelectedNFT(null)
+              }}
+            />
+          )}
+        </AnimatePresence>
+
         {/* ENS Confirmation Modal */}
         <ENSConfirmationModal
           isOpen={showENSConfirm}
@@ -1385,6 +1415,8 @@ export default function ProfilePage() {
             </motion.div>
           )}
         </AnimatePresence>
+
+        <Footer />
       </div>
     </>
   )

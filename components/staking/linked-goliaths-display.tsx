@@ -146,6 +146,15 @@ export function LinkedGoliathsDisplay({
 
     const selectedGoliath = activePlanetIndex !== null ? rearrangedGoliaths[activePlanetIndex] : null;
 
+    // Dynamic node size based on number of linked Goliaths to prevent overlap
+    const nodeSize = useMemo(() => {
+        const count = linkedGoliaths.length;
+        if (count <= 12) return 100;
+        if (count >= 20) return 82;
+        // Linear scale between 12 and 20
+        return 100 - (count - 12) * (18 / 8);
+    }, [linkedGoliaths.length]);
+
     // Calculate angle - creates extra gap around selected goliath for focus box
     // Pushes all nodes slightly based on their distance from selected
     const calculateAngle = (index: number) => {
@@ -165,8 +174,10 @@ export function LinkedGoliathsDisplay({
         if (dist > maxSlots / 2) dist -= maxSlots;
         if (dist < -maxSlots / 2) dist += maxSlots;
 
-        // Push amount decreases with distance, all nodes on one side push same direction
-        const pushAmount = baseStep * 0.4; // Push by 40% of a slot
+        // Push amount decreases with distance to prevent overlap on the far side
+        // Use a more conservative push when there are many nodes
+        const pushFactor = linkedGoliaths.length > 15 ? 0.15 : 0.25;
+        const pushAmount = baseStep * pushFactor * (1 - Math.abs(dist) / (maxSlots / 2));
 
         if (dist > 0) {
             return baseAngle + pushAmount;
@@ -390,7 +401,6 @@ export function LinkedGoliathsDisplay({
                     const goliath = rearrangedGoliaths[i];
                     const angleRad = calculateAngle(i);
 
-                    const nodeSize = 100;
                     const centerOffset = 370;
                     const x = centerOffset + Math.cos(angleRad - Math.PI / 2) * orbitRadius - nodeSize / 2;
                     const y = centerOffset + Math.sin(angleRad - Math.PI / 2) * orbitRadius - nodeSize / 2;
@@ -405,7 +415,7 @@ export function LinkedGoliathsDisplay({
                         <div
                             key={`slot-${i}`}
                             className={cn(
-                                "absolute w-[100px] h-[100px] transition-all duration-500 cursor-pointer group",
+                                "absolute transition-all duration-500 cursor-pointer group",
                                 isSelected && hasGoliath
                                     ? "z-40 scale-75 opacity-0 pointer-events-none"
                                     : "z-30 scale-100 hover:scale-110"
@@ -413,6 +423,8 @@ export function LinkedGoliathsDisplay({
                             style={{
                                 left: `${x}px`,
                                 top: `${y}px`,
+                                width: `${nodeSize}px`,
+                                height: `${nodeSize}px`,
                             }}
                             onClick={(e) => {
                                 e.stopPropagation();
@@ -420,6 +432,12 @@ export function LinkedGoliathsDisplay({
                                     setActivePlanetIndex(i);
                                 } else if (goliath) {
                                     onGoliathClick(goliath);
+                                } else {
+                                    // If empty slot is clicked again (or for the first time if already active), scroll to gallery
+                                    const gallery = document.getElementById('goliathGallery');
+                                    if (gallery) {
+                                        gallery.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                                    }
                                 }
                             }}
                         >

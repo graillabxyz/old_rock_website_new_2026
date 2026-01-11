@@ -314,14 +314,14 @@ const extractMechanics = (text: string, level: 'Low' | 'Medium' | 'High' = 'Low'
   while ((match = saveRegex.exec(text)) !== null) {
     const beforeText = match[1].trim()
     const afterText = match[4].trim()
-    
+
     // Extract who/what must make the save - look for complete phrases
     let trigger = ''
     const triggerPatterns = [
       /(?:any|all|each|every)\s+(?:living\s+)?(?:creature|enemy|target|character|ally|player|person|being|individual|one|someone|anyone|those|they)\s+(?:that|who|which)\s+(?:comes|enters|touches|breathes|is|are|within|near)\s+([^.]{0,60})/i,
       /(?:creature|enemy|target|character|ally|player|enemies|targets|creatures|those|they|who|that)\s+(?:that|who|which|within|near|comes|enters|touches|breathes)\s+([^.]{0,60})/i,
     ]
-    
+
     for (const pattern of triggerPatterns) {
       const triggerMatch = beforeText.match(pattern)
       if (triggerMatch && triggerMatch[1]) {
@@ -331,7 +331,7 @@ const extractMechanics = (text: string, level: 'Low' | 'Medium' | 'High' = 'Low'
         if (trigger.length > 5 && trigger.length < 80) break
       }
     }
-    
+
     // Extract consequence - look for complete phrases after "or"
     let consequence = ''
     const consequenceMatch = afterText.match(/(?:or|to)\s+(?:become|suffer|take|be|gain|lose|are|is)\s+([^.]{0,100})/i)
@@ -349,14 +349,14 @@ const extractMechanics = (text: string, level: 'Low' | 'Medium' | 'High' = 'Low'
         consequence = consequence.substring(0, 77).trim() + '...'
       }
     }
-    
+
     // Clean up trigger - remove "must make" if already present
     if (trigger) {
       trigger = trigger.replace(/\s+(must\s+make|make)\s*$/i, '').trim()
       // Remove "make a" or "make" at the end
       trigger = trigger.replace(/\s+(make\s+a|make)\s*$/i, '').trim()
     }
-    
+
     // Build clean, succinct context - ensure complete sentences
     let context = ''
     if (trigger && consequence) {
@@ -376,17 +376,17 @@ const extractMechanics = (text: string, level: 'Low' | 'Medium' | 'High' = 'Low'
       // Fallback - use a clean, simple description
       context = `Requires ${match[2]} save DC ${match[3]}.`
     }
-    
+
     // Clean up any double spaces or awkward phrases
     context = context.replace(/\s+/g, ' ')
       .replace(/\b(make\s+a\s+must\s+make|must\s+make\s+must\s+make|make\s+a\s+make)\b/gi, 'must make')
       .replace(/\b(make\s+a|make)\s+must\s+make\b/gi, 'must make')
       .replace(/\s+([.,!?])/g, '$1')
       .trim()
-    
+
     // Remove incomplete words at the end (words with 1-2 characters)
     context = context.replace(/\s+\w{1,2}\s*$/, '').trim()
-    
+
     saveItems.push({ value: `${match[2]} save DC ${match[3]}`, context, requirement })
   }
   if (saveItems.length > 0) {
@@ -400,14 +400,14 @@ const extractMechanics = (text: string, level: 'Low' | 'Medium' | 'High' = 'Low'
     const beforeText = match[1].trim()
     const afterText = match[4].trim()
     const durationValue = `${match[2]} ${match[3]}`
-    
+
     // Look for what the duration applies to - look for ability/effect names before "for" or "lasts"
     let abilityName = ''
     const abilityPatterns = [
       /(?:gaseous\s+form|transformation|state|ability|effect|power|duplicate|shadow|mimic|form|aura|field|cloud|gas)\s+(?:lasts?|for|duration|extends?|increases?|to)\s+(?:up\s+to\s+)?\d+/i,
       /(?:for|up\s+to|lasts?|duration|extends?|increases?|to)\s+(?:up\s+to\s+)?\d+/i,
     ]
-    
+
     for (const pattern of abilityPatterns) {
       const abilityMatch = beforeText.match(pattern)
       if (abilityMatch) {
@@ -429,7 +429,7 @@ const extractMechanics = (text: string, level: 'Low' | 'Medium' | 'High' = 'Low'
         }
       }
     }
-    
+
     // Look for what happens during/after duration - but only complete phrases
     let effect = ''
     const effectMatch = afterText.match(/(?:\.|,|and|or|while|during|when|as|until|then|after)\s+([^.]{0,80})/i)
@@ -447,7 +447,7 @@ const extractMechanics = (text: string, level: 'Low' | 'Medium' | 'High' = 'Low'
         effect = effect.substring(0, 100).trim()
       }
     }
-    
+
     // Build clean, succinct context - ensure complete sentences
     let context = ''
     if (abilityName && effect) {
@@ -470,15 +470,15 @@ const extractMechanics = (text: string, level: 'Low' | 'Medium' | 'High' = 'Low'
       // Fallback - use a simple description
       context = `Duration: ${durationValue}.`
     }
-    
+
     // Final cleanup
     context = context.replace(/\s+/g, ' ')
       .replace(/\s+([.,!?])/g, '$1')
       .trim()
-    
+
     // Remove incomplete words at the end (words with 1-2 characters)
     context = context.replace(/\s+\w{1,2}\s*$/, '').trim()
-    
+
     durationItems.push({ value: durationValue, context, requirement })
   }
   if (durationItems.length > 0) {
@@ -579,7 +579,7 @@ export default function StoneboundSoulsPage() {
     const level = abilityIndex + 1
     const baseDC = 10 + level
     const baseDamage = Math.floor(level / 2) + 1
-    
+
     // Base mechanics structure
     const mechanics: {
       type: string
@@ -1486,7 +1486,7 @@ export default function StoneboundSoulsPage() {
         mechanics.effects.push("Can be used once per combat")
       }
     }
-    
+
     // Additional mechanics for movement/positioning abilities
     if (abilityName.includes("Leap") || abilityName.includes("Jump") || abilityName.includes("Move")) {
       if (!mechanics.range) mechanics.range = `${10 + level * 2} feet`
@@ -1495,7 +1495,7 @@ export default function StoneboundSoulsPage() {
         mechanics.effects.push("Can move through enemy spaces")
       }
     }
-    
+
     // Additional mechanics for area effects
     if (abilityName.includes("Area") || abilityName.includes("Storm") || abilityName.includes("Field") || abilityName.includes("Aura")) {
       if (!mechanics.range) mechanics.range = `${5 + Math.floor(level / 2) * 5} feet radius`
@@ -1504,7 +1504,7 @@ export default function StoneboundSoulsPage() {
         mechanics.effects.push("Can exclude allies from effect")
       }
     }
-    
+
     // Additional mechanics for multi-target abilities
     if (abilityName.includes("Multiple") || abilityName.includes("All") || abilityName.includes("Swarm") || abilityName.includes("Network")) {
       mechanics.effects.push(`Affects up to ${Math.floor(level / 2) + 2} targets`)
@@ -1512,7 +1512,7 @@ export default function StoneboundSoulsPage() {
         mechanics.effects.push("Can affect unlimited targets")
       }
     }
-    
+
     // Additional mechanics for defensive abilities
     if (abilityName.includes("Resist") || abilityName.includes("Immune") || abilityName.includes("Defense") || abilityName.includes("Resilience")) {
       mechanics.type = "Defensive Ability"
@@ -1523,7 +1523,7 @@ export default function StoneboundSoulsPage() {
         mechanics.effects.push("Immunity to specific damage types")
       }
     }
-    
+
     // Additional mechanics for offensive abilities
     if (abilityName.includes("Strike") || abilityName.includes("Attack") || abilityName.includes("Damage") || abilityName.includes("Weapon")) {
       if (!mechanics.damage) {
@@ -1539,7 +1539,7 @@ export default function StoneboundSoulsPage() {
       mechanics.effects.push("All previous abilities in this path are enhanced")
       mechanics.effects.push("Can use multiple abilities simultaneously")
     }
-    
+
     if (abilityName.includes("God") || abilityName.includes("Divine") || abilityName.includes("Ascension")) {
       mechanics.type = "Divine Ability"
       mechanics.effects.push("Transcends normal limitations")
@@ -1757,11 +1757,11 @@ export default function StoneboundSoulsPage() {
       if (!mechanics.action) mechanics.action = "Standard Action"
       if (!mechanics.range) mechanics.range = `${10 + level * 5} feet`
       if (!mechanics.duration) mechanics.duration = `${1 + Math.floor(level / 2)} rounds`
-      
+
       mechanics.effects.push(`Ability effect scales with level (Level ${level})`)
       mechanics.effects.push(`DC: ${baseDC} (10 + level)`)
       mechanics.effects.push("Effect improves as you gain levels")
-      
+
       if (level >= 5) {
         mechanics.effects.push("Can be used multiple times per combat")
       }
@@ -1771,7 +1771,7 @@ export default function StoneboundSoulsPage() {
       if (level >= 15) {
         mechanics.effects.push("Ability becomes more powerful and versatile")
       }
-      
+
       // Add augmentation bonus if available
       if (augmentationId) {
         mechanics.augmentationBonus = "Augmentation enhances this ability's effectiveness"
@@ -2196,9 +2196,8 @@ export default function StoneboundSoulsPage() {
             {/* Main Tabs */}
             <div className="flex space-x-4 mb-6 flex-shrink-0">
               <button
-                className={`px-4 py-2 rounded-md ${
-                  mainTab === "basic" ? "bg-cyan-500 text-white" : "bg-gray-800 hover:bg-gray-700 text-gray-300"
-                } font-['Montserrat']`}
+                className={`px-4 py-2 rounded-md ${mainTab === "basic" ? "bg-cyan-500 text-white" : "bg-gray-800 hover:bg-gray-700 text-gray-300"
+                  } font-['Montserrat']`}
                 onClick={() => {
                   setMainTab("basic")
                   setSelectedProgressionIndex(null)
@@ -2207,9 +2206,8 @@ export default function StoneboundSoulsPage() {
                 Basic Information
               </button>
               <button
-                className={`px-4 py-2 rounded-md ${
-                  mainTab === "augmentation" ? "bg-cyan-500 text-white" : "bg-gray-800 hover:bg-gray-700 text-gray-300"
-                } font-['Montserrat']`}
+                className={`px-4 py-2 rounded-md ${mainTab === "augmentation" ? "bg-cyan-500 text-white" : "bg-gray-800 hover:bg-gray-700 text-gray-300"
+                  } font-['Montserrat']`}
                 onClick={() => {
                   setMainTab("augmentation")
                   setSelectedProgressionIndex(null)
@@ -2245,9 +2243,9 @@ export default function StoneboundSoulsPage() {
                   <div className="bg-black/60 backdrop-blur-sm p-6 rounded-xl border border-white/20">
                     <div className="flex items-center justify-between mb-4">
                       <h3 className="text-2xl font-bold text-white font-['Montserrat'] flex items-center space-x-2">
-                      <Trophy className="w-6 h-6 text-yellow-400" />
-                      <span>Progression Path</span>
-                    </h3>
+                        <Trophy className="w-6 h-6 text-yellow-400" />
+                        <span>Progression Path</span>
+                      </h3>
                       {selectedProgressionIndex !== null && (
                         <button
                           onClick={() => setSelectedProgressionIndex(null)}
@@ -2257,48 +2255,48 @@ export default function StoneboundSoulsPage() {
                         </button>
                       )}
                     </div>
-                    
+
                     {selectedProgressionIndex === null ? (
                       <>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-96 overflow-y-auto">
-                      {getSubclassProgression(selectedSubclass.id)
-                        .slice(0, 12)
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-96 overflow-y-auto">
+                          {getSubclassProgression(selectedSubclass.id)
+                            .slice(0, 12)
                             .map((progression, index) => {
                               const abilityName = progression.split(":")[0]
                               const abilityDescription = progression.split(":").slice(1).join(":").trim()
                               return (
                                 <motion.div
-                            key={index}
+                                  key={index}
                                   className="bg-gradient-to-br from-gray-800/80 to-gray-900/80 p-4 rounded-lg border border-gray-600/50 hover:border-cyan-400/50 transition-all cursor-pointer"
                                   onClick={() => setSelectedProgressionIndex(index)}
                                   whileHover={{ scale: 1.02 }}
                                   whileTap={{ scale: 0.98 }}
-                          >
-                            <div className="flex items-center space-x-3 mb-2">
+                                >
+                                  <div className="flex items-center space-x-3 mb-2">
                                     <div className="w-8 h-8 bg-cyan-500 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
-                                {index + 1}
-                              </div>
+                                      {index + 1}
+                                    </div>
                                     <div className="flex-1 min-w-0">
-                                <h4 className="text-cyan-400 font-bold text-sm font-['Montserrat']">
+                                      <h4 className="text-cyan-400 font-bold text-sm font-['Montserrat']">
                                         {abilityName}
-                                </h4>
-                              </div>
-                            </div>
-                            <p className="text-gray-300 text-xs leading-relaxed font-['PT_Mono']">
+                                      </h4>
+                                    </div>
+                                  </div>
+                                  <p className="text-gray-300 text-xs leading-relaxed font-['PT_Mono']">
                                     {abilityDescription}
-                            </p>
+                                  </p>
                                 </motion.div>
                               )
                             })}
-                    </div>
-                    {getSubclassProgression(selectedSubclass.id).length > 12 && (
-                      <div className="mt-4 text-center">
-                        <p className="text-gray-400 text-sm font-['PT_Mono']">
-                          +{getSubclassProgression(selectedSubclass.id).length - 12} more abilities unlock as you
-                          progress
-                        </p>
-                      </div>
-                    )}
+                        </div>
+                        {getSubclassProgression(selectedSubclass.id).length > 12 && (
+                          <div className="mt-4 text-center">
+                            <p className="text-gray-400 text-sm font-['PT_Mono']">
+                              +{getSubclassProgression(selectedSubclass.id).length - 12} more abilities unlock as you
+                              progress
+                            </p>
+                          </div>
+                        )}
                       </>
                     ) : (
                       <AnimatePresence mode="wait">
@@ -2325,7 +2323,7 @@ export default function StoneboundSoulsPage() {
                                 <div className="flex items-center space-x-4 mb-4">
                                   <div className="w-12 h-12 bg-cyan-500 rounded-full flex items-center justify-center text-white font-bold text-lg flex-shrink-0">
                                     {selectedProgressionIndex + 1}
-                  </div>
+                                  </div>
                                   <div className="flex-1">
                                     <h4 className="text-cyan-400 font-bold text-xl font-['Montserrat'] mb-1">
                                       {abilityName}
@@ -2335,7 +2333,7 @@ export default function StoneboundSoulsPage() {
                                     </p>
                                   </div>
                                 </div>
-                                
+
                                 <div className="border-t border-gray-600/50 pt-4 mb-4">
                                   <h5 className="text-white font-bold text-sm font-['Montserrat'] mb-2">Description</h5>
                                   <p className="text-gray-300 text-sm leading-relaxed font-['PT_Mono']">
@@ -2380,7 +2378,7 @@ export default function StoneboundSoulsPage() {
                                         </div>
                                       )}
                                     </div>
-                                    
+
                                     <div className="mt-3 pt-3 border-t border-gray-600/30">
                                       <p className="text-cyan-400 text-xs font-bold font-['Montserrat'] mb-2">Effects</p>
                                       <ul className="space-y-1">
@@ -2466,7 +2464,7 @@ export default function StoneboundSoulsPage() {
                           actions: [...(lowMech.actions || []), ...(mediumMech.actions || []), ...(highMech.actions || [])],
                           other: [...(lowMech.other || []), ...(mediumMech.other || []), ...(highMech.other || [])],
                         }
-                        
+
                         // Helper to deduplicate by value while keeping unique contexts and requirements
                         // Also merges similar contexts to avoid repetition
                         const deduplicateMechanics = (items: Array<{ value: string; context: string; requirement?: string }>) => {
@@ -2476,37 +2474,37 @@ export default function StoneboundSoulsPage() {
                               seen.set(item.value, { contexts: [], requirements: [] })
                             }
                             const data = seen.get(item.value)!
-                            
+
                             // Check if context is similar to existing ones (avoid repetition)
                             const isSimilar = data.contexts.some(existing => {
                               const similarity = existing.toLowerCase().includes(item.context.toLowerCase().substring(0, 20)) ||
-                                                item.context.toLowerCase().includes(existing.toLowerCase().substring(0, 20))
+                                item.context.toLowerCase().includes(existing.toLowerCase().substring(0, 20))
                               return similarity
                             })
-                            
+
                             if (!isSimilar && item.context.trim().length > 0) {
                               data.contexts.push(item.context)
                             }
-                            
+
                             if (item.requirement && !data.requirements.includes(item.requirement)) {
                               data.requirements.push(item.requirement)
                             }
                           })
-                          
+
                           // Return with only the most complete/clear context for each value
                           return Array.from(seen.entries()).map(([value, data]) => {
                             // If multiple contexts, prefer the longest complete one
-                            const bestContext = data.contexts.length > 0 
-                              ? data.contexts.reduce((best, current) => 
-                                  current.length > best.length && current.endsWith('.') ? current : best,
-                                  data.contexts[0]
-                                )
+                            const bestContext = data.contexts.length > 0
+                              ? data.contexts.reduce((best, current) =>
+                                current.length > best.length && current.endsWith('.') ? current : best,
+                                data.contexts[0]
+                              )
                               : data.contexts[0] || ''
-                            
-                            return { 
-                              value, 
-                              contexts: bestContext ? [bestContext] : [], 
-                              requirements: data.requirements 
+
+                            return {
+                              value,
+                              contexts: bestContext ? [bestContext] : [],
+                              requirements: data.requirements
                             }
                           })
                         }
@@ -2684,22 +2682,20 @@ export default function StoneboundSoulsPage() {
                   {/* Augmentation Tabs */}
                   <div className="flex space-x-4 mb-4">
                     <button
-                      className={`px-6 py-3 rounded-lg font-bold transition-all ${
-                        augmentationTab === "abilities"
-                          ? "bg-green-500 text-white shadow-lg"
-                          : "bg-gray-800 hover:bg-gray-700 text-gray-300"
-                      } font-['Montserrat']`}
+                      className={`px-6 py-3 rounded-lg font-bold transition-all ${augmentationTab === "abilities"
+                        ? "bg-green-500 text-white shadow-lg"
+                        : "bg-gray-800 hover:bg-gray-700 text-gray-300"
+                        } font-['Montserrat']`}
                       onClick={() => setAugmentationTab("abilities")}
                     >
                       <Zap className="w-5 h-5 inline mr-2" />
                       Abilities
                     </button>
                     <button
-                      className={`px-6 py-3 rounded-lg font-bold transition-all ${
-                        augmentationTab === "corruption"
-                          ? "bg-red-500 text-white shadow-lg"
-                          : "bg-gray-800 hover:bg-gray-700 text-gray-300"
-                      } font-['Montserrat']`}
+                      className={`px-6 py-3 rounded-lg font-bold transition-all ${augmentationTab === "corruption"
+                        ? "bg-red-500 text-white shadow-lg"
+                        : "bg-gray-800 hover:bg-gray-700 text-gray-300"
+                        } font-['Montserrat']`}
                       onClick={() => setAugmentationTab("corruption")}
                     >
                       <Skull className="w-5 h-5 inline mr-2" />
@@ -2717,9 +2713,9 @@ export default function StoneboundSoulsPage() {
                             <span className="text-white font-bold text-lg">1</span>
                           </div>
                           <div>
-                          <h4 className="text-2xl font-bold text-green-400 font-['Montserrat']">Low Level</h4>
+                            <h4 className="text-2xl font-bold text-green-400 font-['Montserrat']">Low Level</h4>
                             <p className="text-green-300/70 text-sm font-['PT_Mono']">Basic augmentation power</p>
-                        </div>
+                          </div>
                         </div>
                         <div className="bg-black/40 p-6 rounded-lg border border-green-500/20">
                           <div className="space-y-4">
@@ -2740,7 +2736,7 @@ export default function StoneboundSoulsPage() {
                                         <span className="text-green-400/50 mt-1.5">•</span>
                                         <p className="text-gray-200 font-['PT_Mono'] text-sm leading-relaxed flex-1">
                                           {sentence.trim()}
-                          </p>
+                                        </p>
                                       </div>
                                     ))}
                                   </div>
@@ -2758,9 +2754,9 @@ export default function StoneboundSoulsPage() {
                             <span className="text-white font-bold text-lg">2</span>
                           </div>
                           <div>
-                          <h4 className="text-2xl font-bold text-yellow-400 font-['Montserrat']">Medium Level</h4>
+                            <h4 className="text-2xl font-bold text-yellow-400 font-['Montserrat']">Medium Level</h4>
                             <p className="text-yellow-300/70 text-sm font-['PT_Mono']">Enhanced augmentation power</p>
-                        </div>
+                          </div>
                         </div>
                         <div className="bg-black/40 p-6 rounded-lg border border-yellow-500/20">
                           <div className="space-y-4">
@@ -2781,7 +2777,7 @@ export default function StoneboundSoulsPage() {
                                         <span className="text-yellow-400/50 mt-1.5">•</span>
                                         <p className="text-gray-200 font-['PT_Mono'] text-sm leading-relaxed flex-1">
                                           {sentence.trim()}
-                          </p>
+                                        </p>
                                       </div>
                                     ))}
                                   </div>
@@ -2799,9 +2795,9 @@ export default function StoneboundSoulsPage() {
                             <span className="text-white font-bold text-lg">3</span>
                           </div>
                           <div>
-                          <h4 className="text-2xl font-bold text-red-400 font-['Montserrat']">High Level</h4>
+                            <h4 className="text-2xl font-bold text-red-400 font-['Montserrat']">High Level</h4>
                             <p className="text-red-300/70 text-sm font-['PT_Mono']">Master-level augmentation power</p>
-                        </div>
+                          </div>
                         </div>
                         <div className="bg-black/40 p-6 rounded-lg border border-red-500/20">
                           <div className="space-y-4">
@@ -2822,8 +2818,8 @@ export default function StoneboundSoulsPage() {
                                         <span className="text-red-400/50 mt-1.5">•</span>
                                         <p className="text-gray-200 font-['PT_Mono'] text-sm leading-relaxed flex-1">
                                           {sentence.trim()}
-                          </p>
-                        </div>
+                                        </p>
+                                      </div>
                                     ))}
                                   </div>
                                 </>
@@ -2846,12 +2842,12 @@ export default function StoneboundSoulsPage() {
                               <div className="flex items-center space-x-3">
                                 <div className="w-12 h-12 bg-purple-500 rounded-full flex items-center justify-center">
                                   <Skull className="w-6 h-6 text-white" />
-                              </div>
+                                </div>
                                 <div>
-                              <h4 className="text-2xl font-bold text-purple-400 font-['Montserrat']">Low Corruption</h4>
+                                  <h4 className="text-2xl font-bold text-purple-400 font-['Montserrat']">Low Corruption</h4>
                                   <p className="text-purple-300/70 text-sm font-['PT_Mono']">Early warning signs</p>
+                                </div>
                               </div>
-                            </div>
                               <span className="bg-purple-500/20 text-purple-300 px-4 py-2 rounded-full text-sm font-bold font-['PT_Mono']">
                                 25%
                               </span>
@@ -2876,14 +2872,14 @@ export default function StoneboundSoulsPage() {
                               <div className="flex items-center space-x-3">
                                 <div className="w-12 h-12 bg-orange-500 rounded-full flex items-center justify-center">
                                   <Skull className="w-6 h-6 text-white" />
-                              </div>
+                                </div>
                                 <div>
-                              <h4 className="text-2xl font-bold text-orange-400 font-['Montserrat']">
-                                Medium Corruption
-                              </h4>
+                                  <h4 className="text-2xl font-bold text-orange-400 font-['Montserrat']">
+                                    Medium Corruption
+                                  </h4>
                                   <p className="text-orange-300/70 text-sm font-['PT_Mono']">Significant side effects</p>
+                                </div>
                               </div>
-                            </div>
                               <span className="bg-orange-500/20 text-orange-300 px-4 py-2 rounded-full text-sm font-bold font-['PT_Mono']">
                                 50%
                               </span>
@@ -2908,12 +2904,12 @@ export default function StoneboundSoulsPage() {
                               <div className="flex items-center space-x-3">
                                 <div className="w-12 h-12 bg-red-500 rounded-full flex items-center justify-center">
                                   <Skull className="w-6 h-6 text-white" />
-                              </div>
+                                </div>
                                 <div>
-                              <h4 className="text-2xl font-bold text-red-400 font-['Montserrat']">High Corruption</h4>
+                                  <h4 className="text-2xl font-bold text-red-400 font-['Montserrat']">High Corruption</h4>
                                   <p className="text-red-300/70 text-sm font-['PT_Mono']">Severe consequences</p>
+                                </div>
                               </div>
-                            </div>
                               <span className="bg-red-500/20 text-red-300 px-4 py-2 rounded-full text-sm font-bold font-['PT_Mono']">
                                 75%+
                               </span>
@@ -2961,32 +2957,36 @@ export default function StoneboundSoulsPage() {
               </button>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 grid-rows-auto flex-1 w-full gap-2 sm:gap-3 md:gap-0" style={{ minHeight: 0, height: '100%' }}>
+            <div className="grid grid-cols-2 grid-rows-5 md:grid-cols-5 md:grid-rows-2 flex-1 w-full gap-2 p-2" style={{ minHeight: 0, height: '100%' }}>
               {selectedSubclass.augmentations.map((augmentation) => (
                 <motion.div
                   key={augmentation.id}
-                  className="relative transition-all duration-300 cursor-pointer flex flex-col justify-end items-center p-2 sm:p-3 md:p-4 overflow-hidden"
+                  className="relative transition-all duration-300 cursor-pointer flex flex-col justify-center items-center overflow-hidden h-full group"
                   onClick={() => handleAugmentationSelect(augmentation)}
-                  whileHover={{ scale: 1.05, zIndex: 50 }}
-                  whileTap={{ scale: 0.95 }}
-                  style={{
-                    backgroundImage: `url(/${augmentation.name.charAt(0).toUpperCase() + augmentation.name.slice(1)}_${(selectedClass?.id ?? "common") === "hacker" ? "Hacker" : "Common"}.webp)`,
-                    backgroundSize: 'cover',
-                    backgroundPosition: 'center',
-                    backgroundRepeat: 'no-repeat',
-                  }}
+                  whileHover={{ scale: 1.02, zIndex: 50 }}
+                  whileTap={{ scale: 0.98 }}
                 >
-                  {/* Gradient overlay for text readability - extends to all edges */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent" style={{ top: 0, right: 0, bottom: 0, left: 0 }} />
-                  
-                  {/* Content positioned at bottom */}
-                  <div className="relative z-10 flex flex-col items-center text-center w-full">
-                    <h3 className="text-lg md:text-xl font-bold text-white mb-1 md:mb-2 font-['Montserrat'] drop-shadow-lg">
-                      {augmentation.name}
-                    </h3>
-                    <p className="text-white text-xs md:text-sm leading-relaxed font-['PT_Mono'] drop-shadow-md">
-                      {augmentation.description}
-                    </p>
+                  <div
+                    className="w-full aspect-square max-h-full rounded-xl overflow-hidden relative border border-white/10 group-hover:border-white/30 transition-all shadow-xl bg-gray-900"
+                    style={{
+                      backgroundImage: `url(/${augmentation.name.charAt(0).toUpperCase() + augmentation.name.slice(1)}_${(selectedClass?.id ?? "common") === "hacker" ? "Hacker" : "Common"}.webp)`,
+                      backgroundSize: 'cover',
+                      backgroundPosition: 'center',
+                      backgroundRepeat: 'no-repeat',
+                    }}
+                  >
+                    {/* Gradient overlay for text readability */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
+
+                    {/* Content positioned inside the square */}
+                    <div className="absolute inset-x-0 bottom-0 p-3 flex flex-col items-center text-center">
+                      <h3 className="text-sm md:text-lg font-bold text-white mb-1 font-['Montserrat'] drop-shadow-lg line-clamp-1">
+                        {augmentation.name}
+                      </h3>
+                      <p className="text-white text-[10px] md:text-xs leading-tight font-['PT_Mono'] drop-shadow-md line-clamp-2">
+                        {augmentation.description}
+                      </p>
+                    </div>
                   </div>
                 </motion.div>
               ))}
@@ -3025,13 +3025,13 @@ export default function StoneboundSoulsPage() {
                 >
                   {/* Subtle gradient overlay on hover */}
                   <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/0 to-cyan-500/0 group-hover:from-cyan-500/5 group-hover:to-cyan-500/10 transition-all duration-300 pointer-events-none" />
-                  
+
                   {/* Header Section */}
                   <div className="flex items-center space-x-4 md:space-x-5 mb-5 md:mb-6 relative z-10">
                     <div className="flex-shrink-0 p-3 md:p-4 bg-white/5 rounded-lg group-hover:bg-cyan-500/20 transition-colors duration-300 flex items-center justify-center">
                       <div className="text-cyan-400 group-hover:text-cyan-300 transition-colors">
-                    {subclass.icon}
-                  </div>
+                        {subclass.icon}
+                      </div>
                     </div>
                     <div className="flex-1 min-w-0">
                       <h3 className="text-xl md:text-2xl lg:text-2xl xl:text-3xl font-bold text-white font-['Montserrat'] leading-tight">
@@ -3039,14 +3039,14 @@ export default function StoneboundSoulsPage() {
                       </h3>
                     </div>
                   </div>
-                  
+
                   {/* Description Section */}
                   <div className="flex-1 mb-5 md:mb-6 relative z-10">
                     <p className="text-gray-300 text-sm md:text-sm lg:text-base xl:text-base leading-relaxed font-['PT_Mono']">
                       {subclass.description}
                     </p>
                   </div>
-                  
+
                   {/* Focus Ability Section */}
                   <div className="border-t border-gray-600/50 group-hover:border-cyan-400/30 transition-colors duration-300 pt-5 md:pt-6 relative z-10">
                     <div className="flex items-center space-x-2 mb-2 md:mb-3">
@@ -3084,10 +3084,10 @@ export default function StoneboundSoulsPage() {
                     alt={classData.name}
                     className="absolute inset-0 w-full h-full object-cover"
                   />
-                  
+
                   {/* Gradient Overlay - 50% opacity at bottom to 0% at top */}
                   <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/25 to-transparent" />
-                  
+
                   {/* Content - Positioned at bottom */}
                   <div className="absolute bottom-0 left-0 right-0 p-4 md:p-6 z-10">
                     <h3 className="text-lg md:text-xl font-bold text-white mb-2 font-['Montserrat'] drop-shadow-lg">
@@ -3258,33 +3258,29 @@ export default function StoneboundSoulsPage() {
             {/* Rules Navigation Tabs */}
             <div className="flex space-x-4 mb-6">
               <button
-                className={`px-4 py-2 rounded-md ${
-                  activeRulesTab === "core" ? "bg-gray-600 text-white" : "bg-gray-800 hover:bg-gray-700 text-gray-300"
-                } font-['Montserrat']`}
+                className={`px-4 py-2 rounded-md ${activeRulesTab === "core" ? "bg-gray-600 text-white" : "bg-gray-800 hover:bg-gray-700 text-gray-300"
+                  } font-['Montserrat']`}
                 onClick={() => setActiveRulesTab("core")}
               >
                 Core
               </button>
               <button
-                className={`px-4 py-2 rounded-md ${
-                  activeRulesTab === "combat" ? "bg-blue-500 text-white" : "bg-gray-800 hover:bg-gray-700 text-gray-300"
-                } font-['Montserrat']`}
+                className={`px-4 py-2 rounded-md ${activeRulesTab === "combat" ? "bg-blue-500 text-white" : "bg-gray-800 hover:bg-gray-700 text-gray-300"
+                  } font-['Montserrat']`}
                 onClick={() => setActiveRulesTab("combat")}
               >
                 Combat
               </button>
               <button
-                className={`px-4 py-2 rounded-md ${
-                  activeRulesTab === "skills" ? "bg-blue-400 text-white" : "bg-gray-800 hover:bg-gray-700 text-gray-300"
-                } font-['Montserrat']`}
+                className={`px-4 py-2 rounded-md ${activeRulesTab === "skills" ? "bg-blue-400 text-white" : "bg-gray-800 hover:bg-gray-700 text-gray-300"
+                  } font-['Montserrat']`}
                 onClick={() => setActiveRulesTab("skills")}
               >
                 Skills
               </button>
               <button
-                className={`px-4 py-2 rounded-md ${
-                  activeRulesTab === "live" ? "bg-gray-600 text-white" : "bg-gray-800 hover:bg-gray-700 text-gray-300"
-                } font-['Montserrat']`}
+                className={`px-4 py-2 rounded-md ${activeRulesTab === "live" ? "bg-gray-600 text-white" : "bg-gray-800 hover:bg-gray-700 text-gray-300"
+                  } font-['Montserrat']`}
                 onClick={() => setActiveRulesTab("live")}
               >
                 Live
@@ -3710,11 +3706,10 @@ export default function StoneboundSoulsPage() {
                       setSelectedAugmentation(null)
                     }
                   }}
-                  className={`flex items-center space-x-2 px-2 sm:px-4 py-2 rounded-lg transition-colors ${
-                    activeSection === section.id
-                      ? "bg-cyan-500 text-white shadow-lg"
-                      : "bg-gray-800 text-gray-300 hover:bg-gray-700 hover:text-white"
-                  }`}
+                  className={`flex items-center space-x-2 px-2 sm:px-4 py-2 rounded-lg transition-colors ${activeSection === section.id
+                    ? "bg-cyan-500 text-white shadow-lg"
+                    : "bg-gray-800 text-gray-300 hover:bg-gray-700 hover:text-white"
+                    }`}
                 >
                   {section.icon}
                   <span className="hidden sm:inline">{section.name}</span>
