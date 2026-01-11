@@ -91,13 +91,11 @@ export function RocksCarousel({ rocks, onRockSelect }: RocksCarouselProps) {
                     height: 320px;
                     border-radius: 20px;
                     overflow: hidden;
-                    background: #fff;
-                    box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+                    background: transparent;
                 }
                 .rocks-swiper .swiper-slide-active {
                     transform: scale(1.1);
                     z-index: 20;
-                    box-shadow: 0 15px 45px rgba(0,0,0,0.6);
                 }
                 .rocks-swiper .swiper-slide:not(.swiper-slide-active) {
                     filter: brightness(0.4) saturate(0.8);
@@ -125,7 +123,7 @@ export function RocksCarousel({ rocks, onRockSelect }: RocksCarouselProps) {
                     stretch: -30,
                     depth: 400,
                     modifier: 1.2,
-                    slideShadows: true,
+                    slideShadows: false, // Disabled to prevent gradient bleed below cards
                 }}
                 initialSlide={swiperIndex.oldrocks}
                 modules={[EffectCoverflow, Navigation]}
@@ -143,11 +141,10 @@ export function RocksCarousel({ rocks, onRockSelect }: RocksCarouselProps) {
                     return (
                         <SwiperSlide key={rock.id}>
                             <div
-                                className="relative w-full h-full bg-white flex flex-col overflow-hidden rounded-[20px] transform-gpu"
+                                className="relative w-full h-full bg-black flex flex-col overflow-hidden rounded-[20px] transform-gpu isolation-isolate"
                                 style={{
                                     fontFamily: 'Din-Condensed, sans-serif',
-                                    clipPath: 'inset(0 round 20px)',
-                                    WebkitMaskImage: '-webkit-radial-gradient(white, black)' // Helps with clipping on Safari
+                                    clipPath: 'inset(0 round 20px)' // Strict hardware clipping
                                 }}
                             >
                                 {/* Rock Image */}
@@ -157,8 +154,8 @@ export function RocksCarousel({ rocks, onRockSelect }: RocksCarouselProps) {
                                     className="absolute inset-0 w-full h-full object-cover z-0"
                                 />
 
-                                {/* Transparent Dark Bottom Overlay - Gradient Reverted & Clipped */}
-                                <div className="absolute bottom-0 left-0 right-0 h-28 bg-gradient-to-t from-black/90 to-transparent z-10 pointer-events-none" />
+                                {/* Transparent Dark Bottom Overlay - Flush to bottom */}
+                                <div className="absolute bottom-0 left-[-1px] right-[-1px] h-28 bg-gradient-to-t from-black/90 to-transparent z-10 pointer-events-none" />
 
                                 {/* Bottom Info Content */}
                                 <div className="absolute bottom-0 left-0 right-0 z-20 p-4 pb-6 flex items-end justify-between">
@@ -172,30 +169,30 @@ export function RocksCarousel({ rocks, onRockSelect }: RocksCarouselProps) {
                                         </div>
                                     </div>
 
-                                    <div className="flex gap-4 mb-0.5 mr-2">
+                                    <div className="flex gap-2 mb-0.5 mr-2">
                                         <div className="flex flex-col items-center gap-0">
-                                            <span className="text-[30px] font-black text-white leading-none drop-shadow-sm uppercase" style={{ fontFamily: 'var(--font-barlow), sans-serif' }}>
+                                            <span className="text-[26px] font-black text-white leading-none drop-shadow-sm uppercase" style={{ fontFamily: 'Din-Condensed, sans-serif' }}>
                                                 {dailyRate}
                                             </span>
-                                            <span className="text-[8px] font-bold text-[#6BC482] uppercase tracking-wider text-center" style={{ fontFamily: 'var(--font-barlow), sans-serif' }}>
+                                            <span className="text-[8px] font-bold text-[#6BC482] uppercase tracking-wider text-center whitespace-nowrap" style={{ fontFamily: 'Din-Condensed, sans-serif' }}>
                                                 DAILY RATE
                                             </span>
                                         </div>
 
                                         <div className="flex flex-col items-center gap-0">
-                                            <span className="text-[30px] font-black text-white leading-none drop-shadow-sm uppercase" style={{ fontFamily: 'var(--font-barlow), sans-serif' }}>
+                                            <span className="text-[26px] font-black text-white leading-none drop-shadow-sm uppercase" style={{ fontFamily: 'Din-Condensed, sans-serif' }}>
                                                 {formattedMultiplier}
                                             </span>
-                                            <span className="text-[8px] font-bold text-[#6BC482] uppercase tracking-wider text-center" style={{ fontFamily: 'var(--font-barlow), sans-serif' }}>
+                                            <span className="text-[8px] font-bold text-[#6BC482] uppercase tracking-wider text-center" style={{ fontFamily: 'Din-Condensed, sans-serif' }}>
                                                 AMPLIFICATION
                                             </span>
                                         </div>
 
                                         <div className="flex flex-col items-center gap-0">
-                                            <span className="text-[30px] font-black text-white leading-none drop-shadow-sm uppercase" style={{ fontFamily: 'var(--font-barlow), sans-serif' }}>
+                                            <span className="text-[26px] font-black text-white leading-none drop-shadow-sm uppercase" style={{ fontFamily: 'Din-Condensed, sans-serif' }}>
                                                 {capacityPercent}
                                             </span>
-                                            <span className="text-[8px] font-bold text-[#6BC482] uppercase tracking-wider text-center" style={{ fontFamily: 'var(--font-barlow), sans-serif' }}>
+                                            <span className="text-[8px] font-bold text-[#6BC482] uppercase tracking-wider text-center" style={{ fontFamily: 'Din-Condensed, sans-serif' }}>
                                                 % FULL
                                             </span>
                                         </div>
@@ -205,25 +202,25 @@ export function RocksCarousel({ rocks, onRockSelect }: RocksCarouselProps) {
                                 {/* Top Labels */}
                                 <div className="absolute top-0 left-0 right-0 p-5 flex justify-between items-start z-10">
                                     <div className="flex flex-col items-center gap-0">
-                                        <span className="text-[30px] font-black text-black leading-none uppercase" style={{ fontFamily: 'var(--font-barlow), sans-serif' }}>
+                                        <span className="text-[30px] font-black text-black leading-none uppercase" style={{ fontFamily: 'Din-Condensed, sans-serif' }}>
                                             {rock.dailyReward}
                                         </span>
-                                        <span className="text-[10px] font-bold text-[#6BC482] tracking-widest mt-[-2px] uppercase" style={{ fontFamily: 'var(--font-barlow), sans-serif' }}>
+                                        <span className="text-[10px] font-bold text-[#6BC482] tracking-widest mt-[-2px] uppercase" style={{ fontFamily: 'Din-Condensed, sans-serif' }}>
                                             BASE RATE
                                         </span>
                                     </div>
 
                                     <div className="flex flex-col items-center mt-3">
-                                        <span className="text-[15px] font-bold text-black uppercase tracking-tight whitespace-nowrap" style={{ fontFamily: 'var(--font-barlow), sans-serif' }}>
+                                        <span className="text-[15px] font-bold text-black uppercase tracking-tight whitespace-nowrap" style={{ fontFamily: 'var(--font-pt-mono), monospace' }}>
                                             OLD ROCK #{rock.id}
                                         </span>
                                     </div>
 
                                     <div className="flex flex-col items-center gap-0">
-                                        <span className="text-[30px] font-black text-black leading-none uppercase" style={{ fontFamily: 'var(--font-barlow), sans-serif' }}>
+                                        <span className="text-[30px] font-black text-black leading-none uppercase" style={{ fontFamily: 'Din-Condensed, sans-serif' }}>
                                             {rock.maxCapacity}
                                         </span>
-                                        <span className="text-[10px] font-bold text-[#6BC482] tracking-widest mt-[-2px] uppercase" style={{ fontFamily: 'var(--font-barlow), sans-serif' }}>
+                                        <span className="text-[10px] font-bold text-[#6BC482] tracking-widest mt-[-2px] uppercase" style={{ fontFamily: 'Din-Condensed, sans-serif' }}>
                                             CAPACITY
                                         </span>
                                     </div>

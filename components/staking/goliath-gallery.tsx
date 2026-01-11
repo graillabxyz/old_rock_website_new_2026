@@ -90,6 +90,17 @@ export function GoliathGallery({
     // Filters State
     const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
 
+    // Mobile State
+    const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
+    const [isMobile, setIsMobile] = useState(false);
+
+    useEffect(() => {
+        const checkMobile = () => setIsMobile(window.innerWidth < 1024);
+        checkMobile();
+        window.addEventListener('resize', checkMobile);
+        return () => window.removeEventListener('resize', checkMobile);
+    }, []);
+
     // Infinite Scroll State
     const [visibleCount, setVisibleCount] = useState(20);
     const loadMoreRef = useRef<HTMLDivElement>(null);
@@ -214,12 +225,26 @@ export function GoliathGallery({
     const isAtCapacity = selectedRock ? linkedCount >= selectedRock.maxCapacity : false;
 
     return (
-        <div className="w-full max-w-[1600px] mx-auto px-6 py-10 relative z-10">
+        <div className="w-full max-w-[1600px] mx-auto px-4 lg:px-6 py-10 relative z-10">
+            {/* MOBILE FILTER TRIGGER */}
+            <div className="lg:hidden flex items-center justify-between mb-8 bg-gray-900/50 p-4 rounded-xl border border-white/5">
+                <div className="flex flex-col">
+                    <span className="text-[10px] font-black text-white/40 uppercase tracking-widest">GOLIATH INVENTORY</span>
+                    <span className="text-2xl font-black text-white">{displayGoliaths.length} ITEMS</span>
+                </div>
+                <button
+                    onClick={() => setIsFilterDrawerOpen(true)}
+                    className="flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 rounded-lg border border-white/10 transition-colors"
+                >
+                    <Search className="w-4 h-4 text-white" />
+                    <span className="text-sm font-bold text-white uppercase tracking-wider">FILTER</span>
+                </button>
+            </div>
+
             <div className="flex gap-8 items-start">
 
-                {/* LEFT SIDEBAR FILTERS */}
-                <div className="w-[280px] shrink-0 sticky top-24 space-y-2">
-                    {/* Header Controls (Status) - Mock visual only */}
+                {/* LEFT SIDEBAR FILTERS (Desktop) */}
+                <div className="hidden lg:block w-[280px] shrink-0 sticky top-24 space-y-2">
                     <div className="flex items-center justify-between mb-4">
                         <span className="font-bold text-white text-lg">Filters</span>
                         <ArrowLeft className="w-4 h-4 text-white/40 rotate-90" />
@@ -323,11 +348,133 @@ export function GoliathGallery({
                     </div>
                 </div>
 
+                {/* MOBILE FILTER DRAWER */}
+                {isFilterDrawerOpen && (
+                    <div className="fixed inset-0 z-[100] lg:hidden">
+                        {/* Backdrop */}
+                        <div
+                            className="absolute inset-0 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300"
+                            onClick={() => setIsFilterDrawerOpen(false)}
+                        />
+                        {/* Drawer Content */}
+                        <div className="absolute inset-x-0 bottom-0 max-h-[85vh] bg-[#0d141a] rounded-t-[30px] border-t border-white/10 flex flex-col animate-in slide-in-from-bottom duration-300">
+                            {/* Drawer Cap/Handle */}
+                            <div className="flex flex-col items-center py-4 shrink-0">
+                                <div className="w-12 h-1 bg-white/20 rounded-full mb-4" />
+                                <div className="w-full px-6 flex items-center justify-between">
+                                    <span className="text-xl font-black text-white">FILTERS</span>
+                                    <button
+                                        onClick={() => setIsFilterDrawerOpen(false)}
+                                        className="text-white/40 font-bold uppercase text-[10px] tracking-widest"
+                                    >
+                                        DONE
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Options Scroll Area */}
+                            <div className="flex-1 overflow-y-auto px-6 pb-12 space-y-6">
+                                {/* Search */}
+                                <div>
+                                    <div className="relative">
+                                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
+                                        <input
+                                            type="text"
+                                            placeholder="Search by ID or Name..."
+                                            className="w-full bg-gray-900 border border-white/10 rounded-lg py-3 pl-10 pr-4 text-white placeholder:text-white/20 focus:outline-none"
+                                            value={searchQuery}
+                                            onChange={(e) => setSearchQuery(e.target.value)}
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Status Filter */}
+                                <CollapsibleSection title="Status">
+                                    <div className="space-y-2">
+                                        {['AVAILABLE', 'LINKED', 'STAKED'].map(status => (
+                                            <button
+                                                key={status}
+                                                onClick={() => toggleStatus(status)}
+                                                className="w-full flex items-center justify-between group py-2"
+                                            >
+                                                <div className="flex items-center gap-3">
+                                                    <div className={cn(
+                                                        "w-6 h-6 rounded border flex items-center justify-center transition-colors",
+                                                        selectedStatuses.includes(status) ? "bg-blue-500 border-blue-500" : "border-white/20"
+                                                    )}>
+                                                        {selectedStatuses.includes(status) && <Check className="w-4 h-4 text-white" />}
+                                                    </div>
+                                                    <span className="font-bold text-white transition-colors capitalize">
+                                                        {status === 'STAKED' ? 'Busy' : status.toLowerCase()}
+                                                    </span>
+                                                </div>
+                                                <span className="text-xs text-white/20">{statusCounts[status as keyof typeof statusCounts] || 0}</span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                </CollapsibleSection>
+
+                                {/* Density Filter */}
+                                <CollapsibleSection title="Density">
+                                    <div className="space-y-2">
+                                        {['COMMON', 'LOW', 'MEDIUM', 'HIGH', 'MYSTIC'].map(density => (
+                                            <button
+                                                key={density}
+                                                onClick={() => toggleDensity(density)}
+                                                className="w-full flex items-center justify-between group py-2"
+                                            >
+                                                <div className="flex items-center gap-3">
+                                                    <div className={cn(
+                                                        "w-6 h-6 rounded border flex items-center justify-center transition-colors",
+                                                        selectedDensities.includes(density) ? "bg-blue-500 border-blue-500" : "border-white/20"
+                                                    )}>
+                                                        {selectedDensities.includes(density) && <Check className="w-4 h-4 text-white" />}
+                                                    </div>
+                                                    <span className="font-bold text-white transition-colors capitalize">{density.toLowerCase()}</span>
+                                                </div>
+                                                <span className="text-xs text-white/20">{densityCounts[density] || 0}</span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                </CollapsibleSection>
+
+                                {/* Color Filter */}
+                                <CollapsibleSection title="Color">
+                                    <div className="space-y-2 pb-6">
+                                        {Object.keys(COLOR_MAP).filter(c => c !== 'NONE' && c !== 'COMMON').map(color => (
+                                            <button
+                                                key={color}
+                                                onClick={() => toggleColor(color)}
+                                                className="w-full flex items-center justify-between group py-2"
+                                            >
+                                                <div className="flex items-center gap-3">
+                                                    <div className={cn(
+                                                        "w-6 h-6 rounded border flex items-center justify-center transition-colors",
+                                                        selectedColors.includes(color) ? "bg-blue-500 border-blue-500" : "border-white/20"
+                                                    )}>
+                                                        {selectedColors.includes(color) && <Check className="w-4 h-4 text-white" />}
+                                                    </div>
+                                                    <div
+                                                        className="w-4 h-4 rounded-full"
+                                                        style={{ backgroundColor: COLOR_MAP[color]?.bg }}
+                                                    />
+                                                    <span className="font-bold text-white transition-colors capitalize">{color.toLowerCase()}</span>
+                                                </div>
+                                                <span className="text-xs text-white/20">{colorCounts[color] || 0}</span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                </CollapsibleSection>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 {/* MAIN CONTENT GRID */}
                 <div className="flex-1 min-h-[500px]">
 
-                    {/* Top Control Bar */}
-                    <div className="flex items-center justify-between mb-6 pb-6 border-b border-white/5">
+                    {/* Top Control Bar (Desktop Only) */}
+                    <div className="hidden lg:flex items-center justify-between mb-6 pb-6 border-b border-white/5">
                         <div className="flex items-center gap-4">
                             <span className="text-2xl font-black text-white">{displayGoliaths.length} ITEMS</span>
 
