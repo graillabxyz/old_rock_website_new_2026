@@ -108,7 +108,10 @@ interface AchievementCardProps {
 
 function AchievementCard({ achievement, isAchieved, achievedCount, isConnected, onClick }: AchievementCardProps) {
     const emoji = achievement.description.split(' ')[0];
-    const text = achievement.description.substring(achievement.description.indexOf(' ') + 1);
+    const text = achievement.description
+        .substring(achievement.description.indexOf(' ') + 1)
+        .replace(/yellow goliath/gi, 'turquoise goliath')
+        .replace(/neural /gi, '');
 
     const link = ACHIEVEMENT_LINKS[achievement.id];
 
@@ -142,6 +145,7 @@ function AchievementCard({ achievement, isAchieved, achievedCount, isConnected, 
                         {isConnected && achievement.renewable && (
                             <span className="inline-block px-1.5 py-0.5 rounded bg-[#40E0D0]/10 text-[#40E0D0] text-[9px] font-black tracking-widest uppercase mb-2">RECURRING</span>
                         )}
+                        {/* Remove manual Verify Mint button - backend handles automatically */}
                     </div>
                 </div>
 
@@ -319,8 +323,16 @@ function AirdropDashboardContent() {
     const handleAchievementClick = useCallback(async (achievementId: string) => {
         if (!isConnected) return;
 
-        // Track certain achievements
-        if (['x-follow-oldrocknft', 'x-follow-densitydeck', 'view-documentation'].includes(achievementId)) {
+        // Track certain achievements and handle blockchain verification
+        if ([
+            'x-follow-oldrocknft',
+            'x-follow-densitydeck',
+            'view-documentation',
+            'mint-goliath',
+            'mint-goliath-color-match-low',
+            'mint-goliath-color-match-medium',
+            'mint-goliath-color-match-high'
+        ].includes(achievementId)) {
             postAchievement.mutate({
                 achievementId,
                 namespace: AIRDROP_CONFIG.seasonNamespace
@@ -502,7 +514,7 @@ function AirdropDashboardContent() {
                         {/* Current Season */}
                         <div className="group bg-gray-900/40 backdrop-blur-md rounded-2xl p-6 border border-white/5 hover:border-[#40E0D0]/30 transition-all duration-300">
                             <p className="text-gray-500 text-xs font-bold uppercase tracking-widest mb-1">Current Season</p>
-                            <p className="text-3xl font-black text-[#40E0D0] font-montserrat tracking-tight">
+                            <p className="text-3xl font-black text-[#40E0D0] font-montserrat tracking-tight uppercase">
                                 SEASON {AIRDROP_CONFIG.currentSeason}
                             </p>
                             <p className="text-xs text-gray-600 mt-2 font-pt-mono uppercase">Phase: Turquoise</p>

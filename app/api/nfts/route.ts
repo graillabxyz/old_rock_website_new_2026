@@ -165,7 +165,25 @@ async function fetchUserData(request: NextRequest) {
       if (nftResponse.ok) {
         const nftData = await nftResponse.json()
         oldRockNFTs = nftData?.data?.OldRocks || []
-        goliathNFTs = nftData?.data?.Goliath || []
+        goliathNFTs = (nftData?.data?.Goliath || []).map((nft: any) => {
+          // Normalize Goliath color identification
+          let color = "Common";
+          const attributes = nft.attributes;
+          if (Array.isArray(attributes)) {
+            const colorAttr = attributes.find(
+              (attr: any) =>
+                attr && (attr.trait_type === "Goliath" || attr.trait_type === "Type" || attr.trait_type === "type")
+            );
+            color = colorAttr?.value || "Common";
+          } else if (attributes) {
+            color = attributes.Goliath || attributes.Type || attributes.type || "Common";
+          }
+
+          return {
+            ...nft,
+            color
+          };
+        });
       }
     } catch (error) {
       console.warn(`⚠️ Failed to fetch NFT data for ${walletAddress}:`, error)

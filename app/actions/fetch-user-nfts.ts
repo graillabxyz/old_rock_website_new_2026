@@ -46,16 +46,20 @@ export async function fetchUserNFTs(walletAddress: string) {
 
       // Process Goliath NFTs
       const goliathNFTs =
-        nftData?.data.Goliath?.map((nft: any) => ({
-          tokenId: nft.id,
-          name: nft.name,
-          image: nft.imageId?.replace('.webp', '-300.webp'),
-          collection: "Goliath",
-          contractAddress: "0x05ab5a50f77b9957b51145b259f05e805d84e92e",
-          attributes: nft.attributes,
-          backgroundColor: getBackgroundColor(nft.attributes, "goliath"),
-          linkedRock: nft.linkedRock || null,
-        })) || []
+        nftData?.data.Goliath?.map((nft: any) => {
+          const color = getGoliathColor(nft.attributes);
+          return {
+            tokenId: nft.id,
+            name: nft.name,
+            image: nft.imageId?.replace('.webp', '-300.webp'),
+            collection: "Goliath",
+            contractAddress: "0x05ab5a50f77b9957b51145b259f05e805d84e92e",
+            attributes: nft.attributes,
+            color: color,
+            backgroundColor: getBackgroundColor(nft.attributes, "goliath", color),
+            linkedRock: nft.linkedRock || null,
+          };
+        }) || []
 
       return {
         success: true,
@@ -63,7 +67,7 @@ export async function fetchUserNFTs(walletAddress: string) {
         goliathNFTs,
         totalNFTs: oldRockNFTs.length + goliathNFTs.length,
       }
-    } catch (fetchError) {
+    } catch (fetchError: any) {
       clearTimeout(timeoutId)
       if (fetchError.name === "AbortError") {
         console.error("Request timeout")
@@ -71,7 +75,7 @@ export async function fetchUserNFTs(walletAddress: string) {
       }
       throw fetchError
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error fetching user NFTs:", error)
     return {
       success: false,
@@ -82,12 +86,33 @@ export async function fetchUserNFTs(walletAddress: string) {
   }
 }
 
-function getBackgroundColor(attributes: any[], collection: string): string {
+function getGoliathColor(attributes: any): string {
+  if (!attributes) return "Common";
+
+  // Handle both array and object formats
+  if (Array.isArray(attributes)) {
+    const colorAttr = attributes.find(
+      (attr: any) =>
+        attr &&
+        (attr.trait_type === "Goliath" ||
+          attr.trait_type === "goliath" ||
+          attr.trait_type === "Type" ||
+          attr.trait_type === "type")
+    );
+    return colorAttr?.value || "Common";
+  } else {
+    return attributes.Goliath || attributes.goliath || attributes.Type || attributes.type || "Common";
+  }
+}
+
+function getBackgroundColor(attributes: any, collection: string, colorVariant?: string): string {
   if (!attributes) return "#6B46C1" // Default purple
 
   if (collection === "oldrock") {
     // Map Old Rock colors to background colors
-    const typeAttribute = attributes.Type;
+    const typeAttribute = Array.isArray(attributes)
+      ? attributes.find((attr: any) => attr.trait_type === "Type")?.value
+      : attributes.Type;
 
     if (typeAttribute) {
       const colorMap: { [key: string]: string } = {
@@ -106,8 +131,24 @@ function getBackgroundColor(attributes: any[], collection: string): string {
       return colorMap[typeAttribute] || "#6B46C1"
     }
   } else if (collection === "goliath") {
-    // Map Goliath density to background colors
-    const densityAttribute = attributes.Density
+    // If colorVariant is provided (Season 3), use it primarily
+    if (colorVariant) {
+      const goliathColorMap: { [key: string]: string } = {
+        Turquoise: "#257875",
+        Yellow: "#FEC42A",
+        Blue: "#3182AA",
+        Red: "#DC4537",
+        Purple: "#8856B9",
+        Gold: "#EDA825",
+        Aquamarine: "#46AA9A",
+      };
+      if (goliathColorMap[colorVariant]) return goliathColorMap[colorVariant];
+    }
+
+    // Fallback to density mapping
+    const densityAttribute = Array.isArray(attributes)
+      ? attributes.find((attr: any) => attr.trait_type === "Density")?.value
+      : attributes.Density
 
     if (densityAttribute) {
       const densityMap: { [key: string]: string } = {
@@ -173,9 +214,12 @@ function calculateNFTBadges(oldRockNFTs: any[], goliathNFTs: any[], walletAddres
   // Color Wheel - check if user owns every color of Old Rocks
   const oldRockColors = new Set()
   oldRockNFTs.forEach((nft) => {
-    const colorAttr = nft.attributes?.Type;
+    const attributes = nft.attributes;
+    const colorAttr = Array.isArray(attributes)
+      ? attributes.find((attr: any) => attr.trait_type === "Type")?.value
+      : attributes?.Type;
     if (colorAttr) {
-      oldRockColors.add(colorAttr.value)
+      oldRockColors.add(colorAttr)
     }
   })
   const requiredColors = [
@@ -197,29 +241,45 @@ function calculateNFTBadges(oldRockNFTs: any[], goliathNFTs: any[], walletAddres
   }
 
   // Density Spectrum - check if user owns every density of Goliaths
-  const goliathDensities = new Set()
+  const goliathDensities = new Set<string>()
   goliathNFTs.forEach((nft) => {
-    const densityAttr = nft.attributes?.Density;
+    const attributes = nft.attributes;
+    const densityAttr = Array.isArray(attributes)
+      ? attributes.find((attr: any) => attr.trait_type === "Density")?.value
+      : attributes?.Density;
+
     if (densityAttr) {
-      goliathDensities.add(densityAttr)
+      goliathDensities.add(String(densityAttr))
     }
   })
   const requiredDensities = ["Common", "Low", "Medium", "High", "Mystic"]
   const hasAllDensities = requiredDensities.every((density) =>
-    Array.from(goliathDensities).some((userDensity) => userDensity?.includes(density)),
+    Array.from(goliathDensities).some((userDensity: string) => userDensity.includes(density)),
   )
   if (hasAllDensities) {
     badges.push({ id: 50, unlocked: true })
   }
 
   // Mystic Holder
-  const hasMysticRock = oldRockNFTs.some((nft) => !!nft?.attributes?.Mystic)
+  const hasMysticRock = oldRockNFTs.some((nft) => {
+    const attributes = nft.attributes;
+    if (Array.isArray(attributes)) {
+      return attributes.some((attr: any) => attr.trait_type === "Mystic");
+    }
+    return !!attributes?.Mystic;
+  });
   if (hasMysticRock) {
     badges.push({ id: 51, unlocked: true })
   }
 
   // Bounty Hunter
-  const hasBountyGoliath = goliathNFTs.some((nft) => !!nft?.attributes?.Bounty)
+  const hasBountyGoliath = goliathNFTs.some((nft) => {
+    const attributes = nft.attributes;
+    if (Array.isArray(attributes)) {
+      return attributes.some((attr: any) => attr.trait_type === "Bounty");
+    }
+    return !!attributes?.Bounty;
+  });
   if (hasBountyGoliath) {
     badges.push({ id: 52, unlocked: true })
   }
