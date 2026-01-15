@@ -11,9 +11,11 @@ import { Search } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { useRouter } from "next/navigation"
 import { calculateAllBadges, getBestBadges, Badge as BadgeType } from "@/lib/badge-utils"
-import { Award, Loader2 } from "lucide-react"
+import { Loader2 } from "lucide-react"
 import { createPortal } from "react-dom"
 import BadgeIconWithTooltip from "@/components/badge-icon-with-tooltip"
+import { getDensityDeckRank, RankInfo } from "@/lib/rank-utils"
+import { Shield, ShieldCheck, Award, Trophy, Crown } from "lucide-react"
 
 interface LeaderboardUser {
   address: string
@@ -585,7 +587,7 @@ export default function LeaderboardPage() {
                     setLeaderboardType("density")
                   }}
                   className={`px-4 py-2 rounded-md font-pt-mono text-xs sm:text-sm font-bold transition-all duration-200 ${leaderboardType === "density"
-                    ? "bg-cyan-600 text-white shadow-lg shadow-cyan-600/20"
+                    ? "bg-purple-600 text-white shadow-lg shadow-purple-600/20"
                     : "text-gray-400 hover:text-gray-300"
                     }`}
                 >
@@ -596,7 +598,7 @@ export default function LeaderboardPage() {
                     setLeaderboardType("densityDeck")
                   }}
                   className={`px-4 py-2 rounded-md font-pt-mono text-xs sm:text-sm font-bold transition-all duration-200 ${leaderboardType === "densityDeck"
-                    ? "bg-cyan-600 text-white shadow-lg shadow-cyan-600/20"
+                    ? "bg-purple-600 text-white shadow-lg shadow-purple-600/20"
                     : "text-gray-400 hover:text-gray-300"
                     }`}
                 >
@@ -632,6 +634,7 @@ export default function LeaderboardPage() {
                       ) : (
                         <>
                           <th className="px-4 sm:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm font-pt-mono text-gray-400">USER</th>
+                          <th className="px-4 sm:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm font-pt-mono text-gray-400">RANK</th>
                           <th
                             className="px-4 sm:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm font-pt-mono text-gray-400 cursor-pointer hover:text-white"
                             onClick={() => handleSort("densityDeck")}
@@ -813,6 +816,40 @@ export default function LeaderboardPage() {
                                     {user.username || user.displayName || "Unknown"}
                                   </div>
                                 </div>
+                              </td>
+                              <td className="px-3 sm:px-4 md:px-6 py-3 sm:py-4">
+                                {(() => {
+                                  const rankInfo = getDensityDeckRank(user.wins || 0);
+                                  const rankFileMap: { [key: string]: string } = {
+                                    "Acolyte": "acolyte1",
+                                    "Disciple": "Disciple2",
+                                    "Champion": "Champion3",
+                                    "Guardian": "Guardian4",
+                                    "Ascendant": "Ascendant5",
+                                    "Paragon": "Paragon6"
+                                  };
+                                  const fileName = rankFileMap[rankInfo.title] || "acolyte1";
+                                  return (
+                                    <div className="flex items-center space-x-2 group/rank-cell cursor-default">
+                                      <div className="w-8 h-8 sm:w-10 sm:h-10 flex-shrink-0">
+                                        <Image
+                                          src={`/Density Deck Ranks/${fileName}.svg`}
+                                          alt={rankInfo.title}
+                                          width={40}
+                                          height={40}
+                                          className="object-contain w-full h-full transition-transform duration-300 ease-out group-hover/rank-cell:scale-110"
+                                          onError={(e) => {
+                                            const target = e.target as HTMLImageElement;
+                                            target.style.display = 'none';
+                                          }}
+                                        />
+                                      </div>
+                                      <span className="font-bold text-xs sm:text-sm uppercase tracking-wider transition-colors duration-300" style={{ color: rankInfo.color }}>
+                                        {rankInfo.tier}
+                                      </span>
+                                    </div>
+                                  );
+                                })()}
                               </td>
                             </>
                           )}
@@ -1061,6 +1098,17 @@ export default function LeaderboardPage() {
                         ) : (
                           <div className="space-y-2">
                             <div className="flex items-center justify-between">
+                              <span className="text-xs text-gray-400 font-pt-mono">RANK</span>
+                              {(() => {
+                                const rankInfo = getDensityDeckRank(user.wins || 0);
+                                return (
+                                  <span className="font-bold text-xs uppercase tracking-wider px-2 py-0.5 rounded bg-gray-900/50" style={{ color: rankInfo.color }}>
+                                    {rankInfo.tier}
+                                  </span>
+                                );
+                              })()}
+                            </div>
+                            <div className="flex items-center justify-between pt-2 border-t border-gray-700/50">
                               <span className="text-xs text-gray-400 font-pt-mono">WINS</span>
                               <span className="font-bold text-white">
                                 {user.wins !== undefined ? user.wins.toLocaleString() : <span className="text-gray-400">—</span>}

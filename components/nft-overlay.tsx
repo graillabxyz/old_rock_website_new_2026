@@ -59,7 +59,7 @@ export function NFTOverlay({ nft, isOpen, onClose, onSetAsProfilePicture, isSett
               <button
                 onClick={() => onSetAsProfilePicture(nft)}
                 disabled={isSettingAvatar}
-                className="w-full text-white font-semibold px-4 py-2 transition-opacity flex items-center justify-center text-sm hover:opacity-80 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full text-white font-semibold px-4 py-3 transition-colors flex items-center justify-center text-sm hover:bg-white/10 rounded-lg border border-white/10"
               >
                 {isSettingAvatar ? (
                   <span className="flex items-center gap-2">
@@ -89,6 +89,24 @@ export function NFTOverlay({ nft, isOpen, onClose, onSetAsProfilePicture, isSett
                   "Set as Profile Picture"
                 )}
               </button>
+
+              <a
+                href={`https://amplify.oldrocknft.com`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full text-white font-semibold px-4 py-3 transition-colors flex items-center justify-center text-sm hover:bg-white/10 rounded-lg border border-white/10"
+              >
+                VIEW IN AMPLIFY
+              </a>
+
+              <a
+                href={`https://opensea.io/assets/ethereum/${nft.contractAddress}/${nft.tokenId}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full text-white font-semibold px-4 py-3 transition-colors flex items-center justify-center text-sm hover:bg-white/10 rounded-lg border border-white/10"
+              >
+                VIEW ON OPENSEA
+              </a>
             </div>
           </motion.div>
         </motion.div>

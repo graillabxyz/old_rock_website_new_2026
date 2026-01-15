@@ -2,6 +2,7 @@
 
 // Remove this import
 // import { fetchWalletBalances } from "./fetch-wallet-balances"
+import { getDensityDeckRank } from "@/lib/rank-utils"
 
 export async function fetchUserNFTs(walletAddress: string) {
   try {
@@ -335,20 +336,7 @@ function calculateNFTBadges(oldRockNFTs: any[], goliathNFTs: any[], walletAddres
 // Update the fetchUserStats function to remove USDC balance fetching
 export async function fetchUserStats(walletAddress: string, oldRockNFTs?: any[], goliathNFTs?: any[]) {
   try {
-    const ALCHEMY_API_KEY = process.env.ALCHEMY_API_KEY
-
-    if (!ALCHEMY_API_KEY) {
-      return {
-        success: false,
-        stats: {
-          totalDensity: "43,023.32",
-          gamesPlayed: 0,
-          winRate: 0,
-          rank: "Unranked",
-          achievements: [],
-        },
-      }
-    }
+    // Note: ALCHEMY_API_KEY is only needed for NFT badge calculations, not for Density Deck wins
 
     // If NFT data wasn't passed, fetch it
     let userOldRockNFTs = oldRockNFTs || []
@@ -362,31 +350,76 @@ export async function fetchUserStats(walletAddress: string, oldRockNFTs?: any[],
       }
     }
 
+    // Fetch real wins from Density Deck leaderboard
+    let gamesPlayed = 0;
+    try {
+      const densityDeckApiUrl = process.env.NEXT_PUBLIC_DENSITY_DECK_API_URL || "https://api.densitydeck.com"
+
+      // Search the leaderboard directly - fetch all entries to find the user
+      const leaderboardResponse = await fetch(`${densityDeckApiUrl}/leaderboard?page=1&limit=1000`, {
+        cache: "no-store",
+        headers: { Accept: "application/json" },
+        signal: AbortSignal.timeout(15000),
+      })
+
+      if (leaderboardResponse.ok) {
+        const leaderboardData = await leaderboardResponse.json()
+        const entries = Array.isArray(leaderboardData) ? leaderboardData : leaderboardData.data || []
+
+        // Find the user in the leaderboard - normalize both addresses to lowercase
+        const normalizedWallet = walletAddress.toLowerCase()
+        const userEntry = entries.find((entry: any) => {
+          // The API returns nested user object with address
+          const entryAddress = (entry.user?.address || entry.address || "").toLowerCase()
+          return entryAddress === normalizedWallet
+        })
+
+        if (userEntry) {
+          // The API uses 'score' field for wins count
+          gamesPlayed = userEntry.score || userEntry.wins || 0
+          console.log(`✅ Found user ${normalizedWallet} in Density Deck leaderboard with ${gamesPlayed} wins`)
+        } else {
+          console.log(`⚠️ User ${normalizedWallet} not found in Density Deck leaderboard (searched ${entries.length} entries)`)
+        }
+      } else {
+        console.warn(`⚠️ Density Deck leaderboard API returned status ${leaderboardResponse.status}`)
+      }
+    } catch (error) {
+      console.warn("❌ Failed to fetch Density Deck stats:", error)
+    }
+
+
+
     // Calculate NFT-related badges based on actual collection
     const nftBadgeUnlocks = calculateNFTBadges(userOldRockNFTs, userGoliathNFTs, walletAddress)
 
     // Mock data for other achievements (gaming, density, community) - these would be calculated from real data
-    const mockStats = {
+    const stats = {
       totalDensity: "43,023.32", // restored to original mock value
-      gamesPlayed: 127,
-      winRate: 68.5,
+      gamesPlayed: gamesPlayed || 0,
+      winRate: 0,
+      wins: gamesPlayed,
       rank: "#342",
       achievements: [], // This will be populated in the frontend with the actual badge data
       nftBadgeUnlocks, // Pass the NFT badge unlock data to the frontend
+      rankInfo: getDensityDeckRank(gamesPlayed),
     }
 
-    return { success: true, stats: mockStats }
+    console.log(`📊 fetchUserStats returning for ${walletAddress}: wins=${stats.wins}, gamesPlayed=${gamesPlayed}`)
+    return { success: true, stats }
   } catch (error) {
     console.error("Error fetching user stats:", error)
     return {
-      success: false,
+      success: true, // Return success even on error to show default/partial data
       stats: {
-        totalDensity: "43,023.32",
+        totalDensity: "0.00",
         gamesPlayed: 0,
         winRate: 0,
+        wins: 0,
         rank: "Unranked",
         achievements: [],
         nftBadgeUnlocks: [],
+        rankInfo: getDensityDeckRank(0),
       },
     }
   }

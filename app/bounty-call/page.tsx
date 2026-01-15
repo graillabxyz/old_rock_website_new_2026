@@ -505,8 +505,8 @@ export default function BountyCallPage() {
             </motion.div>
           </div>
         </section>
+        <Footer />
       </div>
-      <Footer />
     </div>
   )
 }

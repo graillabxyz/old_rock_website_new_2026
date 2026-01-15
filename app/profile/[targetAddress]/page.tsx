@@ -18,7 +18,10 @@ import { Upload } from "lucide-react"
 import { ENSConfirmationModal } from "@/components/ens-confirmation-modal"
 import { BadgeDisplay } from "@/components/badge-display"
 import { calculateAllBadges, Badge } from "@/lib/badge-utils"
+import { getDensityDeckRank, RankInfo } from "@/lib/rank-utils"
+import { Shield, ShieldCheck, Award, Trophy, Crown } from "lucide-react"
 import { Footer } from "@/components/footer"
+import { InlineSVG } from "@/components/inline-svg"
 
 interface NFT {
   tokenId: string
@@ -36,8 +39,10 @@ interface UserStats {
   gamesPlayed: number
   winRate: number
   rank: string
+  wins?: number
   achievements: any[]
   nftBadgeUnlocks?: any[]
+  rankInfo?: RankInfo
 }
 
 export default function ProfilePage() {
@@ -91,56 +96,56 @@ export default function ProfilePage() {
   const [uploadProgress, setUploadProgress] = useState(0)
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [uploadSuccess, setUploadSuccess] = useState(false)
+  const [rankImgError, setRankImgError] = useState(false)
 
   // ENS confirmation modal state
+
   const [showENSConfirm, setShowENSConfirm] = useState(false)
   const [ensConfirmMessage, setEnsConfirmMessage] = useState("")
   const [ensConfirmNFTName, setEnsConfirmNFTName] = useState("")
   const [ensConfirmResolve, setEnsConfirmResolve] = useState<((value: boolean) => void) | null>(null)
 
-  // Notification state
   const [notification, setNotification] = useState<{ message: string; type: "success" | "error" } | null>(null)
+  const lastLoadedAddress = useState<string>("") // Track this to prevent redundant loads
 
   useEffect(() => {
     // Suppress harmless wallet extension errors in console
     const originalError = console.error
     console.error = (...args: any[]) => {
       const message = args[0]?.toString() || ""
-      // Filter out wallet extension errors about window.ethereum
       if (
         message.includes("Cannot set property ethereum") ||
         message.includes("Cannot redefine property: ethereum") ||
-        message.includes("MetaMask encountered an error setting the global Ethereum provider")
+        message.includes("MetaMask encountered an error setting the global Ethereum provider") ||
+        message.includes("getter-only")
       ) {
-        // Suppress these errors - they're harmless and come from wallet extensions
         return
       }
       originalError.apply(console, args)
     }
 
     const checkWallet = async () => {
+      // Use a brief delay to allow multiple extensions to settle if they are competing
+      await new Promise(resolve => setTimeout(resolve, 100));
+
       if (typeof window !== "undefined" && window.ethereum) {
         try {
+          // Check for eth_accounts without triggering a pop-up
           const accounts = await window.ethereum.request({ method: "eth_accounts" })
-          if (accounts.length > 0) {
-            setConnectedWallet(accounts[0])
+          if (accounts && accounts.length > 0) {
+            setConnectedWallet(accounts[0].toLowerCase())
           }
         } catch (error) {
-          console.error("Error checking wallet:", error)
+          // Non-critical error
         }
       }
     }
 
     checkWallet()
 
-    // Restore original console.error on cleanup
-    return () => {
-      console.error = originalError
-    }
-
     const handleWalletConnected = (event: CustomEvent) => {
       if (event.detail.address) {
-        setConnectedWallet(event.detail.address)
+        setConnectedWallet(event.detail.address.toLowerCase())
       }
     }
 
@@ -152,87 +157,94 @@ export default function ProfilePage() {
     window.addEventListener("walletDisconnected", handleWalletDisconnected as EventListener)
 
     return () => {
+      console.error = originalError
       window.removeEventListener("walletConnected", handleWalletConnected as EventListener)
       window.removeEventListener("walletDisconnected", handleWalletDisconnected as EventListener)
     }
   }, [])
 
   useEffect(() => {
-    const targetWallet = (targetAddress as string) || connectedWallet
+    const targetWallet = ((targetAddress as string) || connectedWallet)?.toLowerCase()
 
-    if (targetWallet) {
+    if (targetWallet && targetWallet !== lastLoadedAddress[0]) {
       setWalletAddress(targetWallet)
-      setIsOwnProfile(targetWallet.toLowerCase() === connectedWallet.toLowerCase())
+      setIsOwnProfile(targetWallet === connectedWallet)
+      lastLoadedAddress[1](targetWallet)
       loadProfileData(targetWallet)
     }
   }, [targetAddress, connectedWallet])
 
   const loadProfileData = async (address: string) => {
+    if (!address) return;
     setIsLoading(true)
+
     try {
-      // Fetch ENS name
-      const name = await fetchENSName(address)
-      setEnsName(name)
+      // Parallelize ALL initial data fetching for max speed
+      const [ensNameResult, ensAvatarResult, nftResult, densityResult] = await Promise.allSettled([
+        fetchENSName(address),
+        fetchENSAvatar(address),
+        fetchUserNFTs(address),
+        fetchUserDensity(address)
+      ]);
 
-      // Fetch ENS avatar
-      const avatar = await fetchENSAvatar(address)
-      setEnsAvatar(avatar)
+      // Handle ENS Name
+      if (ensNameResult.status === 'fulfilled') setEnsName(ensNameResult.value);
 
-      // Fetch NFTs
-      const nftResult = await fetchUserNFTs(address)
-      if (nftResult.success) {
-        setOldRockNFTs(nftResult.oldRockNFTs || [])
-        setGoliathNFTs(nftResult.goliathNFTs || [])
+      // Handle Avatar
+      if (ensAvatarResult.status === 'fulfilled') setEnsAvatar(ensAvatarResult.value);
 
-        // Fetch user stats with NFT data
-        const statsResult = await fetchUserStats(address, nftResult.oldRockNFTs, nftResult.goliathNFTs)
-        if (statsResult.success) {
-          setUserStats(statsResult.stats)
-        }
+      // Handle NFTs
+      let finalOldRocks: NFT[] = [];
+      let finalGoliaths: NFT[] = [];
+      if (nftResult.status === 'fulfilled' && nftResult.value.success) {
+        finalOldRocks = nftResult.value.oldRockNFTs || [];
+        finalGoliaths = nftResult.value.goliathNFTs || [];
+        setOldRockNFTs(finalOldRocks);
+        setGoliathNFTs(finalGoliaths);
+      }
 
-        // Fetch actual $DENSITY ecosystem balance (same as shown in header)
-        const densityResult = await fetchUserDensity(address)
-        let totalDensity = 0
-        if (densityResult.success && densityResult.data) {
-          // Use the ecosystem balance amount (same as header displays)
-          totalDensity = parseFloat(densityResult.data.amount?.toString() || "0") || 0
-        }
+      // Start fetching stats and badges in parallel using the NFT results
+      console.log('🔄 Calling fetchUserStats for:', address);
+      const statsPromise = fetchUserStats(address, finalOldRocks, finalGoliaths);
 
-        // Fetch badges from centralized API
-        try {
-          const badgeResponse = await fetch(`/api/badges?address=${address}`)
-          if (badgeResponse.ok) {
-            const badgeData = await badgeResponse.json()
-            if (badgeData.success && badgeData.data) {
-              setUserBadges(badgeData.data.allBadges || [])
-            } else {
-              // Fallback to local calculation if API fails
-              const badges = calculateAllBadges({
-                totalDensity,
-                oldRockNFTs: nftResult.oldRockNFTs || [],
-                goliathNFTs: nftResult.goliathNFTs || [],
-              })
-              setUserBadges(badges)
-            }
-          } else {
-            // Fallback to local calculation if API fails
-            const badges = calculateAllBadges({
-              totalDensity,
-              oldRockNFTs: nftResult.oldRockNFTs || [],
-              goliathNFTs: nftResult.goliathNFTs || [],
-            })
-            setUserBadges(badges)
-          }
-        } catch (error) {
-          console.warn("Failed to fetch badges from API, using local calculation:", error)
-          // Fallback to local calculation if API fails
-          const badges = calculateAllBadges({
-            totalDensity,
-            oldRockNFTs: nftResult.oldRockNFTs || [],
-            goliathNFTs: nftResult.goliathNFTs || [],
-          })
-          setUserBadges(badges)
-        }
+      // Calculate Density local fallback while waiting for API
+      let totalDensityValue = 0;
+      if (densityResult.status === 'fulfilled' && densityResult.value.success && densityResult.value.data) {
+        totalDensityValue = parseFloat(densityResult.value.data.amount?.toString() || "0") || 0;
+      }
+
+      const badgePromise = fetch(`/api/badges?address=${address}`).then(r => r.ok ? r.json() : null).catch(() => null);
+
+      const [statsRes, badgeData] = await Promise.all([statsPromise, badgePromise]);
+
+      console.log('📊 Stats result:', { success: statsRes?.success, wins: statsRes?.stats?.wins, gamesPlayed: statsRes?.stats?.gamesPlayed });
+
+      // Handle Stats
+      if (statsRes.success) {
+        console.log('📊 Profile received stats:', { wins: statsRes.stats.wins, gamesPlayed: statsRes.stats.gamesPlayed });
+        setUserStats(statsRes.stats);
+      } else {
+        setUserStats({
+          totalDensity: totalDensityValue.toString(),
+          gamesPlayed: 0,
+          winRate: 0,
+          rank: "Unranked",
+          wins: 0,
+          achievements: [],
+          rankInfo: getDensityDeckRank(0)
+        });
+      }
+
+      // Handle Badges
+      if (badgeData?.success && badgeData?.data) {
+        setUserBadges(badgeData.data.allBadges || []);
+      } else {
+        const badges = calculateAllBadges({
+          totalDensity: totalDensityValue,
+          oldRockNFTs: finalOldRocks,
+          goliathNFTs: finalGoliaths,
+        });
+        setUserBadges(badges);
       }
 
       // Load saved profile NFT
@@ -280,6 +292,7 @@ export default function ProfilePage() {
         setHeaderMedia(headerData.hash || "")
         setHeaderMediaType(headerData.type || null)
       }
+
     } catch (error) {
       console.error("Error loading profile data:", error)
     } finally {
@@ -876,7 +889,7 @@ export default function ProfilePage() {
           )}
 
           <div className="relative container mx-auto px-4 md:px-6 h-full flex flex-col md:flex-row md:items-end pb-6 md:pb-12 pt-6 md:pt-0">
-            <div className="flex flex-col md:flex-row md:items-end gap-4 md:gap-0 md:space-x-8">
+            <div className="flex flex-col md:flex-row md:items-end gap-4 md:gap-0 md:space-x-8 w-full">
               {/* Profile NFT */}
               <div className="relative group flex-shrink-0 mx-auto md:mx-0">
                 <div
@@ -929,69 +942,99 @@ export default function ProfilePage() {
                   <p className="text-gray-400 font-mono text-sm md:text-base mb-2 md:mb-4">
                     {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}
                   </p>
-                </div>
 
-                {/* Badges Display */}
-                {userBadges.length > 0 && (
-                  <div className="mt-4">
-                    <BadgeDisplay badges={userBadges} onExpandedChange={setIsBadgeExpanded} />
-                  </div>
+                  {/* Badges Display */}
+                  {userBadges.length > 0 && (
+                    <div className="mt-6">
+                      <BadgeDisplay badges={userBadges} onExpandedChange={setIsBadgeExpanded} />
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Stats/Rank Section - Right Side */}
+              <div className="md:ml-auto flex flex-col items-center md:items-end justify-end gap-8 pb-0 md:pb-4 mt-4 md:mt-0 min-h-[100px]">
+                {userStats && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.8, ease: "easeOut" }}
+                    className="flex flex-col items-center relative"
+                  >
+                    {/* Lighting/Glow Effect - Static */}
+                    <div className="absolute inset-0 bg-white/5 blur-3xl rounded-full scale-150 pointer-events-none" />
+
+                    {/* Rank Asset Image */}
+                    <div className="relative group/rank-container rank-card-trigger flex flex-col items-center cursor-default">
+                      {/* Subtle Static Glow underneath */}
+                      <div className="absolute inset-x-[-20%] inset-y-[-20%] bg-white/5 blur-[100px] rounded-full scale-150 pointer-events-none" />
+
+                      {/* Container with negative margin to cut off empty artboard space at bottom of SVG (SVG has 500x500 viewBox but art ends at ~365) */}
+                      <div className="relative w-64 h-64 md:w-96 md:h-96 flex items-center justify-center overflow-hidden mb-[-15%]">
+                        {/* Rank Image - Static */}
+                        <div className="relative w-full h-full flex items-center justify-center">
+                          {!rankImgError ? (() => {
+                            const rankTitle = userStats.rankInfo?.title || getDensityDeckRank(userStats.wins || 0).title;
+                            const rankFileMap: { [key: string]: string } = {
+                              "Acolyte": "acolyte1",
+                              "Disciple": "Disciple2",
+                              "Champion": "Champion3",
+                              "Guardian": "Guardian4",
+                              "Ascendant": "Ascendant5",
+                              "Paragon": "Paragon6"
+                            };
+                            const fileName = rankFileMap[rankTitle] || "acolyte1";
+                            const svgUrl = `/Density Deck Ranks/${fileName}.svg`;
+                            return (
+                              <InlineSVG
+                                src={svgUrl}
+                                alt={rankTitle}
+                                width={384}
+                                height={384}
+                                className="w-full h-full"
+                                parentTriggerClass="rank-card-trigger"
+                                scaleGroup="rank-container"
+                                onError={() => setRankImgError(true)}
+                              />
+                            );
+                          })() : (
+
+                            <div className="flex items-center justify-center w-full h-full text-white/40">
+                              {(userStats.rankInfo?.title || getDensityDeckRank(userStats.wins || 0).title) === "Acolyte" && <Shield className="w-32 h-32 md:w-48 md:h-48" />}
+                              {(userStats.rankInfo?.title || getDensityDeckRank(userStats.wins || 0).title) === "Disciple" && <ShieldCheck className="w-32 h-32 md:w-48 md:h-48" />}
+                              {(userStats.rankInfo?.title || getDensityDeckRank(userStats.wins || 0).title) === "Champion" && <Award className="w-32 h-32 md:w-48 md:h-48" />}
+                              {(userStats.rankInfo?.title || getDensityDeckRank(userStats.wins || 0).title) === "Guardian" && <ShieldCheck className="w-32 h-32 md:w-48 md:h-48 text-emerald-500" />}
+                              {(userStats.rankInfo?.title || getDensityDeckRank(userStats.wins || 0).title) === "Ascendant" && <Trophy className="w-32 h-32 md:w-48 md:h-48" />}
+                              {(userStats.rankInfo?.title || getDensityDeckRank(userStats.wins || 0).title) === "Paragon" && <Crown className="w-32 h-32 md:w-48 md:h-48" />}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Rank Title Box - Centered */}
+                      <div className="bg-white px-6 py-1.5 min-w-[180px] text-center mb-1 shadow-[4px_4px_0_rgba(0,0,0,0.3)] border border-black/10 relative z-10">
+                        <span className="text-black font-black font-montserrat text-sm md:text-base uppercase tracking-[0.2em]">
+                          {userStats.rankInfo?.tier || getDensityDeckRank(userStats.wins || 0).tier}
+                        </span>
+                      </div>
+
+                      {/* Win Count Box - Centered */}
+                      <div className="bg-white px-4 py-0.5 min-w-[80px] text-center shadow-[3px_3px_0_rgba(0,0,0,0.3)] border border-black/10 relative z-10">
+                        <span className="text-black font-black font-montserrat text-[10px] md:text-xs uppercase tracking-wider">
+                          {userStats.wins || 0} WINS
+                        </span>
+                      </div>
+                    </div>
+
+                  </motion.div>
                 )}
-
-                {/* Social Connections */}
-                {/*}
-                <div className="flex items-center space-x-4">
-                  {discordUsername && (
-                    <div className="flex items-center space-x-2 bg-gray-800/50 rounded-lg px-3 py-1">
-                      <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M20.2 6.4c-.7-.5-1.5-1-2.4-1.3-.6-.2-1.2-.3-1.8-.4-.8-.1-1.6-.1-2.4 0-1.7.3-3.4 1-4.8 2-1.4 1-2.7 2.3-3.9 3.8-1.2 1.5-2.2 3.1-2.9 4.8-.6 1.7-.9 3.5-.8 5.3v.1c0 .2.1.4.2.5s.4.1.6 0l1.3-.6c.2-.1.3-.2.4-.3s.2-.2.3-.3c.7.4 1.5.7 2.3.9 1 .2 2 .2 3 0 1-.2 2-.5 2.9-1.1.9-.6 1.7-1.3 2.4-2.2.7-1 1.2-2.1 1.6-3.3.4-1.2.6-2.5.6-3.8V7.5c0-.4-.1-.8-.2-1.1zM9.7 15.6c-.7 0-1.2-.5-1.2-1.2s.5-1.2 1.2-1.2c.7 0 1.2.5 1.2 1.2s-.5 1.2-1.2 1.2zm4.6 0c-.7 0-1.2-.5-1.2-1.2s.5-1.2 1.2-1.2c.7 0 1.2.5 1.2 1.2s-.5 1.2-1.2 1.2z" />
-                      </svg>
-                      <span className="text-sm text-white">{discordUsername}</span>
-                    </div>
-                  )}
-                  {twitterUsername && (
-                    <div className="flex items-center space-x-2 bg-gray-800/50 rounded-lg px-3 py-1">
-                      <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M18.901 1.153h3.68l-8.042 9.167L24 22.847h-7.406l-5.8-6.797L6.11 22.847H0l8.603-9.813L0 1.153h7.501l5.278 6.17L18.901 1.153Zm-1.051 19.492h2.268L5.93 3.477H3.508l14.342 17.168Z" />
-                      </svg>
-                      <span className="text-sm text-white">@{twitterUsername}</span>
-                    </div>
-                  )}
-                  {isOwnProfile && (
-                    <button
-                      onClick={() => setIsEditingSocials(true)}
-                      className="bg-gray-800/50 hover:bg-gray-700/50 text-white p-2 rounded-lg transition-colors"
-                    >
-                      <Edit2 className="w-4 h-4" />
-                    </button>
-                  )}
-                </div>
-                {*/}
               </div>
-            </div>
-
-            {/* Stats */}
-            <div className="md:ml-auto flex items-center md:items-end justify-center md:justify-end gap-6 md:space-x-8 pb-0 md:pb-4 mt-4 md:mt-0">
-              <div className="text-center">
-                <div className="text-2xl md:text-3xl font-bold text-white">{oldRockNFTs.length + goliathNFTs.length}</div>
-                <div className="text-xs md:text-sm text-gray-400">NFTs</div>
-              </div>
-              {/*}
-              <div className="text-center">
-                <div className="text-2xl md:text-3xl font-bold text-purple-400">{userStats?.totalDensity || "0"}</div>
-                <div className="text-xs md:text-sm text-gray-400">DENSITY</div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl md:text-3xl font-bold text-white">{userStats?.rank || "Unranked"}</div>
-                <div className="text-xs md:text-sm text-gray-400">Rank</div>
-              </div>
-              {*/}
             </div>
           </div>
         </div>
 
         {/* Main Content */}
-        <div className="container mx-auto px-6 py-12">
+        <div id="collection-section" className="container mx-auto px-6 py-12">
           {/* Featured NFTs Section */}
           {featuredNFTs.length > 0 && (
             <div className="mb-12">
@@ -1011,7 +1054,7 @@ export default function ProfilePage() {
                   <div key={nft.tokenId} className="bg-gray-900 rounded-xl overflow-hidden border border-gray-800">
                     <div className="relative aspect-square" style={{ backgroundColor: nft.backgroundColor }}>
                       <Image src={nft.image || "/placeholder.svg"} alt={nft.name} fill className="object-cover" />
-                      {isEditingFeatured && (
+                      {isOwnProfile && isEditingFeatured && (
                         <button
                           onClick={() => handleRemoveFeaturedNFT(nft.tokenId)}
                           className="absolute top-2 right-2 bg-red-600 hover:bg-red-700 text-white p-2 rounded-lg"
@@ -1192,33 +1235,28 @@ export default function ProfilePage() {
                       />
                     )}
 
-                    {/* Linked Rock Indicator for Goliaths */}
-                    {nft.collection === "Goliath" && nft.linkedRock && (
-                      <div className="absolute top-2 left-2 z-10">
-                        <div className="flex items-center gap-1.5 bg-black/80 px-2 py-1 rounded-md border border-green-500/30 shadow-[0_0_10px_rgba(34,197,94,0.2)]">
-                          <LinkIcon className="w-3 h-3 text-green-400" />
-                          <span className="text-[10px] font-black text-green-400 uppercase tracking-wider">
-                            LINKED TO ROCK #{nft.linkedRock}
-                          </span>
-                        </div>
-                      </div>
-                    )}
                   </div>
                   <div className="p-3">
                     <div className="flex justify-between items-start">
                       <h3 className="text-sm font-semibold text-white truncate flex-1">{nft.name}</h3>
-                      {nft.collection === "Goliath" && nft.linkedRock && (
-                        <div className="flex items-center gap-1 text-[10px] text-cyan-400 font-black">
-                          <LinkIcon className="w-2.5 h-2.5" />
-                          <span>STAKED TO #{nft.linkedRock}</span>
-                        </div>
-                      )}
                     </div>
                     <div className="flex justify-between items-end mt-1">
                       <p className="text-xs text-gray-400">{nft.collection}</p>
                       {nft.collection === "Old Rock" && (
                         <div className="text-[10px] text-[#6BC482] font-black">
                           {nft.attributes?.UnextractedDensity ? Number(nft.attributes.UnextractedDensity).toFixed(2) : "0.00"} $DENSITY
+                        </div>
+                      )}
+                      {nft.collection === "Goliath" && nft.linkedRock && (
+                        <div
+                          className="flex items-center gap-1 text-[10px] text-cyan-400 font-black hover:text-cyan-300 transition-colors cursor-pointer"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            window.location.href = "/staking";
+                          }}
+                        >
+                          <LinkIcon className="w-2.5 h-2.5" />
+                          <span>LINKED TO #{nft.linkedRock}</span>
                         </div>
                       )}
                     </div>
