@@ -30,6 +30,7 @@ import {
 import type { GoliathNFT } from '@/types/staking';
 import { playSound } from '@/lib/staking-sounds';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 
 export default function StakingPage() {
     const { address, isConnected } = useAccount();
@@ -48,6 +49,7 @@ export default function StakingPage() {
         updateGoliath,
         setGoliathToMove,
         goliathToMove,
+        setSwiperIndex,
     } = useStakingStore();
 
     // Hooks
@@ -88,6 +90,25 @@ export default function StakingPage() {
         }, 10000);
         return () => clearInterval(interval);
     }, [isConnected, claimDensity.isLoading, refetchDensity]);
+
+    // Format: Search params for auto-selecting NFT
+    const searchParams = useSearchParams();
+
+    // Auto-select NFT from URL params
+    useEffect(() => {
+        const tokenId = searchParams.get('tokenId');
+        const collection = searchParams.get('collection');
+
+        if (tokenId && collection === 'Old Rock' && allRocks.length > 0) {
+            const index = allRocks.findIndex(r => r.id.toString() === tokenId);
+            if (index !== -1) {
+                // Short timeout to ensure store state is settled / swiper is ready
+                setTimeout(() => {
+                    setSwiperIndex('oldrocks', index);
+                }, 100);
+            }
+        }
+    }, [searchParams, allRocks, setSwiperIndex]);
 
     // Handle goliath click (from gallery - for linking)
     const handleGoliathClick = useCallback(async (goliath: GoliathNFT) => {

@@ -1216,38 +1216,45 @@ export default function ProfilePage() {
                       GIF
                     </button>
                     {/* Hover Menu Overlay */}
-                    {isOwnProfile && (
-                      <div className="absolute inset-0 bg-black/80 backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex flex-col items-center justify-center p-4 gap-2 z-30">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleSetAsProfilePicture(nft)
-                          }}
-                          disabled={isSettingAvatar}
-                          className="w-full bg-white/10 hover:bg-white/20 text-white font-semibold px-3 py-2 text-xs rounded-lg border border-white/10 transition-colors flex items-center justify-center"
-                        >
-                          {isSettingAvatar ? "Setting..." : "SET PFP"}
-                        </button>
+                    <div className="absolute inset-0 bg-black/80 backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex flex-col items-center justify-center p-4 gap-2 z-30 pointer-events-none group-hover:pointer-events-auto">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          if (isOwnProfile) handleSetAsProfilePicture(nft)
+                        }}
+                        disabled={isSettingAvatar || !isOwnProfile}
+                        className={`w-full font-semibold px-3 py-2 text-xs rounded-lg border transition-colors flex items-center justify-center ${isOwnProfile
+                          ? "bg-white/10 hover:bg-white/20 text-white border-white/10"
+                          : "bg-gray-800/50 text-gray-500 border-gray-700 cursor-not-allowed"
+                          }`}
+                      >
+                        {isSettingAvatar ? "Setting..." : "MAKE PROFILE IMAGE"}
+                      </button>
 
-                        <Link
-                          href="/staking"
-                          onClick={(e) => e.stopPropagation()}
-                          className="w-full bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 font-semibold px-3 py-2 text-xs rounded-lg border border-cyan-500/20 transition-colors text-center"
-                        >
-                          VIEW IN AMPLIFY
-                        </Link>
+                      <Link
+                        href={{
+                          pathname: "/staking",
+                          query: {
+                            tokenId: nft.tokenId,
+                            collection: nft.collection
+                          }
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                        className="w-full bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 font-semibold px-3 py-2 text-xs rounded-lg border border-cyan-500/20 transition-colors text-center"
+                      >
+                        VIEW IN AMPLIFY
+                      </Link>
 
-                        <a
-                          href={`https://opensea.io/assets/ethereum/${nft.contractAddress}/${nft.tokenId}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={(e) => e.stopPropagation()}
-                          className="w-full bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 font-semibold px-3 py-2 text-xs rounded-lg border border-blue-500/20 transition-colors text-center"
-                        >
-                          OPENSEA
-                        </a>
-                      </div>
-                    )}
+                      <a
+                        href={`https://opensea.io/assets/ethereum/${nft.contractAddress}/${nft.tokenId}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="w-full bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 font-semibold px-3 py-2 text-xs rounded-lg border border-blue-500/20 transition-colors text-center"
+                      >
+                        OPENSEA
+                      </a>
+                    </div>
 
                   </div>
                   <div className="p-3">
