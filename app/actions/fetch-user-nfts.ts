@@ -43,6 +43,12 @@ export async function fetchUserNFTs(walletAddress: string) {
           contractAddress: "0x5c83df384971eF5bA252336f78Ad97D26a0EC7DF",
           attributes: nft.attributes,
           backgroundColor: getBackgroundColor(nft.attributes, "oldrock"),
+          // Density data from Amplify API
+          unclaimedDensity: nft.unclaimedDensity || 0,
+          amplificationPercentage: nft.amplificationPercentage || 0,
+          stakingSlots: nft.stakingSlots || 0,
+          maxCapacity: nft.maxCapacity || 0,
+          dailyReward: nft.dailyReward || 0,
         })) || []
 
       // Process Goliath NFTs

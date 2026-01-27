@@ -32,6 +32,12 @@ interface NFT {
   attributes?: any
   backgroundColor?: string
   linkedRock?: number | null
+  // Density data from Amplify API (Old Rocks only)
+  unclaimedDensity?: number
+  amplificationPercentage?: number
+  stakingSlots?: number
+  maxCapacity?: number
+  dailyReward?: number
 }
 
 interface UserStats {
@@ -1007,6 +1013,11 @@ export default function ProfilePage() {
                         </div>
                       </div>
 
+                      {/* Density Deck Branding - Above Rank */}
+                      <span className="text-white/50 font-black font-montserrat text-[10px] md:text-xs uppercase tracking-[0.15em] mb-1">
+                        Density Deck
+                      </span>
+
                       {/* Rank Title Box - Centered */}
                       <div className="bg-white px-6 py-1.5 min-w-[180px] text-center mb-1 shadow-[4px_4px_0_rgba(0,0,0,0.3)] border border-black/10 relative z-10">
                         <span className="text-black font-black font-montserrat text-sm md:text-base uppercase tracking-[0.2em]">
@@ -1265,7 +1276,7 @@ export default function ProfilePage() {
                       <p className="text-xs text-gray-400">{nft.collection}</p>
                       {nft.collection === "Old Rock" && (
                         <div className="text-[10px] text-[#6BC482] font-black">
-                          {nft.attributes?.UnextractedDensity ? Number(nft.attributes.UnextractedDensity).toFixed(2) : "0.00"} $DENSITY
+                          {typeof nft.unclaimedDensity === 'number' ? nft.unclaimedDensity.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "0.00"} $DENSITY
                         </div>
                       )}
                       {nft.collection === "Goliath" && nft.linkedRock && (
