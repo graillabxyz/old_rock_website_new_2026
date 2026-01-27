@@ -5,6 +5,15 @@ const MAX_FILE_SIZE = 500 * 1024 // 500KB for banner uploads
 
 export async function POST(request: NextRequest) {
   try {
+    // SECURITY: Require wallet address header to prevent anonymous uploads
+    const walletAddress = request.headers.get('x-wallet-address');
+    if (!walletAddress || !/^0x[a-fA-F0-9]{40}$/.test(walletAddress)) {
+      return NextResponse.json(
+        { success: false, error: "Valid wallet address required for uploads" },
+        { status: 401 }
+      );
+    }
+
     const formData = await request.formData()
     const file = formData.get("file") as File
 
@@ -16,7 +25,7 @@ export async function POST(request: NextRequest) {
     const fileName = file.name.toLowerCase()
     const validExtensions = [".png", ".jpg", ".jpeg", ".webp"]
     const hasValidExtension = validExtensions.some(ext => fileName.endsWith(ext))
-    
+
     if (!hasValidExtension) {
       return NextResponse.json(
         { success: false, error: `Unsupported file format. Supported formats: PNG, JPG, WebP` },
@@ -38,7 +47,7 @@ export async function POST(request: NextRequest) {
 
     // Use Pinata for IPFS uploads
     const PINATA_JWT = process.env.PINATA_JWT
-    
+
     if (!PINATA_JWT) {
       console.error("PINATA_JWT is missing from environment variables. Please ensure PINATA_JWT is set in your deployment environment variables.")
       return NextResponse.json(
@@ -51,36 +60,36 @@ export async function POST(request: NextRequest) {
       // Convert PNG/JPG to WebP for space savings
       let fileToUpload = file
       let fileName = file.name
-      
-      const isPngOrJpg = file.type === "image/png" || 
-                        file.type === "image/jpeg" || 
-                        file.type === "image/jpg" ||
-                        fileName.toLowerCase().endsWith(".png") ||
-                        fileName.toLowerCase().endsWith(".jpg") ||
-                        fileName.toLowerCase().endsWith(".jpeg")
-      
+
+      const isPngOrJpg = file.type === "image/png" ||
+        file.type === "image/jpeg" ||
+        file.type === "image/jpg" ||
+        fileName.toLowerCase().endsWith(".png") ||
+        fileName.toLowerCase().endsWith(".jpg") ||
+        fileName.toLowerCase().endsWith(".jpeg")
+
       if (isPngOrJpg) {
         // Convert PNG/JPG to WebP for space savings
         const arrayBuffer = await file.arrayBuffer()
         const buffer = Buffer.from(arrayBuffer)
-        
+
         // Try multiple quality levels to get under the size limit
         let webpBuffer: Buffer | null = null
         let quality = 85
-        
+
         for (let attempt = 0; attempt < 3; attempt++) {
           webpBuffer = await sharp(buffer)
             .webp({ quality })
             .toBuffer()
-          
+
           if (webpBuffer.length <= MAX_FILE_SIZE) {
             break
           }
-          
+
           // Reduce quality for next attempt
           quality = Math.max(50, quality - 15)
         }
-        
+
         // Final check - if still too large, reject
         if (!webpBuffer || webpBuffer.length > MAX_FILE_SIZE) {
           return NextResponse.json(
@@ -88,11 +97,11 @@ export async function POST(request: NextRequest) {
             { status: 400 }
           )
         }
-        
+
         fileToUpload = new File([webpBuffer], fileName.replace(/\.(png|jpg|jpeg)$/i, ".webp"), {
           type: "image/webp",
         })
-        
+
         console.log(`Converted ${file.name} (${(file.size / 1024).toFixed(2)}KB) to WebP (${(fileToUpload.size / 1024).toFixed(2)}KB)`)
       } else if (file.type === "image/webp") {
         // For WebP files, check size directly
@@ -119,7 +128,7 @@ export async function POST(request: NextRequest) {
       if (!response.ok) {
         let errorText: string
         let errorData: any
-        
+
         try {
           errorText = await response.text()
           try {
@@ -131,7 +140,7 @@ export async function POST(request: NextRequest) {
           errorText = "Unknown error"
           errorData = {}
         }
-        
+
         console.error("Pinata upload failed:", {
           status: response.status,
           statusText: response.statusText,
@@ -141,7 +150,7 @@ export async function POST(request: NextRequest) {
           tokenPrefix: PINATA_JWT.substring(0, 15) + "...",
           hasToken: !!PINATA_JWT
         })
-        
+
         // Provide more specific error messages
         if (response.status === 401 || response.status === 403) {
           const pinataError = errorData?.error?.details || errorData?.error?.reason || errorData?.message || errorText
@@ -158,7 +167,7 @@ export async function POST(request: NextRequest) {
       const data = await response.json()
       // Pinata returns the CID in data.IpfsHash
       const cid = data.IpfsHash
-      
+
       if (!cid) {
         throw new Error("No CID returned from Pinata")
       }

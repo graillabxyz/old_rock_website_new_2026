@@ -14,9 +14,13 @@ export async function GET(request: NextRequest) {
     const page = searchParams.get("page") || "1"
     const limit = searchParams.get("limit") || "50"
 
+    // SECURITY: Validate and bound pagination parameters
+    const pageNum = Math.max(1, parseInt(page) || 1)
+    const limitNum = Math.min(100, Math.max(1, parseInt(limit) || 50)) // Max 100 per page
+
     // Density Deck API endpoint from env or default
     const densityDeckApiUrl = process.env.NEXT_PUBLIC_DENSITY_DECK_API_URL || "https://api.densitydeck.com"
-    const apiEndpoint = `${densityDeckApiUrl}/leaderboard?page=${page}&limit=${limit}`
+    const apiEndpoint = `${densityDeckApiUrl}/leaderboard?page=${pageNum}&limit=${limitNum}`
 
     console.log("📡 Fetching Density Deck leaderboard from:", apiEndpoint)
 
@@ -52,9 +56,7 @@ export async function GET(request: NextRequest) {
     const processedData = data.map((entry: any, index: number) => {
       const user = entry.user || {}
 
-      // Calculate rank based on page and index
-      const pageNum = parseInt(page)
-      const limitNum = parseInt(limit)
+      // Calculate rank based on page and index (using validated pageNum/limitNum from outer scope)
       const rank = ((pageNum - 1) * limitNum) + index + 1
 
       // Build avatar URL if avatar exists
@@ -85,8 +87,8 @@ export async function GET(request: NextRequest) {
       success: true,
       data: processedData,
       total: processedData.length, // Note: API doesn't seem to return total count, so we rely on infinite scroll
-      page: parseInt(page),
-      limit: parseInt(limit)
+      page: pageNum,
+      limit: limitNum
     })
   } catch (error) {
     console.error("❌ Error fetching Density Deck leaderboard:", error)

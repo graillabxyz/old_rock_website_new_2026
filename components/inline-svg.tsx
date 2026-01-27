@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import DOMPurify from "dompurify"
 
 interface InlineSVGProps {
     src: string
@@ -24,9 +25,15 @@ export function InlineSVG({ src, alt, className = "", width, height, parentTrigg
                 if (!response.ok) throw new Error("Failed to load SVG")
                 const text = await response.text()
 
-                // Parse the SVG text
+                // SECURITY: Sanitize SVG content to prevent XSS attacks
+                const sanitizedText = DOMPurify.sanitize(text, {
+                    USE_PROFILES: { svg: true, svgFilters: true },
+                    ADD_TAGS: ['use'], // Allow <use> for SVG sprites
+                })
+
+                // Parse the sanitized SVG text
                 const parser = new DOMParser()
-                const doc = parser.parseFromString(text, "image/svg+xml")
+                const doc = parser.parseFromString(sanitizedText, "image/svg+xml")
                 const svgElement = doc.querySelector("svg")
 
                 if (!svgElement) throw new Error("No SVG found")

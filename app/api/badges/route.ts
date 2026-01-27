@@ -16,6 +16,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: false, error: "Address required" }, { status: 400 })
     }
 
+    // SECURITY: Validate Ethereum address format
+    if (!/^0x[a-fA-F0-9]{40}$/.test(address)) {
+      return NextResponse.json({ success: false, error: "Invalid Ethereum address format" }, { status: 400 })
+    }
+
     // Fetch user density
     let totalDensity = 0
     try {

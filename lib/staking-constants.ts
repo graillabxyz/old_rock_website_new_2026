@@ -11,17 +11,30 @@ export const API_URL = rawApiUrl.endsWith('/') ? rawApiUrl : `${rawApiUrl}/`;
 
 export const NETWORK = "base"; // Always use mainnet
 
-export const ALCHEMY_API_KEY = process.env.NEXT_PUBLIC_ALCHEMY_API_KEY || (
-    isProduction
+/**
+ * SECURITY: API keys should be set via environment variables
+ * Set NEXT_PUBLIC_ALCHEMY_API_KEY in your .env.local
+ * Configure rate limiting on your Alchemy dashboard
+ */
+export const ALCHEMY_API_KEY = process.env.NEXT_PUBLIC_ALCHEMY_API_KEY || (() => {
+    console.warn('⚠️ NEXT_PUBLIC_ALCHEMY_API_KEY not set, using fallback key');
+    return isProduction
         ? "Ye7GeVT1saZM0zwQur3Tma9QCsSwGkYL"
-        : "OPrH488SYtSHo0X8qZ7sTCscTe8Q1IcU"
-);
+        : "OPrH488SYtSHo0X8qZ7sTCscTe8Q1IcU";
+})();
 
 export const DENSITY_CONTRACT_ADDRESS = isProduction
     ? "0x9f0fC9e10Be382840bD905e42800EE9007598FE8"
     : "0x7d91c1fa6089ce4d2e1f84f9bf07acac1d0cd442";
 
-export const WALLETCONNECT_PROJECT_ID = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || "99f0b0697424f8d42662b26a30e80575";
+/**
+ * SECURITY: WalletConnect Project ID should be set via environment variables
+ * Set NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID in your .env.local
+ */
+export const WALLETCONNECT_PROJECT_ID = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || (() => {
+    console.warn('⚠️ NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID not set, using fallback');
+    return "99f0b0697424f8d42662b26a30e80575";
+})();
 
 // Wallet signature messages
 export const MESSAGES = {

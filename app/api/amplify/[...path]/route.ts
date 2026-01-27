@@ -3,11 +3,38 @@ import { NextRequest, NextResponse } from 'next/server';
 // Proxy requests to the Amplify API to avoid CORS issues
 const AMPLIFY_API_URL = process.env.AMPLIFY_API_URL || 'https://amplify-api.oldrocknft.com';
 
+/**
+ * SECURITY: Allowlist of safe path prefixes that can be proxied.
+ * This prevents SSRF attacks where attackers could use this proxy
+ * to access internal endpoints or other services.
+ */
+const ALLOWED_PATH_PREFIXES = [
+    'nfts',
+    'density',
+    'link',
+    'verify',
+    'achievements',
+    'airdrop',
+    'user',
+];
+
+function isAllowedPath(path: string): boolean {
+    const firstSegment = path.split('/')[0].toLowerCase();
+    return ALLOWED_PATH_PREFIXES.includes(firstSegment);
+}
+
 export async function GET(
     request: NextRequest,
     { params }: { params: { path: string[] } }
 ) {
     const path = params.path.join('/');
+
+    // SECURITY: Block requests to non-allowlisted paths
+    if (!isAllowedPath(path)) {
+        console.warn(`🚫 Blocked proxy request to non-allowlisted path: ${path}`);
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
     const searchParams = request.nextUrl.searchParams.toString();
     const url = `${AMPLIFY_API_URL}/${path}${searchParams ? `?${searchParams}` : ''}`;
 
@@ -35,6 +62,13 @@ export async function POST(
     { params }: { params: { path: string[] } }
 ) {
     const path = params.path.join('/');
+
+    // SECURITY: Block requests to non-allowlisted paths
+    if (!isAllowedPath(path)) {
+        console.warn(`🚫 Blocked proxy POST request to non-allowlisted path: ${path}`);
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
     const searchParams = request.nextUrl.searchParams.toString();
     const url = `${AMPLIFY_API_URL}/${path}${searchParams ? `?${searchParams}` : ''}`;
 
@@ -75,6 +109,13 @@ export async function PUT(
     { params }: { params: { path: string[] } }
 ) {
     const path = params.path.join('/');
+
+    // SECURITY: Block requests to non-allowlisted paths
+    if (!isAllowedPath(path)) {
+        console.warn(`🚫 Blocked proxy PUT request to non-allowlisted path: ${path}`);
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
     const searchParams = request.nextUrl.searchParams.toString();
     const url = `${AMPLIFY_API_URL}/${path}${searchParams ? `?${searchParams}` : ''}`;
 
@@ -114,6 +155,13 @@ export async function DELETE(
     { params }: { params: { path: string[] } }
 ) {
     const path = params.path.join('/');
+
+    // SECURITY: Block requests to non-allowlisted paths
+    if (!isAllowedPath(path)) {
+        console.warn(`🚫 Blocked proxy DELETE request to non-allowlisted path: ${path}`);
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
     const searchParams = request.nextUrl.searchParams.toString();
     const url = `${AMPLIFY_API_URL}/${path}${searchParams ? `?${searchParams}` : ''}`;
 
