@@ -564,7 +564,11 @@ export default function LeaderboardPage() {
               viewport={{ once: true }}
             >
               <h1 className="text-3xl sm:text-4xl md:text-5xl font-black font-montserrat text-white mb-3 sm:mb-4">LEADERBOARD</h1>
-              <p className="text-gray-400 font-pt-mono text-sm sm:text-base md:text-lg">Top players ranked by performance • Updated daily</p>
+              <p className="text-gray-400 font-pt-mono text-sm sm:text-base md:text-lg">
+                {leaderboardType === "density"
+                  ? "Top $DENSITY holders ranked by total balance • Updated daily"
+                  : "Top Density Deck players ranked by wins • Updated in real-time"}
+              </p>
             </motion.div>
 
             {/* Search and Filter */}
