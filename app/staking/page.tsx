@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, Suspense } from 'react';
 import { useAccount } from 'wagmi';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { Loader2, AlertCircle, Wallet } from 'lucide-react';
@@ -32,7 +32,20 @@ import { playSound } from '@/lib/staking-sounds';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 
+// Wrapper component to handle Suspense boundary for useSearchParams
 export default function StakingPage() {
+    return (
+        <Suspense fallback={
+            <div className="flex items-center justify-center min-h-screen bg-[#08131B]">
+                <Loader2 className="w-12 h-12 animate-spin text-green-500" />
+            </div>
+        }>
+            <StakingPageContent />
+        </Suspense>
+    );
+}
+
+function StakingPageContent() {
     const { address, isConnected } = useAccount();
 
     // For sidebar
