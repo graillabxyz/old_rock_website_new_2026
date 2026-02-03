@@ -130,6 +130,30 @@ export async function getAirdropSeasonSummary(walletAddress: string, season: num
     }
 }
 
+export async function getAirdropSeasonConfig(namespace: string) {
+    try {
+        const response = await fetch(`${API_URL}/achievements/season/${namespace}`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            cache: 'no-store',
+        });
+
+        if (!response.ok) {
+            // If endpoint doesn't exist, return null to use fallback config
+            console.warn('Season config endpoint not available, using fallback');
+            return { success: true, data: null };
+        }
+
+        const data = await response.json();
+        return { success: true, data: data.data };
+    } catch (error) {
+        console.error('Error fetching season config:', error);
+        return { success: true, data: null }; // Return success with null to use fallback
+    }
+}
+
 // ============================================
 // Verification
 // ============================================

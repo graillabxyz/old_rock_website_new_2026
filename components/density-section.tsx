@@ -104,9 +104,7 @@ export function DensitySection() {
                     Customize combinations based on rarity and color.
                   </p>
                   <motion.a
-                    href="https://amplify.oldrocknft.com"
-                    target="_blank"
-                    rel="noopener noreferrer"
+                    href="/staking"
                     className="inline-flex items-center bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded-xl font-pt-mono font-bold transition-all duration-300"
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}

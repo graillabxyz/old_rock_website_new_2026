@@ -7,6 +7,7 @@ import {
     getAchievementEventsLeaderboard,
     getAchievementsList,
     getAirdropSeasonSummary,
+    getAirdropSeasonConfig,
     postAchievementEvent,
     verifyWallet,
     verifyX,
@@ -71,6 +72,7 @@ export function useAchievementEventsLeaderboard(namespace: string = AIRDROP_CONF
 // Static achievement definitions for Season 3 (API endpoints returning 404)
 const SEASON_3_ACHIEVEMENTS = {
     community: [
+        { id: 'wallet-connect', description: '🔗 Connect Your Wallet', value: 10, renewable: false },
         { id: 'discord-join-server', description: '💬 Join the Old Rock Discord server', value: 5, renewable: false },
         { id: 'x-follow-oldrocknft', description: '🐦 Follow @OldRockNFT on X', value: 5, renewable: false },
         { id: 'x-follow-densitydeck', description: '🎴 Follow @DENSITYDECK on X', value: 5, renewable: false },
@@ -186,6 +188,30 @@ export function useAirdropSeasonSummary(season: number = 1) {
         enabled: !!address,
         refetchOnWindowFocus: false,
         staleTime: 60000, // 1 minute
+    });
+}
+
+// ============================================
+// Airdrop Season Config (dates from API)
+// ============================================
+
+export function useAirdropSeasonConfig(namespace: string = AIRDROP_CONFIG.seasonNamespace) {
+    return useQuery({
+        queryKey: ['airdropSeasonConfig', namespace],
+        queryFn: async () => {
+            const result = await getAirdropSeasonConfig(namespace);
+            // If API returns null or fails, use the fallback config
+            if (!result.data) {
+                return {
+                    seasonStart: AIRDROP_CONFIG.seasonStart,
+                    seasonEnd: AIRDROP_CONFIG.seasonEnd,
+                    currentSeason: AIRDROP_CONFIG.currentSeason,
+                };
+            }
+            return result.data;
+        },
+        refetchOnWindowFocus: false,
+        staleTime: 300000, // 5 minutes - season config doesn't change often
     });
 }
 

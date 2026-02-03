@@ -237,7 +237,7 @@ export function Header() {
 
                         {/* Unextracted Balance */}
                         <div>
-                          <a href="http://amplify.oldrocknft.com" target="_blank">
+                          <a href="/staking">
                             <div className="text-xs text-gray-400 font-pt-mono font-bold uppercase tracking-wider mb-1">
                               UNEXTRACTED BALANCE
                             </div>

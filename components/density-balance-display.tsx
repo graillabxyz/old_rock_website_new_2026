@@ -149,9 +149,7 @@ export function DensityBalanceDisplay({ onConnectWallet }: DensityBalanceDisplay
 
                         {/* Unextracted Balance */}
                         <a
-                            href="https://amplify.oldrocknft.com"
-                            target="_blank"
-                            rel="noopener noreferrer"
+                            href="/staking"
                             className="bg-orange-500/10 border border-orange-400/30 rounded-xl p-4 transition-colors group cursor-pointer relative overflow-hidden"
                         >
                             {/* Hover Overlay */}

@@ -1,3 +1,4 @@
+
 "use client"
 
 import type React from "react"
@@ -464,8 +465,8 @@ export default function AdminPage() {
                 <button
                   onClick={() => setActiveTab("users")}
                   className={`px-6 py-3 rounded-xl font-pt-mono text-sm transition-all ${activeTab === "users"
-                      ? "bg-purple-600 text-white"
-                      : "text-gray-400 hover:text-white hover:bg-gray-800"
+                    ? "bg-purple-600 text-white"
+                    : "text-gray-400 hover:text-white hover:bg-gray-800"
                     }`}
                 >
                   <Users className="w-4 h-4 inline mr-2" />
@@ -474,8 +475,8 @@ export default function AdminPage() {
                 <button
                   onClick={() => setActiveTab("badges")}
                   className={`px-6 py-3 rounded-xl font-pt-mono text-sm transition-all ${activeTab === "badges"
-                      ? "bg-purple-600 text-white"
-                      : "text-gray-400 hover:text-white hover:bg-gray-800"
+                    ? "bg-purple-600 text-white"
+                    : "text-gray-400 hover:text-white hover:bg-gray-800"
                     }`}
                 >
                   <Award className="w-4 h-4 inline mr-2" />
@@ -484,8 +485,8 @@ export default function AdminPage() {
                 <button
                   onClick={() => setActiveTab("comics")}
                   className={`px-6 py-3 rounded-xl font-pt-mono text-sm transition-all ${activeTab === "comics"
-                      ? "bg-purple-600 text-white"
-                      : "text-gray-400 hover:text-white hover:bg-gray-800"
+                    ? "bg-purple-600 text-white"
+                    : "text-gray-400 hover:text-white hover:bg-gray-800"
                     }`}
                 >
                   <FileImage className="w-4 h-4 inline mr-2" />
@@ -523,8 +524,8 @@ export default function AdminPage() {
                             key={user.id}
                             onClick={() => handleUserSelect(user)}
                             className={`p-4 rounded-xl cursor-pointer transition-all ${selectedUser?.id === user.id
-                                ? "bg-purple-600/30 border border-purple-500"
-                                : "bg-gray-800 hover:bg-gray-700"
+                              ? "bg-purple-600/30 border border-purple-500"
+                              : "bg-gray-800 hover:bg-gray-700"
                               }`}
                           >
                             <div className="flex items-center space-x-3">
@@ -668,8 +669,8 @@ export default function AdminPage() {
                               <div
                                 key={badge.id}
                                 className={`border rounded-lg p-3 text-center cursor-pointer transition-all ${selectedBadges.includes(badge.id)
-                                    ? "bg-purple-600/30 border-purple-500"
-                                    : "bg-gray-800 hover:bg-gray-700 border-gray-600"
+                                  ? "bg-purple-600/30 border-purple-500"
+                                  : "bg-gray-800 hover:bg-gray-700 border-gray-600"
                                   }`}
                                 onClick={() => toggleBadgeSelection(badge.id)}
                               >
@@ -799,12 +800,12 @@ export default function AdminPage() {
                           <p className="text-gray-400 text-sm mb-2">{badge.description}</p>
                           <span
                             className={`inline-block px-2 py-1 rounded text-xs font-pt-mono ${badge.category === "DENSITY"
-                                ? "bg-purple-600/20 text-purple-400"
-                                : badge.category === "GAMING"
-                                  ? "bg-green-600/20 text-green-400"
-                                  : badge.category === "NFT_COLLECTING"
-                                    ? "bg-blue-600/20 text-blue-400"
-                                    : "bg-yellow-600/20 text-yellow-400"
+                              ? "bg-purple-600/20 text-purple-400"
+                              : badge.category === "GAMING"
+                                ? "bg-green-600/20 text-green-400"
+                                : badge.category === "NFT_COLLECTING"
+                                  ? "bg-blue-600/20 text-blue-400"
+                                  : "bg-yellow-600/20 text-yellow-400"
                               }`}
                           >
                             {badge.category}
@@ -854,8 +855,8 @@ export default function AdminPage() {
                         <label
                           htmlFor="file-upload"
                           className={`flex items-center justify-center w-full ${isUploading
-                              ? "bg-gray-700 cursor-not-allowed"
-                              : "bg-purple-600 hover:bg-purple-700 cursor-pointer"
+                            ? "bg-gray-700 cursor-not-allowed"
+                            : "bg-purple-600 hover:bg-purple-700 cursor-pointer"
                             } text-white rounded-lg px-4 py-2 transition-colors`}
                         >
                           {isUploading ? (
