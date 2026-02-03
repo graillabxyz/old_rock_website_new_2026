@@ -1218,17 +1218,19 @@ export default function ProfilePage() {
                     {*/}
                     {/* Hover Menu Overlay */}
                     <div className="absolute inset-0 bg-black/80 backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex flex-col items-center justify-center p-4 gap-2 z-30 pointer-events-none group-hover:pointer-events-auto">
-                      {/* GIF Download Link */}
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          window.open(nft.image?.replace('.webp', '.gif'), '_blank')
-                        }}
-                        className="w-full bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 font-semibold px-3 py-2 text-xs rounded-lg border border-purple-500/20 transition-colors text-center"
-                        title="View GIF asset for sharing on social"
-                      >
-                        DOWNLOAD GIF
-                      </button>
+                      {/* GIF Download Link - only show for animated assets */}
+                      {(nft.image?.endsWith('.gif') || nft.image?.endsWith('.webp')) && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            window.open(nft.image?.replace('.webp', '.gif'), '_blank')
+                          }}
+                          className="w-full bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 font-semibold px-3 py-2 text-xs rounded-lg border border-purple-500/20 transition-colors text-center"
+                          title="View GIF asset for sharing on social"
+                        >
+                          DOWNLOAD GIF
+                        </button>
+                      )}
 
                       <button
                         onClick={(e) => {
