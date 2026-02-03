@@ -208,6 +208,7 @@ interface LeaderboardRowProps {
     entry: {
         position: number;
         walletAddress: string;
+        ensName?: string | null;
         total?: number;
         points?: number; // legacy field
         rarity: string | { color: string; multiplier: number } | null | undefined;
@@ -216,17 +217,8 @@ interface LeaderboardRowProps {
 }
 
 function LeaderboardRow({ entry, isCurrentUser }: LeaderboardRowProps) {
-    // Handle rarity as either a string or an object with {color, multiplier}
-    const getRarityString = (rarity: typeof entry.rarity): string => {
-        if (!rarity) return 'common';
-        if (typeof rarity === 'string') return rarity.toLowerCase();
-        if (typeof rarity === 'object' && rarity.color) return rarity.color.toLowerCase();
-        return 'common';
-    };
-    const rarityKey = getRarityString(entry.rarity);
-    const rarityClass = LEADERBOARD_RARITY_CLASSES[rarityKey] || LEADERBOARD_RARITY_CLASSES.common;
-    const rarityDisplay = rarityKey.charAt(0).toUpperCase() + rarityKey.slice(1);
-    const flair = LEADERBOARD_POSITION_FLAIR[entry.position] || '';
+    // Display name: ENS name if available, otherwise truncated address
+    const displayName = entry.ensName || truncateAddress(entry.walletAddress);
 
     return (
         <div className={`
@@ -238,15 +230,12 @@ function LeaderboardRow({ entry, isCurrentUser }: LeaderboardRowProps) {
     `}>
             <div className="flex items-center gap-6">
                 <span className={`text-xl font-black w-10 font-montserrat tracking-tight ${entry.position <= 3 ? 'text-[#40E0D0]' : 'text-gray-500'}`}>
-                    {flair || entry.position}
+                    #{entry.position}
                 </span>
                 <div className="flex flex-col">
                     <span className="text-white font-pt-mono text-sm font-bold flex items-center gap-2">
-                        {truncateAddress(entry.walletAddress)}
+                        {displayName}
                         {isCurrentUser && <span className="text-[10px] bg-[#40E0D0]/20 text-[#40E0D0] px-1.5 py-0.5 rounded uppercase leading-none">You</span>}
-                    </span>
-                    <span className={`text-[10px] font-bold font-pt-mono uppercase tracking-widest mt-0.5 ${rarityKey !== 'common' ? rarityClass.split(' ')[1] : 'text-gray-600'}`}>
-                        Tier: {rarityDisplay}
                     </span>
                 </div>
             </div>
