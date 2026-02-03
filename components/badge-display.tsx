@@ -206,7 +206,7 @@ export function BadgeDisplay({ badges }: BadgeDisplayProps) {
 
                   return (
                     <div key={category} className="space-y-2 relative" style={{ overflow: 'visible' }}>
-                      <h4 className="text-xs font-pt-mono font-bold text-gray-500 uppercase tracking-wider">
+                      <h4 className="text-xs font-pt-mono font-bold text-gray-500 uppercase tracking-wider relative z-10">
                         {category}
                       </h4>
                       <div className="grid grid-cols-5 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 xl:grid-cols-12 gap-4" style={{ overflow: 'visible' }}>

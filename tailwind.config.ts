@@ -70,6 +70,7 @@ const config: Config = {
       fontFamily: {
         "pt-mono": ['"PT Mono"', "Menlo", "Monaco", "Consolas", '"Liberation Mono"', '"Courier New"', "monospace"],
         montserrat: ['"Montserrat"', "sans-serif"],
+        barlow: ["var(--font-barlow)", "sans-serif"],
       },
       fontWeight: {
         normal: "400",

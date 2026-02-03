@@ -206,8 +206,8 @@ export function Sidebar({ isWalletConnected: externalIsConnected, userProfile: e
         },
         {
           name: "Staking",
-          href: "https://amplify.oldrocknft.com",
-          isExternal: true,
+          href: "/staking",
+          isExternal: false,
         },
         {
           name: "Mint",
@@ -604,25 +604,24 @@ export function Sidebar({ isWalletConnected: externalIsConnected, userProfile: e
 
           {/* Airdrop Button - Top Right (only when expanded) */}
           {(isExpanded || (isMobile && mobileMenuOpen)) && (
-            <motion.a
-              href="https://airdrop.oldrocknft.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="absolute right-4 top-[calc(50%-20px)] transform -translate-y-1/2 w-10 h-10 flex items-center justify-center rounded-lg bg-white/10 hover:bg-white/20 transition-all duration-200 group"
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 0.2, duration: 0.3 }}
-            >
-              <Package className="w-5 h-5 text-white" />
+            <Link href="/airdrop">
+              <motion.div
+                className="absolute right-4 top-[calc(50%-20px)] transform -translate-y-1/2 w-10 h-10 flex items-center justify-center rounded-lg bg-white/10 hover:bg-white/20 transition-all duration-200 group cursor-pointer"
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.2, duration: 0.3 }}
+              >
+                <Package className="w-5 h-5 text-white" />
 
-              {/* Tooltip */}
-              <div className="absolute right-full mr-2 top-1/2 transform -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none">
-                <div className="bg-gray-900 text-white text-xs font-pt-mono px-2 py-1 rounded whitespace-nowrap border border-white/20">
-                  Airdrop
-                  <div className="absolute left-full top-1/2 transform -translate-y-1/2 border-4 border-transparent border-l-gray-900"></div>
+                {/* Tooltip */}
+                <div className="absolute right-full mr-2 top-1/2 transform -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none">
+                  <div className="bg-gray-900 text-white text-xs font-pt-mono px-2 py-1 rounded whitespace-nowrap border border-white/20">
+                    Airdrop
+                    <div className="absolute left-full top-1/2 transform -translate-y-1/2 border-4 border-transparent border-l-gray-900"></div>
+                  </div>
                 </div>
-              </div>
-            </motion.a>
+              </motion.div>
+            </Link>
           )}
         </div>
 

@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { getCachedData, getCachedDataIncludingStale, setCachedData, isCacheStale, isRefreshing, getRefreshPromise, setRefreshPromise, setProgress } from "@/lib/leaderboard-cache"
+import { checkRateLimit, getClientIP, RATE_LIMITS } from "@/lib/rate-limit"
 
 export const dynamic = "force-dynamic"
 
@@ -700,6 +701,21 @@ export async function GET(request: NextRequest) {
   const offset = parseInt(searchParams.get("offset") || "0")
   const fastMode = searchParams.get("fast") === "true"
   const filterAddress = searchParams.get("filter")
+
+  // SECURITY: Rate limit leaderboard requests (expensive query)
+  const clientIP = getClientIP(request)
+  const rateLimit = checkRateLimit(`leaderboard:${clientIP}`, RATE_LIMITS.LEADERBOARD)
+
+  if (!rateLimit.success) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Rate limit exceeded. Please try again later.",
+        retryAfter: Math.ceil((rateLimit.resetTime - Date.now()) / 1000)
+      },
+      { status: 429 }
+    )
+  }
 
   try {
     // Optimization: If filtering for a specific user, try to get them directly first

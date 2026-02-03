@@ -2,6 +2,15 @@ import { NextRequest, NextResponse } from "next/server"
 
 export async function POST(request: NextRequest) {
   try {
+    // SECURITY: Require wallet address header to prevent unauthorized unpinning
+    const walletAddress = request.headers.get('x-wallet-address');
+    if (!walletAddress || !/^0x[a-fA-F0-9]{40}$/.test(walletAddress)) {
+      return NextResponse.json(
+        { success: false, error: "Valid wallet address required" },
+        { status: 401 }
+      );
+    }
+
     const { cid } = await request.json()
 
     if (!cid) {

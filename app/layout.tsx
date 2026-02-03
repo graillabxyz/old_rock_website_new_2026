@@ -3,7 +3,20 @@ import type { Metadata } from "next"
 import ClientLayout from "./client-layout"
 import { defaultMetadata } from "@/lib/seo-config"
 import { StructuredData, organizationSchema, websiteSchema } from "@/components/structured-data"
-import "@/app/globals.css" // Corrected import path for globals.css
+import { Barlow_Condensed, PT_Mono } from 'next/font/google'
+import "@/app/globals.css"
+
+const barlowCondensed = Barlow_Condensed({
+  subsets: ['latin'],
+  weight: ['400', '700', '900'],
+  variable: '--font-barlow',
+})
+
+const ptMono = PT_Mono({
+  subsets: ['latin'],
+  weight: ['400'],
+  variable: '--font-pt-mono',
+})
 
 export const metadata: Metadata = {
   ...defaultMetadata,
@@ -30,7 +43,7 @@ export const metadata: Metadata = {
     "msapplication-TileColor": "#1a1a1a",
     "msapplication-config": "/browserconfig.xml",
   },
-    generator: 'v0.app'
+  generator: 'v0.app'
 }
 
 export default function RootLayout({
@@ -40,7 +53,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" style={{ overscrollBehavior: 'none' }}>
-      <body style={{ overscrollBehavior: 'none' }}>
+      <body className={`${barlowCondensed.variable} ${ptMono.variable}`} style={{ overscrollBehavior: 'none' }}>
         <StructuredData data={organizationSchema} />
         <StructuredData data={websiteSchema} />
         <ClientLayout>{children}</ClientLayout>

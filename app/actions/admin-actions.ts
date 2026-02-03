@@ -3,6 +3,21 @@
 import { createServerSupabaseClient } from "@/lib/supabase"
 import { revalidatePath } from "next/cache"
 
+/**
+ * SECURITY: Server-side admin verification
+ * Admin addresses are stored in environment variable (comma-separated)
+ * Example: ADMIN_ADDRESSES=0xabc...,0xdef...
+ */
+const ADMIN_ADDRESSES = (process.env.ADMIN_ADDRESSES || '0xb6585310D9546C6dFc5C1dcfA5eF92919f96D194')
+  .toLowerCase()
+  .split(',')
+  .map(addr => addr.trim());
+
+function isAdmin(address: string | null | undefined): boolean {
+  if (!address) return false;
+  return ADMIN_ADDRESSES.includes(address.toLowerCase());
+}
+
 export interface Badge {
   id: number
   name: string
@@ -127,6 +142,11 @@ export async function getUserBadges(walletAddress: string) {
 }
 
 export async function assignBadgeToUser(walletAddress: string, badgeId: number, assignedBy: string) {
+  // SECURITY: Verify caller is admin
+  if (!isAdmin(assignedBy)) {
+    return { success: false, error: "Unauthorized: Admin access required" };
+  }
+
   const supabase = createServerSupabaseClient()
 
   try {
@@ -164,7 +184,12 @@ export async function assignBadgeToUser(walletAddress: string, badgeId: number, 
   }
 }
 
-export async function removeBadgeFromUser(walletAddress: string, badgeId: number) {
+export async function removeBadgeFromUser(walletAddress: string, badgeId: number, callerAddress?: string) {
+  // SECURITY: Verify caller is admin
+  if (!isAdmin(callerAddress)) {
+    return { success: false, error: "Unauthorized: Admin access required" };
+  }
+
   const supabase = createServerSupabaseClient()
 
   try {
@@ -200,7 +225,12 @@ export async function getBadges() {
   }
 }
 
-export async function addBadge(badge: Omit<Badge, "id">) {
+export async function addBadge(badge: Omit<Badge, "id">, callerAddress?: string) {
+  // SECURITY: Verify caller is admin
+  if (!isAdmin(callerAddress)) {
+    return { success: false, error: "Unauthorized: Admin access required" };
+  }
+
   const supabase = createServerSupabaseClient()
 
   try {
@@ -216,7 +246,12 @@ export async function addBadge(badge: Omit<Badge, "id">) {
   }
 }
 
-export async function updateBadge(badge: Badge) {
+export async function updateBadge(badge: Badge, callerAddress?: string) {
+  // SECURITY: Verify caller is admin
+  if (!isAdmin(callerAddress)) {
+    return { success: false, error: "Unauthorized: Admin access required" };
+  }
+
   const supabase = createServerSupabaseClient()
 
   try {
@@ -240,7 +275,12 @@ export async function updateBadge(badge: Badge) {
   }
 }
 
-export async function deleteBadge(id: number) {
+export async function deleteBadge(id: number, callerAddress?: string) {
+  // SECURITY: Verify caller is admin
+  if (!isAdmin(callerAddress)) {
+    return { success: false, error: "Unauthorized: Admin access required" };
+  }
+
   const supabase = createServerSupabaseClient()
 
   try {
@@ -262,6 +302,11 @@ export async function deleteBadge(id: number) {
 
 // Bulk badge operations
 export async function assignMultipleBadges(walletAddress: string, badgeIds: number[], assignedBy: string) {
+  // SECURITY: Verify caller is admin
+  if (!isAdmin(assignedBy)) {
+    return { success: false, error: "Unauthorized: Admin access required" };
+  }
+
   const supabase = createServerSupabaseClient()
 
   try {

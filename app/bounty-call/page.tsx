@@ -221,7 +221,7 @@ export default function BountyCallPage() {
         <Header />
 
         {/* Hero Section with Background */}
-        <section className="relative h-screen flex flex-col items-center justify-center overflow-hidden">
+        <section className="relative min-h-[85vh] md:h-screen flex flex-col items-center justify-center overflow-hidden">
           {/* Background Image with Gradient Fade */}
           <div className="absolute inset-0 w-full h-full">
             <Image src="/images/bounty-bg.webp" alt="Bounty Call Background" fill className="object-cover" priority />
@@ -229,23 +229,22 @@ export default function BountyCallPage() {
           </div>
 
           {/* Hero Content */}
-          <div className="relative z-20 w-full max-w-6xl mx-auto px-6 flex flex-col items-center justify-center h-full pb-16">
-            {/* Title Image - Made 25% smaller and reduced overlap */}
+          <div className="relative z-20 w-full max-w-6xl mx-auto px-6 flex flex-col items-center justify-center h-full pb-16 pt-24 md:pt-0">
+            {/* Title Image - Optimized for Mobile */}
             <motion.div
               className="mb-0 w-full flex justify-center relative z-10"
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: 0.3, duration: 0.8 }}
-              style={{ marginBottom: "-1%" }} // Reduced negative margin for less overlap
             >
               <Image
                 src="/images/bounty-call-title.avif"
                 alt="Bounty Call"
                 width={1350}
                 height={337}
-                className="w-auto h-auto max-w-[110%] max-h-none transform scale-[1.125] object-cover"
+                className="w-auto h-auto max-w-[95%] md:max-w-[110%] max-h-none transform scale-100 md:scale-[1.125] object-cover"
                 style={{
-                  clipPath: "inset(20% 20% 20% 20%)",
+                  clipPath: "inset(15% 15% 15% 15%)", // Reduced inset for mobile visibility
                 }}
                 priority
               />
@@ -506,8 +505,8 @@ export default function BountyCallPage() {
             </motion.div>
           </div>
         </section>
+        <Footer />
       </div>
-      <Footer />
     </div>
   )
 }

@@ -4,20 +4,24 @@ import { useState, useEffect } from "react"
 import { useParams } from "next/navigation";
 import Image from "next/image"
 import { motion, AnimatePresence } from "framer-motion"
-import { Edit2, X, Plus, Trash2, CheckCircle, AlertCircle } from "lucide-react"
+import { Edit2, X, Plus, Trash2, CheckCircle, AlertCircle, Link as LinkIcon } from "lucide-react"
 import { fetchUserNFTs, fetchUserStats } from "@/app/actions/fetch-user-nfts"
 import { fetchUserDensity } from "@/app/actions/fetch-user-density"
 import { saveProfileNFT } from "@/app/actions/save-profile-nft"
 import { UserBadge } from "@/components/user-badge"
 import { Header } from "@/components/header"
 import { Sidebar } from "@/components/sidebar"
-import { NFTOverlay } from "@/components/nft-overlay"
+import Link from "next/link"
 import { setENSAvatar, getConnectedWalletENSName } from "@/lib/ens-utils"
 import { uploadToIPFS, getIPFSGatewayURL, SUPPORTED_IMAGE_TYPES, MAX_FILE_SIZE } from "@/lib/ipfs-utils"
 import { Upload } from "lucide-react"
 import { ENSConfirmationModal } from "@/components/ens-confirmation-modal"
 import { BadgeDisplay } from "@/components/badge-display"
 import { calculateAllBadges, Badge } from "@/lib/badge-utils"
+import { getDensityDeckRank, RankInfo } from "@/lib/rank-utils"
+import { Shield, ShieldCheck, Award, Trophy, Crown } from "lucide-react"
+import { Footer } from "@/components/footer"
+import { InlineSVG } from "@/components/inline-svg"
 
 interface NFT {
   tokenId: string
@@ -25,8 +29,15 @@ interface NFT {
   image: string
   collection: string
   contractAddress: string
-  attributes?: any[]
+  attributes?: any
   backgroundColor?: string
+  linkedRock?: number | null
+  // Density data from Amplify API (Old Rocks only)
+  unclaimedDensity?: number
+  amplificationPercentage?: number
+  stakingSlots?: number
+  maxCapacity?: number
+  dailyReward?: number
 }
 
 interface UserStats {
@@ -34,12 +45,15 @@ interface UserStats {
   gamesPlayed: number
   winRate: number
   rank: string
+  wins?: number
   achievements: any[]
   nftBadgeUnlocks?: any[]
+  rankInfo?: RankInfo
 }
 
 export default function ProfilePage() {
-  const { targetAddress } = useParams();
+  const params = useParams();
+  const targetAddress = params?.targetAddress as string;
   const [isLoading, setIsLoading] = useState(true)
   const [walletAddress, setWalletAddress] = useState<string>("")
   const [connectedWallet, setConnectedWallet] = useState<string>("")
@@ -76,8 +90,9 @@ export default function ProfilePage() {
   const [selectedFilter, setSelectedFilter] = useState<"all" | "oldrock" | "goliath">("all")
 
   // NFT Overlay state
-  const [selectedNFT, setSelectedNFT] = useState<NFT | null>(null)
-  const [isOverlayOpen, setIsOverlayOpen] = useState(false)
+  // NFT Overlay state - Removed selectedNFT and isOverlayOpen as they are no longer needed for hover interaction
+  // const [selectedNFT, setSelectedNFT] = useState<NFT | null>(null) 
+  // const [isOverlayOpen, setIsOverlayOpen] = useState(false)
   const [isSettingAvatar, setIsSettingAvatar] = useState(false)
 
   // Header image/video state
@@ -88,56 +103,56 @@ export default function ProfilePage() {
   const [uploadProgress, setUploadProgress] = useState(0)
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [uploadSuccess, setUploadSuccess] = useState(false)
+  const [rankImgError, setRankImgError] = useState(false)
 
   // ENS confirmation modal state
+
   const [showENSConfirm, setShowENSConfirm] = useState(false)
   const [ensConfirmMessage, setEnsConfirmMessage] = useState("")
   const [ensConfirmNFTName, setEnsConfirmNFTName] = useState("")
   const [ensConfirmResolve, setEnsConfirmResolve] = useState<((value: boolean) => void) | null>(null)
 
-  // Notification state
   const [notification, setNotification] = useState<{ message: string; type: "success" | "error" } | null>(null)
+  const lastLoadedAddress = useState<string>("") // Track this to prevent redundant loads
 
   useEffect(() => {
     // Suppress harmless wallet extension errors in console
     const originalError = console.error
     console.error = (...args: any[]) => {
       const message = args[0]?.toString() || ""
-      // Filter out wallet extension errors about window.ethereum
       if (
         message.includes("Cannot set property ethereum") ||
         message.includes("Cannot redefine property: ethereum") ||
-        message.includes("MetaMask encountered an error setting the global Ethereum provider")
+        message.includes("MetaMask encountered an error setting the global Ethereum provider") ||
+        message.includes("getter-only")
       ) {
-        // Suppress these errors - they're harmless and come from wallet extensions
         return
       }
       originalError.apply(console, args)
     }
 
     const checkWallet = async () => {
+      // Use a brief delay to allow multiple extensions to settle if they are competing
+      await new Promise(resolve => setTimeout(resolve, 100));
+
       if (typeof window !== "undefined" && window.ethereum) {
         try {
+          // Check for eth_accounts without triggering a pop-up
           const accounts = await window.ethereum.request({ method: "eth_accounts" })
-          if (accounts.length > 0) {
-            setConnectedWallet(accounts[0])
+          if (accounts && accounts.length > 0) {
+            setConnectedWallet(accounts[0].toLowerCase())
           }
         } catch (error) {
-          console.error("Error checking wallet:", error)
+          // Non-critical error
         }
       }
     }
 
     checkWallet()
 
-    // Restore original console.error on cleanup
-    return () => {
-      console.error = originalError
-    }
-
     const handleWalletConnected = (event: CustomEvent) => {
       if (event.detail.address) {
-        setConnectedWallet(event.detail.address)
+        setConnectedWallet(event.detail.address.toLowerCase())
       }
     }
 
@@ -149,87 +164,94 @@ export default function ProfilePage() {
     window.addEventListener("walletDisconnected", handleWalletDisconnected as EventListener)
 
     return () => {
+      console.error = originalError
       window.removeEventListener("walletConnected", handleWalletConnected as EventListener)
       window.removeEventListener("walletDisconnected", handleWalletDisconnected as EventListener)
     }
   }, [])
 
   useEffect(() => {
-    const targetWallet = targetAddress || connectedWallet
+    const targetWallet = ((targetAddress as string) || connectedWallet)?.toLowerCase()
 
-    if (targetWallet) {
+    if (targetWallet && targetWallet !== lastLoadedAddress[0]) {
       setWalletAddress(targetWallet)
-      setIsOwnProfile(targetWallet.toLowerCase() === connectedWallet.toLowerCase())
+      setIsOwnProfile(targetWallet === connectedWallet)
+      lastLoadedAddress[1](targetWallet)
       loadProfileData(targetWallet)
     }
   }, [targetAddress, connectedWallet])
 
   const loadProfileData = async (address: string) => {
+    if (!address) return;
     setIsLoading(true)
+
     try {
-      // Fetch ENS name
-      const name = await fetchENSName(address)
-      setEnsName(name)
+      // Parallelize ALL initial data fetching for max speed
+      const [ensNameResult, ensAvatarResult, nftResult, densityResult] = await Promise.allSettled([
+        fetchENSName(address),
+        fetchENSAvatar(address),
+        fetchUserNFTs(address),
+        fetchUserDensity(address)
+      ]);
 
-      // Fetch ENS avatar
-      const avatar = await fetchENSAvatar(address)
-      setEnsAvatar(avatar)
+      // Handle ENS Name
+      if (ensNameResult.status === 'fulfilled') setEnsName(ensNameResult.value);
 
-      // Fetch NFTs
-      const nftResult = await fetchUserNFTs(address)
-      if (nftResult.success) {
-        setOldRockNFTs(nftResult.oldRockNFTs || [])
-        setGoliathNFTs(nftResult.goliathNFTs || [])
+      // Handle Avatar
+      if (ensAvatarResult.status === 'fulfilled') setEnsAvatar(ensAvatarResult.value);
 
-        // Fetch user stats with NFT data
-        const statsResult = await fetchUserStats(address, nftResult.oldRockNFTs, nftResult.goliathNFTs)
-        if (statsResult.success) {
-          setUserStats(statsResult.stats)
-        }
+      // Handle NFTs
+      let finalOldRocks: NFT[] = [];
+      let finalGoliaths: NFT[] = [];
+      if (nftResult.status === 'fulfilled' && nftResult.value.success) {
+        finalOldRocks = nftResult.value.oldRockNFTs || [];
+        finalGoliaths = nftResult.value.goliathNFTs || [];
+        setOldRockNFTs(finalOldRocks);
+        setGoliathNFTs(finalGoliaths);
+      }
 
-        // Fetch actual $DENSITY ecosystem balance (same as shown in header)
-        const densityResult = await fetchUserDensity(address)
-        let totalDensity = 0
-        if (densityResult.success && densityResult.data) {
-          // Use the ecosystem balance amount (same as header displays)
-          totalDensity = parseFloat(densityResult.data.amount?.toString() || "0") || 0
-        }
+      // Start fetching stats and badges in parallel using the NFT results
+      console.log('🔄 Calling fetchUserStats for:', address);
+      const statsPromise = fetchUserStats(address, finalOldRocks, finalGoliaths);
 
-        // Fetch badges from centralized API
-        try {
-          const badgeResponse = await fetch(`/api/badges?address=${address}`)
-          if (badgeResponse.ok) {
-            const badgeData = await badgeResponse.json()
-            if (badgeData.success && badgeData.data) {
-              setUserBadges(badgeData.data.allBadges || [])
-            } else {
-              // Fallback to local calculation if API fails
-              const badges = calculateAllBadges({
-                totalDensity,
-                oldRockNFTs: nftResult.oldRockNFTs || [],
-                goliathNFTs: nftResult.goliathNFTs || [],
-              })
-              setUserBadges(badges)
-            }
-          } else {
-            // Fallback to local calculation if API fails
-            const badges = calculateAllBadges({
-              totalDensity,
-              oldRockNFTs: nftResult.oldRockNFTs || [],
-              goliathNFTs: nftResult.goliathNFTs || [],
-            })
-            setUserBadges(badges)
-          }
-        } catch (error) {
-          console.warn("Failed to fetch badges from API, using local calculation:", error)
-          // Fallback to local calculation if API fails
-          const badges = calculateAllBadges({
-            totalDensity,
-            oldRockNFTs: nftResult.oldRockNFTs || [],
-            goliathNFTs: nftResult.goliathNFTs || [],
-          })
-          setUserBadges(badges)
-        }
+      // Calculate Density local fallback while waiting for API
+      let totalDensityValue = 0;
+      if (densityResult.status === 'fulfilled' && densityResult.value.success && densityResult.value.data) {
+        totalDensityValue = parseFloat(densityResult.value.data.amount?.toString() || "0") || 0;
+      }
+
+      const badgePromise = fetch(`/api/badges?address=${address}`).then(r => r.ok ? r.json() : null).catch(() => null);
+
+      const [statsRes, badgeData] = await Promise.all([statsPromise, badgePromise]);
+
+      console.log('📊 Stats result:', { success: statsRes?.success, wins: statsRes?.stats?.wins, gamesPlayed: statsRes?.stats?.gamesPlayed });
+
+      // Handle Stats
+      if (statsRes.success) {
+        console.log('📊 Profile received stats:', { wins: statsRes.stats.wins, gamesPlayed: statsRes.stats.gamesPlayed });
+        setUserStats(statsRes.stats);
+      } else {
+        setUserStats({
+          totalDensity: totalDensityValue.toString(),
+          gamesPlayed: 0,
+          winRate: 0,
+          rank: "Unranked",
+          wins: 0,
+          achievements: [],
+          rankInfo: getDensityDeckRank(0)
+        });
+      }
+
+      // Handle Badges
+      if (badgeData?.success && badgeData?.data) {
+        setUserBadges(badgeData.data.allBadges || []);
+      } else {
+        const badges = calculateAllBadges({
+          totalDensity: totalDensityValue,
+          oldRockNFTs: finalOldRocks,
+          goliathNFTs: finalGoliaths,
+        });
+        setUserBadges(badges);
       }
 
       // Load saved profile NFT
@@ -277,6 +299,7 @@ export default function ProfilePage() {
         setHeaderMedia(headerData.hash || "")
         setHeaderMediaType(headerData.type || null)
       }
+
     } catch (error) {
       console.error("Error loading profile data:", error)
     } finally {
@@ -388,12 +411,7 @@ export default function ProfilePage() {
     setIsEditingBadges(false)
   }
 
-  const handleNFTClick = (nft: NFT) => {
-    if (isOwnProfile) {
-      setSelectedNFT(nft)
-      setIsOverlayOpen(true)
-    }
-  }
+  // handleNFTClick removed as part of refactor to hover menu
 
   const handleHeaderMediaUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
@@ -407,7 +425,7 @@ export default function ProfilePage() {
     const fileName = file.name.toLowerCase()
     const validExtensions = [".png", ".jpg", ".jpeg", ".webp"]
     const hasValidExtension = validExtensions.some(ext => fileName.endsWith(ext))
-    
+
     if (!hasValidExtension) {
       setUploadError(`Unsupported file format. Please upload: PNG, JPG, or WebP`)
       return
@@ -415,7 +433,7 @@ export default function ProfilePage() {
 
     // Validate file type - only images allowed
     const isImage = SUPPORTED_IMAGE_TYPES.includes(file.type)
-    
+
     if (!isImage) {
       setUploadError(`Unsupported file type. Please upload an image file (PNG, JPG, or WebP)`)
       return
@@ -430,7 +448,7 @@ export default function ProfilePage() {
 
     setIsUploadingHeader(true)
     setUploadProgress(10) // Start progress
-    
+
     try {
       // Simulate progress for better UX
       const progressInterval = setInterval(() => {
@@ -443,10 +461,10 @@ export default function ProfilePage() {
       // Upload to IPFS
       setUploadProgress(30)
       const ipfsHash = await uploadToIPFS(file)
-      
+
       clearInterval(progressInterval)
       setUploadProgress(90)
-      
+
       if (!ipfsHash) {
         throw new Error("Failed to upload to IPFS - no hash returned")
       }
@@ -473,21 +491,21 @@ export default function ProfilePage() {
       // Save to state and localStorage
       setHeaderMedia(ipfsHash)
       setHeaderMediaType("image")
-      
+
       const headerData = {
         hash: ipfsHash,
         type: "image",
         uploadedAt: new Date().toISOString(),
       }
-      
+
       localStorage.setItem(`header-media-${walletAddress}`, JSON.stringify(headerData))
-      
+
       // Show success message
       setUploadSuccess(true)
-      
+
       // Wait a moment to show completion and success message
       await new Promise(resolve => setTimeout(resolve, 1500))
-      
+
       // Close edit mode and reset states
       setIsEditingHeader(false)
       setUploadProgress(0)
@@ -495,14 +513,14 @@ export default function ProfilePage() {
       setUploadSuccess(false)
     } catch (error: any) {
       console.error("Error uploading header media:", error)
-      
+
       // Clear progress interval if still running
       setUploadProgress(0)
       setUploadSuccess(false)
-      
+
       // Provide specific, user-friendly error messages
       let errorMessage = "Failed to upload header media."
-      
+
       if (error?.message?.includes("too large") || error?.message?.includes("Image is too large")) {
         errorMessage = `Image is too large. Please try a smaller or less detailed image. PNG and JPG files are automatically converted to WebP for optimal storage.`
       } else if (error?.message?.includes("Unsupported file format") || error?.message?.includes("Unsupported file type")) {
@@ -522,7 +540,7 @@ export default function ProfilePage() {
       } else {
         errorMessage = "An unexpected error occurred. Please try again."
       }
-      
+
       setUploadError(errorMessage)
     } finally {
       setIsUploadingHeader(false)
@@ -612,7 +630,7 @@ export default function ProfilePage() {
     try {
       // Use the NFT image URL - convert .webp to full resolution if needed
       let imageUrl = nft.image
-      
+
       // If it's a -300.webp thumbnail, try to get the full resolution version
       if (imageUrl.includes("-300.webp")) {
         imageUrl = imageUrl.replace("-300.webp", ".webp")
@@ -670,8 +688,8 @@ export default function ProfilePage() {
       )
 
       // Close overlay
-      setIsOverlayOpen(false)
-      setSelectedNFT(null)
+      // setIsOverlayOpen(false) - Removed
+      // setSelectedNFT(null) - Removed
 
       // Wait for the new image to load before hiding the loading animation
       const img = new window.Image()
@@ -701,7 +719,7 @@ export default function ProfilePage() {
       }
     } catch (error: any) {
       console.error("Error setting ENS avatar:", error)
-      
+
       let errorMessage = "Failed to set profile picture. "
       if (error?.message?.includes("user rejected") || error?.code === 4001 || error?.message?.includes("rejected")) {
         errorMessage += "Transaction was rejected."
@@ -718,7 +736,7 @@ export default function ProfilePage() {
       } else {
         errorMessage += "Please try again."
       }
-      
+
       showNotification(errorMessage, "error")
     } finally {
       setIsSettingAvatar(false)
@@ -731,8 +749,8 @@ export default function ProfilePage() {
   if (isLoading) {
     return (
       <>
-        <Header onMenuClick={() => setIsSidebarOpen(true)} />
-        <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
+        <Header />
+        <Sidebar />
         <div className="min-h-screen bg-black flex items-center justify-center pt-[72px]">
           <div className="text-white text-xl">Loading profile...</div>
         </div>
@@ -743,8 +761,8 @@ export default function ProfilePage() {
   if (!walletAddress) {
     return (
       <>
-        <Header onMenuClick={() => setIsSidebarOpen(true)} />
-        <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
+        <Header />
+        <Sidebar />
         <div className="min-h-screen bg-black flex items-center justify-center pt-[72px]">
           <div className="text-center">
             <h1 className="text-white text-2xl mb-4">No wallet connected</h1>
@@ -757,12 +775,12 @@ export default function ProfilePage() {
 
   return (
     <>
-      <Header onMenuClick={() => setIsSidebarOpen(true)} />
-      <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
+      <Header />
+      <Sidebar />
 
       <div className="min-h-screen bg-black pt-[72px]">
         {/* Hero Section with Profile Info */}
-        <div className="relative h-[500px] bg-gradient-to-b from-purple-900/20 to-black border-b border-gray-800 overflow-hidden">
+        <div className="relative h-auto min-h-[300px] md:h-[500px] bg-gradient-to-b from-purple-900/20 to-black border-b border-gray-800 overflow-hidden pb-6 md:pb-0">
           {/* Header Media (Image) */}
           {headerMedia ? (
             <Image
@@ -781,7 +799,7 @@ export default function ProfilePage() {
               unoptimized
             />
           )}
-          
+
           {/* Edit Header Button (only for own profile) */}
           {isOwnProfile && (
             <div className="absolute top-4 right-4 z-10">
@@ -820,7 +838,7 @@ export default function ProfilePage() {
                       Cancel
                     </button>
                   </div>
-                  
+
                   {/* Upload Progress Bar */}
                   {isUploadingHeader && (
                     <div className="w-full max-w-xs bg-gray-800 rounded-full h-2 overflow-hidden">
@@ -830,7 +848,7 @@ export default function ProfilePage() {
                       />
                     </div>
                   )}
-                  
+
                   {/* Success Message */}
                   {uploadSuccess && (
                     <div className="bg-green-900/50 border border-green-600 text-green-200 px-3 py-2 rounded-lg text-sm max-w-xs font-pt-mono flex items-center gap-2">
@@ -840,7 +858,7 @@ export default function ProfilePage() {
                       Header uploaded successfully!
                     </div>
                   )}
-                  
+
                   {/* Error Message */}
                   {uploadError && (
                     <div className="bg-red-900/50 border border-red-600 text-red-200 px-3 py-2 rounded-lg text-sm max-w-xs font-pt-mono">
@@ -852,7 +870,7 @@ export default function ProfilePage() {
                       </div>
                     </div>
                   )}
-                  
+
                   {/* File Info */}
                   {!isUploadingHeader && !uploadError && !uploadSuccess && (
                     <p className="text-xs text-gray-400 text-right font-pt-mono max-w-xs">
@@ -872,12 +890,12 @@ export default function ProfilePage() {
             </div>
           )}
 
-          <div className="relative container mx-auto px-6 h-full flex items-end pb-12">
-            <div className="flex items-end space-x-8">
+          <div className="relative container mx-auto px-4 md:px-6 h-full flex flex-col md:flex-row md:items-end pb-6 md:pb-12 pt-6 md:pt-0">
+            <div className="flex flex-col md:flex-row md:items-end gap-4 md:gap-0 md:space-x-8 w-full">
               {/* Profile NFT */}
-              <div className="relative group">
+              <div className="relative group flex-shrink-0 mx-auto md:mx-0">
                 <div
-                  className="w-56 h-56 rounded-xl overflow-hidden shadow-2xl relative"
+                  className="w-28 h-28 md:w-56 md:h-56 rounded-xl overflow-hidden shadow-2xl relative"
                   style={{ backgroundColor: selectedProfileNFT?.backgroundColor || "#6B46C1" }}
                 >
                   <Image
@@ -887,13 +905,13 @@ export default function ProfilePage() {
                     height={224}
                     className="w-full h-full object-cover"
                   />
-                  
+
                   {/* Loading Overlay */}
                   {isSettingAvatar && (
                     <div className="absolute inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-10 rounded-xl">
                       <div className="flex flex-col items-center gap-3">
                         <svg
-                          className="animate-spin h-8 w-8 text-purple-400"
+                          className="animate-spin h-6 w-6 md:h-8 md:w-8 text-purple-400"
                           xmlns="http://www.w3.org/2000/svg"
                           fill="none"
                           viewBox="0 0 24 24"
@@ -912,93 +930,118 @@ export default function ProfilePage() {
                             d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                           ></path>
                         </svg>
-                        <p className="text-white text-sm font-pt-mono">Updating...</p>
+                        <p className="text-white text-xs md:text-sm font-pt-mono">Updating...</p>
                       </div>
                     </div>
                   )}
                 </div>
-                {/*}
-                  {isOwnProfile && (
-                    <button
-                      onClick={() => setIsSelectingProfileNFT(true)}
-                      className="absolute bottom-2 right-2 bg-purple-600 hover:bg-purple-700 text-white p-2 rounded-lg transition-colors"
-                    >
-                      <Edit2 className="w-4 h-4" />
-                    </button>
-                  )}
-                {*/}
               </div>
 
               {/* User Info */}
-              <div className="pb-4 flex-1">
+              <div className="pb-0 md:pb-4 flex-1 text-center md:text-left">
                 <div className={isBadgeExpanded ? 'opacity-0 pointer-events-none' : ''}>
-                  <h1 className="text-4xl font-bold text-white mb-2">{ensName}</h1>
-                  <p className="text-gray-400 font-mono mb-4">
+                  <h1 className="text-2xl md:text-4xl font-bold text-white mb-1 md:mb-2">{ensName}</h1>
+                  <p className="text-gray-400 font-mono text-sm md:text-base mb-2 md:mb-4">
                     {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}
                   </p>
+
+                  {/* Badges Display */}
+                  {userBadges.length > 0 && (
+                    <div className="mt-6">
+                      <BadgeDisplay badges={userBadges} onExpandedChange={setIsBadgeExpanded} />
+                    </div>
+                  )}
                 </div>
-                
-                {/* Badges Display */}
-                {userBadges.length > 0 && (
-                  <div className="mt-4">
-                    <BadgeDisplay badges={userBadges} onExpandedChange={setIsBadgeExpanded} />
-                  </div>
+              </div>
+
+              {/* Stats/Rank Section - Right Side */}
+              <div className="md:ml-auto flex flex-col items-center md:items-end justify-end gap-8 pb-0 md:pb-4 mt-4 md:mt-0 min-h-[100px]">
+                {userStats && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.8, ease: "easeOut" }}
+                    className="flex flex-col items-center relative"
+                  >
+                    {/* Lighting/Glow Effect - Static */}
+                    <div className="absolute inset-0 bg-white/5 blur-3xl rounded-full scale-150 pointer-events-none" />
+
+                    {/* Rank Asset Image */}
+                    <div className="relative group/rank-container rank-card-trigger flex flex-col items-center cursor-default">
+                      {/* Subtle Static Glow underneath */}
+                      <div className="absolute inset-x-[-20%] inset-y-[-20%] bg-white/5 blur-[100px] rounded-full scale-150 pointer-events-none" />
+
+                      {/* Container with negative margin to cut off empty artboard space at bottom of SVG (SVG has 500x500 viewBox but art ends at ~365) */}
+                      <div className="relative w-64 h-64 md:w-96 md:h-96 flex items-center justify-center overflow-hidden mb-[-15%]">
+                        {/* Rank Image - Static */}
+                        <div className="relative w-full h-full flex items-center justify-center">
+                          {!rankImgError ? (() => {
+                            const rankTitle = userStats.rankInfo?.title || getDensityDeckRank(userStats.wins || 0).title;
+                            const rankFileMap: { [key: string]: string } = {
+                              "Acolyte": "acolyte1",
+                              "Disciple": "Disciple2",
+                              "Champion": "Champion3",
+                              "Guardian": "Guardian4",
+                              "Ascendant": "Ascendant5",
+                              "Paragon": "Paragon6"
+                            };
+                            const fileName = rankFileMap[rankTitle] || "acolyte1";
+                            const svgUrl = `/Density Deck Ranks/${fileName}.svg`;
+                            return (
+                              <InlineSVG
+                                src={svgUrl}
+                                alt={rankTitle}
+                                width={384}
+                                height={384}
+                                className="w-full h-full"
+                                parentTriggerClass="rank-card-trigger"
+                                scaleGroup="rank-container"
+                                onError={() => setRankImgError(true)}
+                              />
+                            );
+                          })() : (
+
+                            <div className="flex items-center justify-center w-full h-full text-white/40">
+                              {(userStats.rankInfo?.title || getDensityDeckRank(userStats.wins || 0).title) === "Acolyte" && <Shield className="w-32 h-32 md:w-48 md:h-48" />}
+                              {(userStats.rankInfo?.title || getDensityDeckRank(userStats.wins || 0).title) === "Disciple" && <ShieldCheck className="w-32 h-32 md:w-48 md:h-48" />}
+                              {(userStats.rankInfo?.title || getDensityDeckRank(userStats.wins || 0).title) === "Champion" && <Award className="w-32 h-32 md:w-48 md:h-48" />}
+                              {(userStats.rankInfo?.title || getDensityDeckRank(userStats.wins || 0).title) === "Guardian" && <ShieldCheck className="w-32 h-32 md:w-48 md:h-48 text-emerald-500" />}
+                              {(userStats.rankInfo?.title || getDensityDeckRank(userStats.wins || 0).title) === "Ascendant" && <Trophy className="w-32 h-32 md:w-48 md:h-48" />}
+                              {(userStats.rankInfo?.title || getDensityDeckRank(userStats.wins || 0).title) === "Paragon" && <Crown className="w-32 h-32 md:w-48 md:h-48" />}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Density Deck Branding - Above Rank */}
+                      <span className="text-white/50 font-black font-montserrat text-[10px] md:text-xs uppercase tracking-[0.15em] mb-1">
+                        Density Deck
+                      </span>
+
+                      {/* Rank Title Box - Centered */}
+                      <div className="bg-white px-6 py-1.5 min-w-[180px] text-center mb-1 shadow-[4px_4px_0_rgba(0,0,0,0.3)] border border-black/10 relative z-10">
+                        <span className="text-black font-black font-montserrat text-sm md:text-base uppercase tracking-[0.2em]">
+                          {userStats.rankInfo?.tier || getDensityDeckRank(userStats.wins || 0).tier}
+                        </span>
+                      </div>
+
+                      {/* Win Count Box - Centered */}
+                      <div className="bg-white px-4 py-0.5 min-w-[80px] text-center shadow-[3px_3px_0_rgba(0,0,0,0.3)] border border-black/10 relative z-10">
+                        <span className="text-black font-black font-montserrat text-[10px] md:text-xs uppercase tracking-wider">
+                          {userStats.wins || 0} WINS
+                        </span>
+                      </div>
+                    </div>
+
+                  </motion.div>
                 )}
-
-                {/* Social Connections */}
-                {/*}
-                <div className="flex items-center space-x-4">
-                  {discordUsername && (
-                    <div className="flex items-center space-x-2 bg-gray-800/50 rounded-lg px-3 py-1">
-                      <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M20.2 6.4c-.7-.5-1.5-1-2.4-1.3-.6-.2-1.2-.3-1.8-.4-.8-.1-1.6-.1-2.4 0-1.7.3-3.4 1-4.8 2-1.4 1-2.7 2.3-3.9 3.8-1.2 1.5-2.2 3.1-2.9 4.8-.6 1.7-.9 3.5-.8 5.3v.1c0 .2.1.4.2.5s.4.1.6 0l1.3-.6c.2-.1.3-.2.4-.3s.2-.2.3-.3c.7.4 1.5.7 2.3.9 1 .2 2 .2 3 0 1-.2 2-.5 2.9-1.1.9-.6 1.7-1.3 2.4-2.2.7-1 1.2-2.1 1.6-3.3.4-1.2.6-2.5.6-3.8V7.5c0-.4-.1-.8-.2-1.1zM9.7 15.6c-.7 0-1.2-.5-1.2-1.2s.5-1.2 1.2-1.2c.7 0 1.2.5 1.2 1.2s-.5 1.2-1.2 1.2zm4.6 0c-.7 0-1.2-.5-1.2-1.2s.5-1.2 1.2-1.2c.7 0 1.2.5 1.2 1.2s-.5 1.2-1.2 1.2z" />
-                      </svg>
-                      <span className="text-sm text-white">{discordUsername}</span>
-                    </div>
-                  )}
-                  {twitterUsername && (
-                    <div className="flex items-center space-x-2 bg-gray-800/50 rounded-lg px-3 py-1">
-                      <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M18.901 1.153h3.68l-8.042 9.167L24 22.847h-7.406l-5.8-6.797L6.11 22.847H0l8.603-9.813L0 1.153h7.501l5.278 6.17L18.901 1.153Zm-1.051 19.492h2.268L5.93 3.477H3.508l14.342 17.168Z" />
-                      </svg>
-                      <span className="text-sm text-white">@{twitterUsername}</span>
-                    </div>
-                  )}
-                  {isOwnProfile && (
-                    <button
-                      onClick={() => setIsEditingSocials(true)}
-                      className="bg-gray-800/50 hover:bg-gray-700/50 text-white p-2 rounded-lg transition-colors"
-                    >
-                      <Edit2 className="w-4 h-4" />
-                    </button>
-                  )}
-                </div>
-                {*/}
               </div>
-            </div>
-
-            {/* Stats */}
-            <div className="ml-auto flex items-end space-x-8 pb-4">
-              <div className="text-center">
-                <div className="text-3xl font-bold text-white">{oldRockNFTs.length + goliathNFTs.length}</div>
-                <div className="text-sm text-gray-400">NFTs</div>
-              </div>
-              {/*}
-              <div className="text-center">
-                <div className="text-3xl font-bold text-purple-400">{userStats?.totalDensity || "0"}</div>
-                <div className="text-sm text-gray-400">DENSITY</div>
-              </div>
-              <div className="text-center">
-                <div className="text-3xl font-bold text-white">{userStats?.rank || "Unranked"}</div>
-                <div className="text-sm text-gray-400">Rank</div>
-              </div>
-              {*/}
             </div>
           </div>
         </div>
 
         {/* Main Content */}
-        <div className="container mx-auto px-6 py-12">
+        <div id="collection-section" className="container mx-auto px-6 py-12">
           {/* Featured NFTs Section */}
           {featuredNFTs.length > 0 && (
             <div className="mb-12">
@@ -1018,7 +1061,7 @@ export default function ProfilePage() {
                   <div key={nft.tokenId} className="bg-gray-900 rounded-xl overflow-hidden border border-gray-800">
                     <div className="relative aspect-square" style={{ backgroundColor: nft.backgroundColor }}>
                       <Image src={nft.image || "/placeholder.svg"} alt={nft.name} fill className="object-cover" />
-                      {isEditingFeatured && (
+                      {isOwnProfile && isEditingFeatured && (
                         <button
                           onClick={() => handleRemoveFeaturedNFT(nft.tokenId)}
                           className="absolute top-2 right-2 bg-red-600 hover:bg-red-700 text-white p-2 rounded-lg"
@@ -1124,26 +1167,26 @@ export default function ProfilePage() {
 
           {/* NFT Collection */}
           <div>
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold text-white">NFT Collection</h2>
-              <div className="flex items-center space-x-2">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+              <h2 className="text-xl md:text-2xl font-bold text-white">NFT Collection</h2>
+              <div className="flex items-center gap-2 overflow-x-auto pb-2 md:pb-0 -mx-4 px-4 md:mx-0 md:px-0 scrollbar-hide">
                 <button
                   onClick={() => setSelectedFilter("all")}
-                  className={`px-4 py-2 rounded-lg transition-colors ${selectedFilter === "all" ? "bg-purple-600 text-white" : "bg-gray-800 text-gray-400"
+                  className={`px-3 md:px-4 py-2 rounded-lg transition-colors whitespace-nowrap text-sm md:text-base flex-shrink-0 ${selectedFilter === "all" ? "bg-purple-600 text-white" : "bg-gray-800 text-gray-400"
                     }`}
                 >
                   All ({allNFTs.length})
                 </button>
                 <button
                   onClick={() => setSelectedFilter("oldrock")}
-                  className={`px-4 py-2 rounded-lg transition-colors ${selectedFilter === "oldrock" ? "bg-purple-600 text-white" : "bg-gray-800 text-gray-400"
+                  className={`px-3 md:px-4 py-2 rounded-lg transition-colors whitespace-nowrap text-sm md:text-base flex-shrink-0 ${selectedFilter === "oldrock" ? "bg-purple-600 text-white" : "bg-gray-800 text-gray-400"
                     }`}
                 >
                   Old Rock ({oldRockNFTs.length})
                 </button>
                 <button
                   onClick={() => setSelectedFilter("goliath")}
-                  className={`px-4 py-2 rounded-lg transition-colors ${selectedFilter === "goliath" ? "bg-purple-600 text-white" : "bg-gray-800 text-gray-400"
+                  className={`px-3 md:px-4 py-2 rounded-lg transition-colors whitespace-nowrap text-sm md:text-base flex-shrink-0 ${selectedFilter === "goliath" ? "bg-purple-600 text-white" : "bg-gray-800 text-gray-400"
                     }`}
                 >
                   Goliath ({goliathNFTs.length})
@@ -1151,14 +1194,12 @@ export default function ProfilePage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 md:gap-4">
+
               {filteredNFTs.map((nft) => (
                 <div
                   key={`${nft.collection}-${nft.tokenId}`}
-                  className={`bg-gray-900 rounded-xl overflow-hidden border border-gray-800 hover:border-purple-500 transition-all group ${
-                    isOwnProfile ? "cursor-pointer" : ""
-                  } relative`}
-                  onClick={() => isOwnProfile && handleNFTClick(nft)}
+                  className="bg-gray-900 rounded-xl overflow-hidden border border-gray-800 hover:border-purple-500 transition-all group relative"
                 >
                   <div className="relative aspect-square" style={{ backgroundColor: nft.backgroundColor }}>
                     <Image src={nft.image || "/placeholder.svg"} alt={nft.name} fill className="object-cover" />
@@ -1185,23 +1226,72 @@ export default function ProfilePage() {
                     >
                       GIF
                     </button>
-                    {/* Inline overlay menu - only show when this NFT is selected */}
-                    {isOwnProfile && selectedNFT?.tokenId === nft.tokenId && selectedNFT?.collection === nft.collection && isOverlayOpen && (
-                      <NFTOverlay
-                        nft={selectedNFT}
-                        isOpen={isOverlayOpen}
-                        onClose={() => {
-                          setIsOverlayOpen(false)
-                          setSelectedNFT(null)
+                    {/* Hover Menu Overlay */}
+                    <div className="absolute inset-0 bg-black/80 backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex flex-col items-center justify-center p-4 gap-2 z-30 pointer-events-none group-hover:pointer-events-auto">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          if (isOwnProfile) handleSetAsProfilePicture(nft)
                         }}
-                        onSetAsProfilePicture={handleSetAsProfilePicture}
-                        isSettingAvatar={isSettingAvatar}
-                      />
-                    )}
+                        disabled={isSettingAvatar || !isOwnProfile}
+                        className={`w-full font-semibold px-3 py-2 text-xs rounded-lg border transition-colors flex items-center justify-center ${isOwnProfile
+                          ? "bg-white/10 hover:bg-white/20 text-white border-white/10"
+                          : "bg-gray-800/50 text-gray-500 border-gray-700 cursor-not-allowed"
+                          }`}
+                      >
+                        {isSettingAvatar ? "Setting..." : "MAKE PROFILE IMAGE"}
+                      </button>
+
+                      <Link
+                        href={{
+                          pathname: "/staking",
+                          query: {
+                            tokenId: nft.tokenId,
+                            collection: nft.collection
+                          }
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                        className="w-full bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 font-semibold px-3 py-2 text-xs rounded-lg border border-cyan-500/20 transition-colors text-center"
+                      >
+                        VIEW IN AMPLIFY
+                      </Link>
+
+                      <a
+                        href={`https://opensea.io/assets/ethereum/${nft.contractAddress}/${nft.tokenId}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="w-full bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 font-semibold px-3 py-2 text-xs rounded-lg border border-blue-500/20 transition-colors text-center"
+                      >
+                        OPENSEA
+                      </a>
+                    </div>
+
                   </div>
                   <div className="p-3">
-                    <h3 className="text-sm font-semibold text-white truncate">{nft.name}</h3>
-                    <p className="text-xs text-gray-400">{nft.collection}</p>
+                    <div className="flex justify-between items-start">
+                      <h3 className="text-sm font-semibold text-white truncate flex-1">{nft.name}</h3>
+                    </div>
+                    <div className="flex justify-between items-end mt-1">
+                      <p className="text-xs text-gray-400">{nft.collection}</p>
+                      {nft.collection === "Old Rock" && (
+                        <div className="text-[10px] text-[#6BC482] font-black">
+                          {typeof nft.unclaimedDensity === 'number' ? nft.unclaimedDensity.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "0.00"} $DENSITY
+                        </div>
+                      )}
+                      {nft.collection === "Goliath" && nft.linkedRock && (
+                        <div
+                          className="flex items-center gap-1 text-[10px] text-cyan-400 font-black hover:text-cyan-300 transition-colors cursor-pointer"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            window.location.href = "/staking";
+                          }}
+                        >
+                          <LinkIcon className="w-2.5 h-2.5" />
+                          <span>LINKED TO #{nft.linkedRock}</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}
@@ -1318,6 +1408,9 @@ export default function ProfilePage() {
           )}
         </AnimatePresence>
 
+        {/* Click-outside backdrop for NFT Overlay */}
+        {/* Click-outside backdrop removed as overlay is now hover-based */}
+
         {/* ENS Confirmation Modal */}
         <ENSConfirmationModal
           isOpen={showENSConfirm}
@@ -1348,14 +1441,13 @@ export default function ProfilePage() {
               initial={{ opacity: 0, y: -50, x: "-50%" }}
               animate={{ opacity: 1, y: 0, x: "-50%" }}
               exit={{ opacity: 0, y: -50, x: "-50%" }}
-              className={`fixed top-20 left-1/2 z-[100] max-w-md w-full mx-4 ${
-                notification.type === "success"
-                  ? "bg-black/90 backdrop-blur-md border border-cyan-400/50 shadow-lg shadow-cyan-500/20"
-                  : "bg-black/90 backdrop-blur-md border border-red-400/50 shadow-lg shadow-red-500/20"
-              } rounded-xl p-4`}
+              className={`fixed top-20 left-1/2 z-[100] max-w-md w-full mx-4 ${notification.type === "success"
+                ? "bg-black/90 backdrop-blur-md border border-cyan-400/50 shadow-lg shadow-cyan-500/20"
+                : "bg-black/90 backdrop-blur-md border border-red-400/50 shadow-lg shadow-red-500/20"
+                } rounded-xl p-4`}
               style={{
-                boxShadow: notification.type === "success" 
-                  ? '0 0 30px rgba(34, 211, 238, 0.3), 0 0 60px rgba(34, 211, 238, 0.1)' 
+                boxShadow: notification.type === "success"
+                  ? '0 0 30px rgba(34, 211, 238, 0.3), 0 0 60px rgba(34, 211, 238, 0.1)'
                   : '0 0 30px rgba(239, 68, 68, 0.3), 0 0 60px rgba(239, 68, 68, 0.1)',
               }}
             >
@@ -1365,16 +1457,14 @@ export default function ProfilePage() {
                 ) : (
                   <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
                 )}
-                <p className={`flex-1 text-sm font-['PT_Mono'] ${
-                  notification.type === "success" ? "text-cyan-100" : "text-red-100"
-                } leading-relaxed`}>
+                <p className={`flex-1 text-sm font-['PT_Mono'] ${notification.type === "success" ? "text-cyan-100" : "text-red-100"
+                  } leading-relaxed`}>
                   {notification.message}
                 </p>
                 <button
                   onClick={() => setNotification(null)}
-                  className={`flex-shrink-0 ${
-                    notification.type === "success" ? "text-cyan-400 hover:text-cyan-300" : "text-red-400 hover:text-red-300"
-                  } transition-colors`}
+                  className={`flex-shrink-0 ${notification.type === "success" ? "text-cyan-400 hover:text-cyan-300" : "text-red-400 hover:text-red-300"
+                    } transition-colors`}
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -1382,6 +1472,8 @@ export default function ProfilePage() {
             </motion.div>
           )}
         </AnimatePresence>
+
+        <Footer />
       </div>
     </>
   )

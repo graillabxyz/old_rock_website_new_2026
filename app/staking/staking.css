@@ -1,0 +1,303 @@
+/* Staking page styles */
+
+/* Background colors to match original amplify app */
+.staking-bg {
+  background-color: #0B121B;
+}
+
+.staking-container {
+  background-color: #08131B;
+}
+
+.staking-card-bg {
+  background-color: #1F282E;
+}
+
+/* Rock Card styles */
+.rock-card {
+  position: relative;
+  width: 320px;
+  height: 320px;
+  border-radius: 20px;
+  overflow: hidden;
+}
+
+.rock-card-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 20px;
+}
+
+.rock-card-gradient {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 50%;
+  background: linear-gradient(180deg, transparent 0%, rgba(0, 0, 0, 0.8) 100%);
+  border-radius: 0 0 20px 20px;
+}
+
+.rock-card-info {
+  position: absolute;
+  bottom: 12px;
+  left: 12px;
+  right: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+}
+
+/* Goliath Card styles */
+.goliath-card {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 12px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.goliath-card:hover {
+  transform: scale(1.05);
+}
+
+.goliath-card.linked {
+  box-shadow: 0 0 15px rgba(107, 196, 130, 0.5);
+}
+
+.goliath-card.processing {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.goliath-card-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.goliath-card-overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 8px;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.8));
+}
+
+/* Density badge colors */
+.density-common {
+  background-color: #93A2B6;
+}
+
+.density-low {
+  background-color: #6BC482;
+}
+
+.density-medium {
+  background-color: #79CFD4;
+}
+
+.density-high {
+  background-color: #B95DE4;
+}
+
+.density-pure {
+  background-color: #EAAF39;
+}
+
+.density-mystic {
+  background-color: #EC4899;
+}
+
+/* Color badge colors */
+.color-white {
+  background-color: #FFFFFF;
+  color: #000;
+}
+
+.color-silver {
+  background-color: #B3B3B3;
+  color: #000;
+}
+
+.color-yellow {
+  background-color: #FEC42A;
+  color: #000;
+}
+
+.color-gold {
+  background-color: #EDA825;
+  color: #000;
+}
+
+.color-aquamarine {
+  background-color: #46AA9A;
+}
+
+.color-turquoise {
+  background-color: #257875;
+}
+
+.color-blue {
+  background-color: #3182AA;
+}
+
+.color-purple {
+  background-color: #8856B9;
+}
+
+.color-red {
+  background-color: #DC4537;
+}
+
+.color-black {
+  background-color: #404040;
+}
+
+/* Unclaimed density display */
+.unclaimed-density {
+  text-shadow: 0 0 4px #000;
+}
+
+/* Custom scrollbar for gallery */
+.staking-gallery::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.staking-gallery::-webkit-scrollbar-track {
+  background: #1F282E;
+  border-radius: 4px;
+}
+
+.staking-gallery::-webkit-scrollbar-thumb {
+  background: #515459;
+  border-radius: 4px;
+}
+
+.staking-gallery::-webkit-scrollbar-thumb:hover {
+  background: #6BC482;
+}
+
+/* Swiper overrides for rock carousel */
+.staking-swiper .swiper-slide {
+  width: 320px;
+  border-radius: 20px;
+  overflow: hidden;
+}
+
+.staking-swiper .swiper-slide img {
+  display: block;
+  width: 100%;
+}
+
+/* Modal styles */
+.staking-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(4px);
+  z-index: 50;
+}
+
+.staking-modal {
+  background-color: #353E43;
+  border: 4px solid #515459;
+  border-radius: 20px;
+  color: white;
+}
+
+/* Filter dropdown styles */
+.staking-filter-dropdown {
+  background-color: #1F282E;
+  border: 1px solid #515459;
+  border-radius: 12px;
+}
+
+/* Button styles */
+.staking-btn-primary {
+  background: linear-gradient(135deg, #6BC482 0%, #46AA9A 100%);
+  color: white;
+  transition: all 0.2s;
+}
+
+.staking-btn-primary:hover {
+  transform: scale(1.02);
+  box-shadow: 0 4px 15px rgba(107, 196, 130, 0.3);
+}
+
+.staking-btn-danger {
+  background: linear-gradient(135deg, #DC4537 0%, #C42D1A 100%);
+  color: white;
+}
+
+/* Typography */
+.staking-font-din {
+  font-family: var(--font-barlow), 'Din-Condensed', 'Inter', sans-serif;
+}
+
+/* Glow effects for linked rocks */
+.glow-green {
+  box-shadow: 0 0 25px rgba(107, 196, 130, 0.4);
+}
+
+.glow-red {
+  box-shadow: 0 0 55px #DC4537;
+}
+
+.glow-aquamarine {
+  box-shadow: 0 0 55px #46AA9A;
+}
+
+.glow-purple {
+  box-shadow: 0 0 55px #8856B9;
+}
+
+.glow-blue {
+  box-shadow: 0 0 55px #3182AA;
+}
+
+.glow-yellow {
+  box-shadow: 0 0 55px #FEC42A;
+}
+
+.glow-gold {
+  box-shadow: 0 0 55px #EDA825;
+}
+
+.glow-turquoise {
+  box-shadow: 0 0 55px #257875;
+}
+
+.glow-white {
+  box-shadow: 0 0 55px #FFFFFF;
+}
+
+.glow-silver {
+  box-shadow: 0 0 55px #B3B3B3;
+}
+
+.glow-black {
+  box-shadow: 0 0 55px #404040;
+}
+
+/* Animation for processing states */
+@keyframes pulse-glow {
+
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+
+  50% {
+    opacity: 1;
+  }
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
