@@ -199,14 +199,24 @@ interface LeaderboardRowProps {
     entry: {
         position: number;
         walletAddress: string;
-        points: number;
-        rarity: string;
+        total?: number;
+        points?: number; // legacy field
+        rarity: string | { color: string; multiplier: number } | null | undefined;
     };
     isCurrentUser: boolean;
 }
 
 function LeaderboardRow({ entry, isCurrentUser }: LeaderboardRowProps) {
-    const rarityClass = LEADERBOARD_RARITY_CLASSES[entry.rarity?.toLowerCase()] || LEADERBOARD_RARITY_CLASSES.common;
+    // Handle rarity as either a string or an object with {color, multiplier}
+    const getRarityString = (rarity: typeof entry.rarity): string => {
+        if (!rarity) return 'common';
+        if (typeof rarity === 'string') return rarity.toLowerCase();
+        if (typeof rarity === 'object' && rarity.color) return rarity.color.toLowerCase();
+        return 'common';
+    };
+    const rarityKey = getRarityString(entry.rarity);
+    const rarityClass = LEADERBOARD_RARITY_CLASSES[rarityKey] || LEADERBOARD_RARITY_CLASSES.common;
+    const rarityDisplay = rarityKey.charAt(0).toUpperCase() + rarityKey.slice(1);
     const flair = LEADERBOARD_POSITION_FLAIR[entry.position] || '';
 
     return (
@@ -226,14 +236,14 @@ function LeaderboardRow({ entry, isCurrentUser }: LeaderboardRowProps) {
                         {truncateAddress(entry.walletAddress)}
                         {isCurrentUser && <span className="text-[10px] bg-[#40E0D0]/20 text-[#40E0D0] px-1.5 py-0.5 rounded uppercase leading-none">You</span>}
                     </span>
-                    <span className={`text-[10px] font-bold font-pt-mono uppercase tracking-widest mt-0.5 ${entry.rarity ? rarityClass.split(' ')[1] : 'text-gray-600'}`}>
-                        Tier: {entry.rarity || 'Common'}
+                    <span className={`text-[10px] font-bold font-pt-mono uppercase tracking-widest mt-0.5 ${rarityKey !== 'common' ? rarityClass.split(' ')[1] : 'text-gray-600'}`}>
+                        Tier: {rarityDisplay}
                     </span>
                 </div>
             </div>
             <div className="text-right">
                 <span className="text-white font-black font-montserrat tracking-tight text-xl">
-                    {entry.points.toLocaleString()}
+                    {(entry.total ?? entry.points ?? 0).toLocaleString()}
                 </span>
                 <span className="text-[10px] text-gray-500 font-bold block -mt-1 uppercase">PTS</span>
             </div>

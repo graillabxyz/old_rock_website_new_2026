@@ -65,8 +65,34 @@ export function useAchievementEventsLeaderboard(namespace: string = AIRDROP_CONF
 }
 
 // ============================================
-// Achievements List
+// Achievements List - Static Fallback for Season 3
 // ============================================
+
+// Static achievement definitions for Season 3 (API endpoints returning 404)
+const SEASON_3_ACHIEVEMENTS = {
+    community: [
+        { id: 'discord-join-server', description: '💬 Join the Old Rock Discord server', value: 5, renewable: false },
+        { id: 'x-follow-oldrocknft', description: '🐦 Follow @OldRockNFT on X', value: 5, renewable: false },
+        { id: 'x-follow-densitydeck', description: '🎴 Follow @DENSITYDECK on X', value: 5, renewable: false },
+        { id: 'view-documentation', description: '📖 View the Old Rock documentation', value: 5, renewable: false },
+    ],
+    amplify: [
+        { id: 'amplify-session', description: '📡 Access Amplify', value: 10, renewable: false },
+        { id: 'amplify-create-link', description: '🔗 Create a link within Amplify', value: 20, renewable: false },
+        { id: 'amplify-claim-1-day', description: '🧲 Extract from Amplify (repeatable per day*)', value: 10, renewable: true },
+        { id: 'amplify-claim-3-days', description: '📅 Extract from Amplify 3 days* in a row', value: 70, renewable: false },
+    ],
+    densityDeck: [
+        { id: 'density-deck-play-1-game-daily', description: '🔥 Play a game of Density Deck (repeatable per day*)', value: 10, renewable: true },
+        { id: 'density-deck-win-1-game-daily', description: '🤑 Win a game of Density Deck (repeatable per day*)', value: 20, renewable: true },
+        { id: 'density-deck-win-3-games-daily', description: '3️⃣ Win 3 games of Density Deck (repeatable per day*)', value: 50, renewable: true },
+        { id: 'density-deck-win-5-games-daily', description: '5️⃣ Win 5 games of Density Deck (repeatable per day*)', value: 80, renewable: true },
+    ],
+    special: [
+        { id: 'airdrop-season-2', description: '🪂 Participate in Airdrop Season 2', value: 150, renewable: false },
+        { id: 'mint-goliath', description: '🗿 Mint a Goliath NFT', value: 50, renewable: false },
+    ],
+};
 
 export function useAchievementsList(namespace: string) {
     return useQuery({
@@ -81,21 +107,65 @@ export function useAchievementsList(namespace: string) {
     });
 }
 
-// Convenience hooks for specific achievement categories
+// Convenience hooks for specific achievement categories with static fallback
 export function useCommunityAchievements() {
-    return useAchievementsList('airdrop-community');
+    return useQuery({
+        queryKey: ['communityAchievements'],
+        queryFn: async () => {
+            try {
+                const result = await getAchievementsList('airdrop-community');
+                if (result.success && result.data) return result.data;
+            } catch (e) { /* fallback to static */ }
+            return SEASON_3_ACHIEVEMENTS.community;
+        },
+        refetchOnWindowFocus: false,
+        staleTime: 300000,
+    });
 }
 
 export function useAmplifyAchievements() {
-    return useAchievementsList('airdrop-amplify');
+    return useQuery({
+        queryKey: ['amplifyAchievements'],
+        queryFn: async () => {
+            try {
+                const result = await getAchievementsList('airdrop-amplify');
+                if (result.success && result.data) return result.data;
+            } catch (e) { /* fallback to static */ }
+            return SEASON_3_ACHIEVEMENTS.amplify;
+        },
+        refetchOnWindowFocus: false,
+        staleTime: 300000,
+    });
 }
 
 export function useDensityDeckAchievements() {
-    return useAchievementsList('airdrop-density-deck');
+    return useQuery({
+        queryKey: ['densityDeckAchievements'],
+        queryFn: async () => {
+            try {
+                const result = await getAchievementsList('airdrop-density-deck');
+                if (result.success && result.data) return result.data;
+            } catch (e) { /* fallback to static */ }
+            return SEASON_3_ACHIEVEMENTS.densityDeck;
+        },
+        refetchOnWindowFocus: false,
+        staleTime: 300000,
+    });
 }
 
 export function useSpecialAchievements() {
-    return useAchievementsList('airdrop-special');
+    return useQuery({
+        queryKey: ['specialAchievements'],
+        queryFn: async () => {
+            try {
+                const result = await getAchievementsList('airdrop-special');
+                if (result.success && result.data) return result.data;
+            } catch (e) { /* fallback to static */ }
+            return SEASON_3_ACHIEVEMENTS.special;
+        },
+        refetchOnWindowFocus: false,
+        staleTime: 300000,
+    });
 }
 
 // ============================================
