@@ -119,14 +119,12 @@ export function Footer() {
                   >
                     Density Deck (Beta)
                   </a>
-                  <a
-                    href="https://amplify.oldrocknft.com"
-                    target="_blank"
-                    rel="noopener noreferrer"
+                  <Link
+                    href="/staking"
                     className="block text-gray-400 hover:text-purple-400 transition-colors"
                   >
                     Amplify Heliosite
-                  </a>
+                  </Link>
                   <a
                     href="https://discord.gg/oldrocknft"
                     target="_blank"
@@ -157,14 +155,12 @@ export function Footer() {
                   >
                     Documentation
                   </a>
-                  <a
-                    href="https://airdrop.oldrocknft.com"
-                    target="_blank"
-                    rel="noopener noreferrer"
+                  <Link
+                    href="/airdrop"
                     className="block text-gray-400 hover:text-purple-400 transition-colors"
                   >
                     Airdrop
-                  </a>
+                  </Link>
                   <Link href="/collections" className="block text-gray-400 hover:text-purple-400 transition-colors">
                     Collections
                   </Link>

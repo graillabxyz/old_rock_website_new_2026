@@ -15,6 +15,8 @@ import {
     Info,
     ChevronDown,
     ChevronUp,
+    ChevronLeft,
+    ChevronRight,
 } from 'lucide-react';
 import Image from 'next/image';
 
@@ -31,6 +33,7 @@ import {
     useDensityDeckAchievements,
     useSpecialAchievements,
     useAirdropSeasonSummary,
+    useAirdropSeasonConfig,
     usePostAchievementEvent,
     useVerifyWallet,
     AIRDROP_CONFIG,
@@ -115,32 +118,38 @@ function AchievementCard({ achievement, isAchieved, achievedCount, isConnected, 
 
     const link = ACHIEVEMENT_LINKS[achievement.id];
 
+    // Special handling for wallet-connect achievement
+    // It should always be visible and show as completed when connected
+    const isWalletConnectAchievement = achievement.id === 'wallet-connect';
+    const showUnlocked = isConnected || isWalletConnectAchievement;
+    const isWalletConnectCompleted = isWalletConnectAchievement && isConnected;
+
     const cardContent = (
         <div
             className={`
         relative rounded-2xl overflow-hidden transition-all duration-300 cursor-pointer group flex flex-col h-full
-        ${isAchieved && !achievement.renewable
+        ${(isAchieved || isWalletConnectCompleted) && !achievement.renewable
                     ? 'bg-gray-900/40 border-white/5 opacity-60 grayscale'
                     : 'bg-gray-900/60 backdrop-blur-xl border border-white/10 hover:border-[#40E0D0]/40 hover:bg-gray-800/60 shadow-xl'
                 }
-        ${!isConnected ? 'grayscale opacity-50' : ''}
+        ${!showUnlocked ? 'grayscale opacity-50' : ''}
       `}
             onClick={onClick}
         >
             {/* Top Bar / Status */}
             <div className={`
                 h-1 w-full
-                ${isAchieved && !achievement.renewable ? 'bg-gray-800' : 'bg-gradient-to-r from-[#40E0D0] to-purple-500'}
+                ${(isAchieved || isWalletConnectCompleted) && !achievement.renewable ? 'bg-gray-800' : 'bg-gradient-to-r from-[#40E0D0] to-purple-500'}
             `} />
 
             <div className="p-5 flex-1 flex flex-col">
                 <div className="flex items-start gap-4 mb-4">
                     <div className="text-3xl flex-shrink-0 w-12 h-12 flex items-center justify-center bg-white/5 rounded-xl border border-white/5 group-hover:bg-[#40E0D0]/10 group-hover:border-[#40E0D0]/20 transition-all">
-                        {isConnected ? emoji : '🔒'}
+                        {showUnlocked ? emoji : '🔒'}
                     </div>
                     <div className="flex-1 min-w-0 pt-1">
                         <h4 className="text-white font-black text-sm leading-tight mb-1 group-hover:text-[#40E0D0] transition-colors font-montserrat tracking-tight">
-                            {isConnected ? text.replace(/\(repeatable.*\)/, '') : 'Authorization Locked'}
+                            {showUnlocked ? text.replace(/\(repeatable.*\)/, '') : 'Authorization Locked'}
                         </h4>
                         {isConnected && achievement.renewable && (
                             <span className="inline-block px-1.5 py-0.5 rounded bg-[#40E0D0]/10 text-[#40E0D0] text-[9px] font-black tracking-widest uppercase mb-2">RECURRING</span>
@@ -153,8 +162,8 @@ function AchievementCard({ achievement, isAchieved, achievedCount, isConnected, 
                     <div className="flex flex-col">
                         <span className="text-gray-500 text-[9px] font-black tracking-widest uppercase">Allocation</span>
                         <div className="flex items-baseline gap-1">
-                            <span className={`text-lg font-black font-montserrat ${isAchieved && !achievement.renewable ? 'text-gray-500' : 'text-[#40E0D0] group-hover:drop-shadow-[0_0_8px_rgba(64,224,208,0.6)]'}`}>
-                                {isConnected ? achievement.value.toLocaleString() : '??'}
+                            <span className={`text-lg font-black font-montserrat ${(isAchieved || isWalletConnectCompleted) && !achievement.renewable ? 'text-gray-500' : 'text-[#40E0D0] group-hover:drop-shadow-[0_0_8px_rgba(64,224,208,0.6)]'}`}>
+                                {showUnlocked ? achievement.value.toLocaleString() : '??'}
                             </span>
                             <span className="text-[10px] font-bold text-gray-600 uppercase">PTS</span>
                         </div>
@@ -162,7 +171,7 @@ function AchievementCard({ achievement, isAchieved, achievedCount, isConnected, 
 
                     <div className="text-right">
                         <span className="text-gray-500 text-[9px] font-black tracking-widest uppercase block">Status</span>
-                        {isAchieved ? (
+                        {(isAchieved || isWalletConnectCompleted) ? (
                             <div className="flex items-center gap-1.5 text-[#40E0D0]">
                                 <Check className="w-3 h-3" />
                                 <span className="text-[10px] font-black font-montserrat uppercase">SYNCED {achievedCount && achievedCount > 1 ? `x${achievedCount}` : ''}</span>
@@ -257,18 +266,23 @@ function LeaderboardRow({ entry, isCurrentUser }: LeaderboardRowProps) {
 
 function AirdropDashboardContent() {
     const { address, isConnected } = useAccount();
-    const [countdown, setCountdown] = useState(formatCountdown(AIRDROP_CONFIG.seasonEnd));
     const [clipboardCopied, setClipboardCopied] = useState(false);
     const [expandedSection, setExpandedSection] = useState<string | null>('community');
+    const [leaderboardSeason, setLeaderboardSeason] = useState(AIRDROP_CONFIG.currentSeason);
+    const [visibleLeaderboardCount, setVisibleLeaderboardCount] = useState(20);
+
+    // Generate namespace for the selected leaderboard season
+    const leaderboardNamespace = `airdrop-season-${leaderboardSeason}`;
 
     // Data hooks
     const { data: walletEvents, isLoading: loadingWalletEvents, refetch: refetchWalletEvents } = useAchievementEventsWalletAddress();
-    const { data: leaderboard, isLoading: loadingLeaderboard } = useAchievementEventsLeaderboard();
+    const { data: leaderboard, isLoading: loadingLeaderboard } = useAchievementEventsLeaderboard(leaderboardNamespace);
     const { data: communityAchievements, isLoading: loadingCommunity } = useCommunityAchievements();
     const { data: amplifyAchievements, isLoading: loadingAmplify } = useAmplifyAchievements();
     const { data: densityDeckAchievements, isLoading: loadingDensityDeck } = useDensityDeckAchievements();
     const { data: specialAchievements, isLoading: loadingSpecial } = useSpecialAchievements();
     const { data: seasonSummary } = useAirdropSeasonSummary(1);
+    const { data: seasonConfig } = useAirdropSeasonConfig();
 
     const postAchievement = usePostAchievementEvent();
     const verifyWallet = useVerifyWallet();
@@ -276,13 +290,24 @@ function AirdropDashboardContent() {
     // Wallet verification message
     const { signMessageAsync } = useSignMessage();
 
-    // Countdown timer
+    // Get season end date from API - only use if API provides one
+    // seasonConfig.seasonEnd will be from API if available, or null if endpoint doesn't exist
+    const hasApiEndDate = seasonConfig?.seasonEnd && seasonConfig.seasonEnd !== AIRDROP_CONFIG.seasonEnd;
+    const [countdown, setCountdown] = useState<string>('TBA');
+
+    // Countdown timer - only calculate if we have a valid API end date
     useEffect(() => {
-        const timer = setInterval(() => {
-            setCountdown(formatCountdown(AIRDROP_CONFIG.seasonEnd));
-        }, 60000);
-        return () => clearInterval(timer);
-    }, []);
+        if (hasApiEndDate && seasonConfig?.seasonEnd) {
+            setCountdown(formatCountdown(seasonConfig.seasonEnd));
+            const timer = setInterval(() => {
+                setCountdown(formatCountdown(seasonConfig.seasonEnd));
+            }, 60000);
+            return () => clearInterval(timer);
+        } else {
+            // No API date available - show ???
+            setCountdown('TBA');
+        }
+    }, [hasApiEndDate, seasonConfig?.seasonEnd]);
 
     // Build achieved map
     const achievedMap = useMemo(() => {
@@ -296,6 +321,27 @@ function AirdropDashboardContent() {
         });
         return map;
     }, [walletEvents]);
+
+    // Calculate user rank - priority: walletEvents.leaderboard.position > find in leaderboard array
+    const userRank = useMemo(() => {
+        // First try the direct position from walletEvents
+        if (walletEvents?.leaderboard?.position) {
+            return walletEvents.leaderboard.position;
+        }
+
+        // Fallback: find user's position in the leaderboard data
+        // Note: leaderboard is an array directly, not an object with entries
+        if (address && Array.isArray(leaderboard)) {
+            const userIndex = leaderboard.findIndex(
+                (entry: { walletAddress?: string }) => entry.walletAddress?.toLowerCase() === address.toLowerCase()
+            );
+            if (userIndex !== -1) {
+                return userIndex + 1; // Convert 0-based index to 1-based rank
+            }
+        }
+
+        return null;
+    }, [walletEvents, leaderboard, address]);
 
     // Check social links
     const hasLinkedX = useMemo(() => achievedMap['x-link'], [achievedMap]);
@@ -534,15 +580,15 @@ function AirdropDashboardContent() {
                         <div className="group bg-gray-900/40 backdrop-blur-md rounded-2xl p-6 border border-white/5 hover:border-[#40E0D0]/30 transition-all duration-300">
                             <p className="text-gray-500 text-xs font-bold uppercase tracking-widest mb-1">Your Rank</p>
                             {isConnected ? (
-                                loadingWalletEvents ? (
+                                (loadingWalletEvents || loadingLeaderboard) ? (
                                     <Loader2 className="w-6 h-6 animate-spin text-white" />
                                 ) : (
                                     <div className="flex items-center gap-3">
                                         <p className="text-4xl font-black text-white font-montserrat tracking-tight">
-                                            #{walletEvents?.leaderboard?.position || '-'}
+                                            #{userRank || '-'}
                                         </p>
-                                        {walletEvents?.leaderboard?.position && walletEvents.leaderboard.position <= 3 && (
-                                            <span className="text-2xl">{LEADERBOARD_POSITION_FLAIR[walletEvents.leaderboard.position]}</span>
+                                        {userRank && userRank <= 3 && (
+                                            <span className="text-2xl">{LEADERBOARD_POSITION_FLAIR[userRank]}</span>
                                         )}
                                     </div>
                                 )
@@ -627,6 +673,31 @@ function AirdropDashboardContent() {
                                 Rankings
                             </h3>
                             <div className="h-[1px] flex-1 bg-gradient-to-r from-gray-800 to-transparent" />
+
+                            {/* Season Navigation */}
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => setLeaderboardSeason(prev => Math.max(1, prev - 1))}
+                                    disabled={leaderboardSeason <= 1 || loadingLeaderboard}
+                                    className="p-2 rounded-lg bg-gray-800/60 border border-gray-700 hover:bg-gray-700/60 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                                    title="Previous season"
+                                >
+                                    <ChevronLeft className="w-5 h-5 text-white" />
+                                </button>
+                                <div className="px-4 py-2 bg-gray-800/60 border border-gray-700 rounded-lg min-w-[120px] text-center">
+                                    <span className="text-[#40E0D0] font-bold font-pt-mono text-sm">
+                                        Season {leaderboardSeason}
+                                    </span>
+                                </div>
+                                <button
+                                    onClick={() => setLeaderboardSeason(prev => Math.min(AIRDROP_CONFIG.currentSeason, prev + 1))}
+                                    disabled={leaderboardSeason >= AIRDROP_CONFIG.currentSeason || loadingLeaderboard}
+                                    className="p-2 rounded-lg bg-gray-800/60 border border-gray-700 hover:bg-gray-700/60 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                                    title="Next season"
+                                >
+                                    <ChevronRight className="w-5 h-5 text-white" />
+                                </button>
+                            </div>
                         </div>
 
                         {loadingLeaderboard ? (
@@ -634,14 +705,24 @@ function AirdropDashboardContent() {
                                 <Loader2 className="w-10 h-10 animate-spin text-[#40E0D0]" />
                             </div>
                         ) : leaderboard?.length ? (
-                            <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2 scrollbar-hide md:pr-4">
-                                {leaderboard.slice(0, 50).map((entry: any, idx: number) => (
+                            <div className="space-y-4">
+                                {leaderboard.slice(0, visibleLeaderboardCount).map((entry: any, idx: number) => (
                                     <LeaderboardRow
                                         key={idx}
                                         entry={{ ...entry, position: idx + 1 }}
                                         isCurrentUser={entry.walletAddress?.toLowerCase() === address?.toLowerCase()}
                                     />
                                 ))}
+                                {visibleLeaderboardCount < leaderboard.length && (
+                                    <div className="flex justify-center pt-4">
+                                        <button
+                                            onClick={() => setVisibleLeaderboardCount(prev => Math.min(prev + 20, leaderboard.length))}
+                                            className="px-6 py-3 bg-gray-800/60 hover:bg-gray-700/60 border border-gray-700 rounded-lg text-white font-pt-mono text-sm transition-all"
+                                        >
+                                            Load More ({Math.min(20, leaderboard.length - visibleLeaderboardCount)} remaining)
+                                        </button>
+                                    </div>
+                                )}
                             </div>
                         ) : (
                             <div className="bg-gray-900/20 rounded-2xl border border-white/5 py-12 text-center">
