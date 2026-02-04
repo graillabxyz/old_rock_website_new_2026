@@ -733,44 +733,86 @@ function calculateGoliathBadges(goliathNFTs: any[]): Badge[] {
   }
   if (count >= 5) {
     badges.push({
-      id: "goliath-titan-host",
-      name: "Titan Host",
+      id: "goliath-commander",
+      name: "Goliath Commander",
       category: "Goliath Ownership",
       tier: 3,
       unlocked: true,
       description: "5 Goliaths",
-      icon: "titan-host",
+      icon: "goliath-commander",
     })
   } else {
     badges.push({
-      id: "goliath-titan-host-locked",
-      name: "Titan Host",
+      id: "goliath-commander-locked",
+      name: "Goliath Commander",
       category: "Goliath Ownership",
       tier: 3,
       unlocked: false,
       description: "5 Goliaths",
-      icon: "titan-host",
+      icon: "goliath-commander",
     })
   }
   if (count >= 10) {
     badges.push({
-      id: "goliath-legion-holder",
-      name: "Legion Holder",
+      id: "goliath-legion",
+      name: "Goliath Legion",
       category: "Goliath Ownership",
       tier: 4,
       unlocked: true,
-      description: "10+ Goliaths",
-      icon: "legion-holder",
+      description: "10 Goliaths",
+      icon: "goliath-legion",
     })
   } else {
     badges.push({
-      id: "goliath-legion-holder-locked",
-      name: "Legion Holder",
+      id: "goliath-legion-locked",
+      name: "Goliath Legion",
       category: "Goliath Ownership",
       tier: 4,
       unlocked: false,
-      description: "10+ Goliaths",
-      icon: "legion-holder",
+      description: "10 Goliaths",
+      icon: "goliath-legion",
+    })
+  }
+  if (count >= 25) {
+    badges.push({
+      id: "goliath-titan",
+      name: "Goliath Titan",
+      category: "Goliath Ownership",
+      tier: 5,
+      unlocked: true,
+      description: "25 Goliaths",
+      icon: "goliath-titan",
+    })
+  } else {
+    badges.push({
+      id: "goliath-titan-locked",
+      name: "Goliath Titan",
+      category: "Goliath Ownership",
+      tier: 5,
+      unlocked: false,
+      description: "25 Goliaths",
+      icon: "goliath-titan",
+    })
+  }
+  if (count >= 50) {
+    badges.push({
+      id: "goliath-apex",
+      name: "Goliath Apex",
+      category: "Goliath Ownership",
+      tier: 6,
+      unlocked: true,
+      description: "50 Goliaths",
+      icon: "goliath-apex",
+    })
+  } else {
+    badges.push({
+      id: "goliath-apex-locked",
+      name: "Goliath Apex",
+      category: "Goliath Ownership",
+      tier: 6,
+      unlocked: false,
+      description: "50 Goliaths",
+      icon: "goliath-apex",
     })
   }
 
@@ -1207,14 +1249,14 @@ function calculatePrestigeBadges(data: BadgeData): Badge[] {
   }
 
   // B. Ecosystem Pillar
-  if (totalDensity >= 10000 && oldRockNFTs.length >= 3 && goliathNFTs.length >= 2) {
+  if (totalDensity >= 10000 && oldRockNFTs.length >= 3 && goliathNFTs.length >= 10) {
     badges.push({
       id: "prestige-ecosystem-pillar",
       name: "Ecosystem Pillar",
       category: "Prestige",
       tier: 2,
       unlocked: true,
-      description: "≥ 10,000 $DENSITY, ≥ 3 Rocks, ≥ 2 Goliaths",
+      description: "≥ 10,000 $DENSITY, ≥ 3 Rocks, ≥ 10 Goliaths",
       icon: "ecosystem-pillar",
     })
   } else {
@@ -1224,7 +1266,7 @@ function calculatePrestigeBadges(data: BadgeData): Badge[] {
       category: "Prestige",
       tier: 2,
       unlocked: false,
-      description: "≥ 10,000 $DENSITY, ≥ 3 Rocks, ≥ 2 Goliaths",
+      description: "≥ 10,000 $DENSITY, ≥ 3 Rocks, ≥ 10 Goliaths",
       icon: "ecosystem-pillar",
     })
   }
@@ -1237,90 +1279,189 @@ function calculatePrestigeBadges(data: BadgeData): Badge[] {
  * Only shows the highest $DENSITY badge (not all density badges)
  */
 export function getBestBadges(badges: Badge[]): Badge[] {
-  // Filter badges: only keep the highest tier density badge
-  const densityBadges = badges.filter(b => b.category === "Density")
-  const nonDensityBadges = badges.filter(b => b.category !== "Density")
+  // Explicit priority order from most important (highest number) to least important (lowest number)
+  // Based on user-specified hierarchy
+  const badgePriority: { [key: string]: number } = {
+    // Top tier - Tri-reactive
+    "rock-tri-reactive-core": 1000,
 
-  // Find the highest tier density badge (unlocked first, then highest tier)
-  let highestDensityBadge: Badge | null = null
-  if (densityBadges.length > 0) {
-    // Sort density badges: unlocked first, then by tier (highest first)
-    const sortedDensity = [...densityBadges].sort((a, b) => {
-      if (a.unlocked !== b.unlocked) {
-        return a.unlocked ? -1 : 1
-      }
-      const tierA = a.tier || 0
-      const tierB = b.tier || 0
-      return tierB - tierA
-    })
-    highestDensityBadge = sortedDensity[0]
+    // Mystics (same order as rock colors)
+    "mystic-agricola-stone": 990,
+    "mystic-kalki": 989,
+    "mystic-bulooma": 988,
+    "mystic-pubian": 987,
+    "mystic-nootau": 986,
+    "mystic-sanskai": 985,
+    "mystic-djup": 984,
+    "mystic-sirinan": 983,
+    "mystic-cemi": 982,
+    "mystic-nebu": 981,
+    "mystic-belarang": 980,
+
+    // Full spectrum
+    "rock-full-spectrum-core": 970,
+
+    // Pure reactor
+    "rock-pure-reactor": 960,
+
+    // Polar reactor
+    "rock-polar-reactor": 950,
+
+    // High density rock
+    "rock-high-density-core": 940,
+
+    // Rock colors (white, black first)
+    "rock-color-white": 930,
+    "rock-color-black": 920,
+
+    // Lithic Council (10+ Rocks)
+    "rock-lithic-council": 910,
+
+    // Bounties (Unknown > Archon > Reaper > Siren > Silverstrike)
+    "goliath-bounty-unknown": 905,
+    "goliath-bounty-the-archon": 904,
+    "goliath-bounty-the-reaper": 903,
+    "goliath-bounty-the-siren": 902,
+    "goliath-bounty-silverstrike": 901,
+
+    // Recurrent reactor
+    "rock-recurrent-reactor": 890,
+
+    // Medium density rock
+    "rock-medium-density-core": 880,
+
+    // Aquamarine rock
+    "rock-color-aquamarine": 870,
+
+    // Ecosystem Pillar
+    "prestige-ecosystem-pillar": 860,
+
+    // High density Goliath
+    "goliath-high-density": 850,
+
+    // Singularity ($DENSITY)
+    "density-singularity": 840,
+
+    // Chromatic rock
+    "rock-chromatic-rock": 830,
+
+    // Goliath ownership 50
+    "goliath-apex": 820,
+
+    // Rock collective
+    "rock-collective": 810,
+
+    // Gold rock
+    "rock-color-gold": 800,
+
+    // Silver rock
+    "rock-color-silver": 790,
+
+    // Stonebound (3 Rocks)
+    "rock-stonebound": 780,
+
+    // Gravity Well ($DENSITY)
+    "density-gravity-well": 770,
+
+    // Goliath ownership 25
+    "goliath-titan": 760,
+
+    // Density Aligned
+    "prestige-density-aligned": 750,
+
+    // Low density rock
+    "rock-low-density-core": 740,
+
+    // Remaining rock colors
+    "rock-color-purple": 730,
+    "rock-color-blue": 720,
+    "rock-color-red": 710,
+    "rock-color-turquoise": 700,
+    "rock-color-yellow": 690,
+
+    // Goliath colors (black, white first)
+    "goliath-color-black": 680,
+    "goliath-color-white": 670,
+
+    // Mass Builder ($DENSITY)
+    "density-mass-builder": 660,
+
+    // Chromatic Goliath
+    "goliath-chromatic-goliath": 650,
+
+    // Goliath ownership 10
+    "goliath-legion": 640,
+
+    // Goliath ownership 5
+    "goliath-commander": 630,
+
+    // Medium Density Goliath
+    "goliath-medium-density": 620,
+
+    // Goliath ownership 3
+    "goliath-goliath-guardian": 610,
+
+    // Remaining Goliath colors
+    "goliath-color-aquamarine": 600,
+    "goliath-color-gold": 590,
+    "goliath-color-silver": 580,
+
+    // Weight Bearer ($DENSITY)
+    "density-weight-bearer": 570,
+
+    // Low Density Goliath
+    "goliath-low-density": 560,
+
+    // Remaining Goliath colors
+    "goliath-color-purple": 550,
+    "goliath-color-blue": 540,
+    "goliath-color-red": 530,
+    "goliath-color-turquoise": 520,
+    "goliath-color-yellow": 510,
+
+    // Goliath ownership 1
+    "goliath-first-goliath": 500,
+
+    // Dust Holder ($DENSITY)
+    "density-dust-holder": 490,
+
+    // Pebble Keeper (1 Rock) - not in user's list but should be low
+    "rock-pebble-keeper": 480,
+
+    // Prismatic badges (all colors collected)
+    "rock-prismatic-rock": 475,
+    "goliath-primal-spectrum": 470,
+
+    // Multi-bounty badges
+    "goliath-all-bounties-claimed": 465,
+    "goliath-multi-bounty-operator": 460,
   }
 
-  // Combine non-density badges with the highest density badge
-  const filteredBadges = highestDensityBadge
-    ? [...nonDensityBadges, highestDensityBadge]
-    : nonDensityBadges
-
-  // Sort badges by priority:
-  // 1. Unlocked first
-  // 2. Mystic Hybrid (tier 10) highest
-  // 3. Then by tier (higher is better)
-  // 4. Then by category priority (Mystic > Prestige > Density > others)
-
-  const categoryPriority: { [key: string]: number } = {
-    // Highest priority: Mystics and Mystic-related
-    "Mystic Hybrid": 100,
-    "Mystic": 95,
-    "Mystic Prestige": 90,
-    "Mystic Color": 85,
-    // Very high priority: Reactive rocks (Pure is highest), $DENSITY, High density rocks, Large collections
-    "Rock Reactive": 82, // Pure, Polar, Recurrent - these are top badges
-    "Density": 80, // $DENSITY badges are top badges
-    "Rock Density": 78, // High density rocks are important
-    "Rock Ownership": 76, // Large rock collections (Lithic Council tier 4) - high priority
-    "Goliath Ownership": 74, // Large goliath collections (Legion Holder tier 4) - high priority
-    // Medium-high: Prestige
-    "Prestige": 65,
-    // Medium: Goliath badges (Rocks are always more important)
-    "Goliath Bounty": 40,
-    "Goliath Density": 35,
-    // Lower: Color badges
-    "Goliath Color": 15,
-    "Rock Color": 10,
+  // Get priority for a badge, returning 0 for unspecified badges
+  const getPriority = (badge: Badge): number => {
+    return badgePriority[badge.id] || 0
   }
 
-  const sorted = [...filteredBadges].sort((a, b) => {
-    // Unlocked first
-    if (a.unlocked !== b.unlocked) {
-      return a.unlocked ? -1 : 1
-    }
+  // Filter to only unlocked badges
+  const unlockedBadges = badges.filter(b => b.unlocked)
 
-    // Special handling for Pure reactive badge (highest reactive tier)
-    const isPureA = a.id === "rock-pure-reactor" && a.unlocked
-    const isPureB = b.id === "rock-pure-reactor" && b.unlocked
-    if (isPureA && !isPureB) return -1
-    if (!isPureA && isPureB) return 1
+  // Sort by priority (highest first)
+  const sorted = [...unlockedBadges].sort((a, b) => {
+    const priorityA = getPriority(a)
+    const priorityB = getPriority(b)
 
-    // Then by category priority (Mystics, Pure reactive, $DENSITY, High density rocks, etc.)
-    const priorityA = categoryPriority[a.category] || 0
-    const priorityB = categoryPriority[b.category] || 0
+    // Higher priority first
     if (priorityA !== priorityB) {
       return priorityB - priorityA
     }
 
-    // Then by tier (higher is better)
+    // Fallback: by tier (higher first)
     const tierA = a.tier || 0
     const tierB = b.tier || 0
-    if (tierA !== tierB) {
-      return tierB - tierA
-    }
-
-    return 0
+    return tierB - tierA
   })
 
-  // Get top 4 unlocked badges only
-  // If user has less than 4 unlocked badges, only show what they have (don't show locked badges)
-  const unlocked = sorted.filter(b => b.unlocked)
-  return unlocked.slice(0, 4)
+  // Return top 4
+  return sorted.slice(0, 4)
 }
 

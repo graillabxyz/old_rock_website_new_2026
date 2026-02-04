@@ -497,7 +497,7 @@ export function LinkedGoliathsDisplay({
             {/* SVG Rings */}
             <svg width="740" height="740" className="absolute z-[11] pointer-events-none ml-[-300px]">
                 <circle
-                    cx="370" cy="370" r="360"
+                    cx="370" cy="370" r="288"
                     stroke={COLOR_HEX[selectedRock.color?.toUpperCase()] || "#fff"}
                     strokeWidth="4"
                     fill="transparent"

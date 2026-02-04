@@ -61,13 +61,30 @@ const LEADERBOARD_RARITY_CLASSES: Record<string, string> = {
 const LEADERBOARD_POSITION_FLAIR = [null, '👑', '🎖️', '🏅'];
 
 const ACHIEVEMENT_LINKS: Record<string, { url: string; newTab: boolean }> = {
+    // Community achievements
+    'wallet-connect': { url: '#', newTab: false }, // Handled by RainbowKit connect button
+    'wallet-verify': { url: '#verify', newTab: false }, // Triggers wallet verification
     'x-follow-oldrocknft': { url: 'https://twitter.com/intent/follow?screen_name=OldRockNft', newTab: true },
     'x-follow-densitydeck': { url: 'https://twitter.com/intent/follow?screen_name=DENSITYDECK', newTab: true },
+    'x-link': { url: 'https://api.oldrocknft.com/oauth/x', newTab: true }, // Twitter OAuth link
     'discord-join-server': { url: 'https://discord.com/invite/oldrocknft', newTab: true },
-    'mint-goliath': { url: 'https://mint.oldrocknft.com/', newTab: true },
+    'discord-link': { url: 'https://api.oldrocknft.com/oauth/discord', newTab: true }, // Discord OAuth link
     'view-documentation': { url: 'https://docs.oldrocknft.com', newTab: true },
+    // Amplify achievements
     'amplify-session': { url: '/staking', newTab: false },
+    'amplify-create-link': { url: '/staking', newTab: false },
+    'amplify-claim-1-day': { url: '/staking', newTab: false },
+    'amplify-claim-3-days': { url: '/staking', newTab: false },
+    // Density Deck achievements
     'density-deck-alpha': { url: 'https://densitydeck.com', newTab: true },
+    'density-deck-play-1-game-daily': { url: 'https://densitydeck.com', newTab: true },
+    'density-deck-win-1-game-daily': { url: 'https://densitydeck.com', newTab: true },
+    'density-deck-win-3-games-daily': { url: 'https://densitydeck.com', newTab: true },
+    'density-deck-win-5-games-daily': { url: 'https://densitydeck.com', newTab: true },
+    // Special achievements
+    'mint-goliath': { url: 'https://mint.oldrocknft.com/', newTab: true },
+    'referral': { url: '#referral', newTab: false }, // Points to referral section on same page
+    'airdrop-season-2': { url: '#', newTab: false }, // Historical achievement, no action needed
 };
 
 // ============================================
@@ -211,6 +228,7 @@ interface LeaderboardRowProps {
         ensName?: string | null;
         total?: number;
         points?: number; // legacy field
+        multiplier?: number; // multiplier from API
         rarity: string | { color: string; multiplier: number } | null | undefined;
     };
     isCurrentUser: boolean;
@@ -219,6 +237,11 @@ interface LeaderboardRowProps {
 function LeaderboardRow({ entry, isCurrentUser }: LeaderboardRowProps) {
     // Display name: ENS name if available, otherwise truncated address
     const displayName = entry.ensName || truncateAddress(entry.walletAddress);
+
+    // Extract multiplier - can come from entry.multiplier or entry.rarity.multiplier
+    const multiplier = entry.multiplier ??
+        (typeof entry.rarity === 'object' && entry.rarity?.multiplier ? entry.rarity.multiplier : null);
+    const hasMultiplier = multiplier !== null && multiplier > 1;
 
     return (
         <div className={`
@@ -239,11 +262,20 @@ function LeaderboardRow({ entry, isCurrentUser }: LeaderboardRowProps) {
                     </span>
                 </div>
             </div>
-            <div className="text-right">
-                <span className="text-white font-black font-montserrat tracking-tight text-xl">
-                    {(entry.total ?? entry.points ?? 0).toLocaleString()}
-                </span>
-                <span className="text-[10px] text-gray-500 font-bold block -mt-1 uppercase">PTS</span>
+            <div className="flex items-center gap-4">
+                {hasMultiplier && (
+                    <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-purple-500/20 border border-purple-500/30">
+                        <span className="text-purple-400 font-black font-montserrat text-sm">
+                            {multiplier}x
+                        </span>
+                    </div>
+                )}
+                <div className="text-right">
+                    <span className="text-white font-black font-montserrat tracking-tight text-xl">
+                        {(entry.total ?? entry.points ?? 0).toLocaleString()}
+                    </span>
+                    <span className="text-[10px] text-gray-500 font-bold block -mt-1 uppercase">PTS</span>
+                </div>
             </div>
         </div>
     );

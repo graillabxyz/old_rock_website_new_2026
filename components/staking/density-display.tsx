@@ -9,9 +9,10 @@ interface DensityDisplayProps {
     isFetching?: boolean;
     isClaimLoading: boolean;
     onClaim: () => void;
+    totalDailyRate?: number;
 }
 
-export function DensityDisplay({ unclaimedDensity, isFetching, isClaimLoading, onClaim }: DensityDisplayProps) {
+export function DensityDisplay({ unclaimedDensity, isFetching, isClaimLoading, onClaim, totalDailyRate }: DensityDisplayProps) {
     // Ensure unclaimedDensity is formatted nicely
     const densityNum = typeof unclaimedDensity === 'string'
         ? parseFloat(unclaimedDensity.replace(/,/g, ''))
@@ -27,11 +28,22 @@ export function DensityDisplay({ unclaimedDensity, isFetching, isClaimLoading, o
 
     return (
         <div className="flex flex-col items-center justify-center pt-20 pb-4">
+            {/* Total Daily Rate - Simple small display */}
+            {totalDailyRate !== undefined && totalDailyRate > 0 && (
+                <div className="flex items-center gap-2 mb-2">
+                    <span className="text-[11px] font-bold text-white/50 tracking-widest uppercase" style={{ fontFamily: 'Din-Condensed, sans-serif' }}>
+                        TOTAL DAILY RATE
+                    </span>
+                    <span className="text-[13px] font-bold text-[#6BC482]" style={{ fontFamily: 'Din-Condensed, sans-serif' }}>
+                        +{totalDailyRate.toLocaleString()}
+                    </span>
+                </div>
+            )}
             <div className="relative w-[1200px] h-[280px] flex items-center justify-center">
 
                 {/* 1. Animated Density Effect (Base Layer - Colored) - z-0 */}
                 <div
-                    className="absolute w-[40%] h-[40%] top-[-5%] left-[30%] z-0 pointer-events-none overflow-hidden rounded-[80px]"
+                    className="absolute w-[40%] h-[40%] top-[0%] left-[30%] z-0 pointer-events-none overflow-hidden rounded-[80px]"
                     style={{ opacity: animationOpacity }}
                 >
                     <img
