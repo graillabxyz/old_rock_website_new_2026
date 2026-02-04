@@ -66,9 +66,9 @@ const ACHIEVEMENT_LINKS: Record<string, { url: string; newTab: boolean }> = {
     'wallet-verify': { url: '#verify', newTab: false }, // Triggers wallet verification
     'x-follow-oldrocknft': { url: 'https://twitter.com/intent/follow?screen_name=OldRockNft', newTab: true },
     'x-follow-densitydeck': { url: 'https://twitter.com/intent/follow?screen_name=DENSITYDECK', newTab: true },
-    'x-link': { url: 'https://api.oldrocknft.com/oauth/x', newTab: true }, // Twitter OAuth link
+    'x-link': { url: 'https://amplify-api.oldrocknft.com/auth/x?from=airdrop', newTab: true }, // Twitter OAuth link
     'discord-join-server': { url: 'https://discord.com/invite/oldrocknft', newTab: true },
-    'discord-link': { url: 'https://api.oldrocknft.com/oauth/discord', newTab: true }, // Discord OAuth link
+    'discord-link': { url: 'https://amplify-api.oldrocknft.com/auth/discord?from=airdrop', newTab: true }, // Discord OAuth link
     'view-documentation': { url: 'https://docs.oldrocknft.com', newTab: true },
     // Amplify achievements
     'amplify-session': { url: '/staking', newTab: false },
@@ -238,10 +238,10 @@ function LeaderboardRow({ entry, isCurrentUser }: LeaderboardRowProps) {
     // Display name: ENS name if available, otherwise truncated address
     const displayName = entry.ensName || truncateAddress(entry.walletAddress);
 
-    // Extract multiplier - can come from entry.multiplier or entry.rarity.multiplier
+    // Get multiplier from entry (don't calculate it, just display)
     const multiplier = entry.multiplier ??
         (typeof entry.rarity === 'object' && entry.rarity?.multiplier ? entry.rarity.multiplier : null);
-    const hasMultiplier = multiplier !== null && multiplier > 1;
+    const hasMultiplier = multiplier && multiplier > 1;
 
     return (
         <div className={`
@@ -262,10 +262,10 @@ function LeaderboardRow({ entry, isCurrentUser }: LeaderboardRowProps) {
                     </span>
                 </div>
             </div>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3">
                 {hasMultiplier && (
                     <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-purple-500/20 border border-purple-500/30">
-                        <span className="text-purple-400 font-black font-montserrat text-sm">
+                        <span className="text-purple-400 font-black font-montserrat text-xs">
                             {multiplier}x
                         </span>
                     </div>
@@ -400,6 +400,12 @@ function AirdropDashboardContent() {
     const handleAchievementClick = useCallback(async (achievementId: string) => {
         if (!isConnected) return;
 
+        // Handle wallet verification achievement
+        if (achievementId === 'wallet-verify') {
+            handleVerifyWallet();
+            return;
+        }
+
         // Track certain achievements and handle blockchain verification
         if ([
             'x-follow-oldrocknft',
@@ -415,7 +421,7 @@ function AirdropDashboardContent() {
                 namespace: AIRDROP_CONFIG.seasonNamespace
             });
         }
-    }, [isConnected, postAchievement]);
+    }, [isConnected, postAchievement, handleVerifyWallet]);
 
     // Check if season is live
     const seasonLive = new Date() > new Date(AIRDROP_CONFIG.seasonStart) &&
@@ -622,13 +628,39 @@ function AirdropDashboardContent() {
                         <div className="group bg-gray-900/40 backdrop-blur-md rounded-2xl p-6 border border-white/5 hover:border-[#40E0D0]/30 transition-all duration-300">
                             <p className="text-gray-500 text-xs font-bold uppercase tracking-widest mb-1">Total Points</p>
                             {isConnected ? (
-                                loadingWalletEvents ? (
+                                (loadingWalletEvents || loadingLeaderboard) ? (
                                     <Loader2 className="w-6 h-6 animate-spin text-white" />
-                                ) : (
-                                    <p className="text-4xl font-black text-white font-montserrat tracking-tight">
-                                        {walletEvents?.events?.reduce((sum: number, e: AchievementEvent) => sum + e.value, 0)?.toLocaleString() || '0'}
-                                    </p>
-                                )
+                                ) : (() => {
+                                    // Find user's base total from leaderboard (without multiplier)
+                                    const userLeaderboardEntry = Array.isArray(leaderboard)
+                                        ? leaderboard.find((e: any) => e.walletAddress?.toLowerCase() === address?.toLowerCase())
+                                        : null;
+                                    const baseTotal = userLeaderboardEntry?.total ?? userLeaderboardEntry?.points ?? 0;
+
+                                    // Get multiplier from walletEvents or leaderboard entry
+                                    const multiplier = walletEvents?.leaderboard?.multiplier ??
+                                        userLeaderboardEntry?.multiplier ??
+                                        (typeof userLeaderboardEntry?.rarity === 'object' && userLeaderboardEntry?.rarity?.multiplier
+                                            ? userLeaderboardEntry.rarity.multiplier : 1);
+
+                                    const hasMultiplier = multiplier > 1;
+                                    const totalWithMultiplier = Math.floor(baseTotal * multiplier);
+
+                                    return (
+                                        <div className="flex items-center gap-3">
+                                            <p className="text-4xl font-black text-white font-montserrat tracking-tight">
+                                                {totalWithMultiplier.toLocaleString()}
+                                            </p>
+                                            {hasMultiplier && (
+                                                <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-purple-500/20 border border-purple-500/30">
+                                                    <span className="text-purple-400 font-black font-montserrat text-sm">
+                                                        {multiplier}x
+                                                    </span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })()
                             ) : (
                                 <p className="text-gray-600 italic font-pt-mono text-sm mt-1">Wallet restricted</p>
                             )}

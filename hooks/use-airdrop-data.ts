@@ -73,6 +73,9 @@ export function useAchievementEventsLeaderboard(namespace: string = AIRDROP_CONF
 const SEASON_3_ACHIEVEMENTS = {
     community: [
         { id: 'wallet-connect', description: '🔗 Connect Your Wallet', value: 10, renewable: false },
+        { id: 'wallet-verify', description: '✅ Verify Your Wallet', value: 15, renewable: false },
+        { id: 'x-link', description: '🔗 Link Your X Account', value: 25, renewable: false },
+        { id: 'discord-link', description: '🔗 Link Your Discord Account', value: 25, renewable: false },
         { id: 'discord-join-server', description: '💬 Join the Old Rock Discord server', value: 5, renewable: false },
         { id: 'x-follow-oldrocknft', description: '🐦 Follow @OldRockNFT on X', value: 5, renewable: false },
         { id: 'x-follow-densitydeck', description: '🎴 Follow @DENSITYDECK on X', value: 5, renewable: false },
