@@ -631,25 +631,25 @@ function AirdropDashboardContent() {
                                 (loadingWalletEvents || loadingLeaderboard) ? (
                                     <Loader2 className="w-6 h-6 animate-spin text-white" />
                                 ) : (() => {
-                                    // Find user's base total from leaderboard (without multiplier)
+                                    // Find user's total from leaderboard (already includes multiplier from API)
                                     const userLeaderboardEntry = Array.isArray(leaderboard)
                                         ? leaderboard.find((e: any) => e.walletAddress?.toLowerCase() === address?.toLowerCase())
                                         : null;
-                                    const baseTotal = userLeaderboardEntry?.total ?? userLeaderboardEntry?.points ?? 0;
+                                    // The 'total' from API already has multiplier applied - don't multiply again!
+                                    const displayTotal = userLeaderboardEntry?.total ?? userLeaderboardEntry?.points ?? 0;
 
-                                    // Get multiplier from walletEvents or leaderboard entry
+                                    // Get multiplier for display purposes only
                                     const multiplier = walletEvents?.leaderboard?.multiplier ??
                                         userLeaderboardEntry?.multiplier ??
                                         (typeof userLeaderboardEntry?.rarity === 'object' && userLeaderboardEntry?.rarity?.multiplier
                                             ? userLeaderboardEntry.rarity.multiplier : 1);
 
                                     const hasMultiplier = multiplier > 1;
-                                    const totalWithMultiplier = Math.floor(baseTotal * multiplier);
 
                                     return (
                                         <div className="flex items-center gap-3">
                                             <p className="text-4xl font-black text-white font-montserrat tracking-tight">
-                                                {totalWithMultiplier.toLocaleString()}
+                                                {displayTotal.toLocaleString()}
                                             </p>
                                             {hasMultiplier && (
                                                 <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-purple-500/20 border border-purple-500/30">
