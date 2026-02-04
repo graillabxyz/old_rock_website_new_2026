@@ -228,6 +228,7 @@ interface LeaderboardRowProps {
         ensName?: string | null;
         total?: number;
         points?: number; // legacy field
+        multiplier?: number; // multiplier from API
         rarity: string | { color: string; multiplier: number } | null | undefined;
     };
     isCurrentUser: boolean;
@@ -236,6 +237,11 @@ interface LeaderboardRowProps {
 function LeaderboardRow({ entry, isCurrentUser }: LeaderboardRowProps) {
     // Display name: ENS name if available, otherwise truncated address
     const displayName = entry.ensName || truncateAddress(entry.walletAddress);
+
+    // Extract multiplier - can come from entry.multiplier or entry.rarity.multiplier
+    const multiplier = entry.multiplier ??
+        (typeof entry.rarity === 'object' && entry.rarity?.multiplier ? entry.rarity.multiplier : null);
+    const hasMultiplier = multiplier !== null && multiplier > 1;
 
     return (
         <div className={`
@@ -256,11 +262,20 @@ function LeaderboardRow({ entry, isCurrentUser }: LeaderboardRowProps) {
                     </span>
                 </div>
             </div>
-            <div className="text-right">
-                <span className="text-white font-black font-montserrat tracking-tight text-xl">
-                    {(entry.total ?? entry.points ?? 0).toLocaleString()}
-                </span>
-                <span className="text-[10px] text-gray-500 font-bold block -mt-1 uppercase">PTS</span>
+            <div className="flex items-center gap-4">
+                {hasMultiplier && (
+                    <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-purple-500/20 border border-purple-500/30">
+                        <span className="text-purple-400 font-black font-montserrat text-sm">
+                            {multiplier}x
+                        </span>
+                    </div>
+                )}
+                <div className="text-right">
+                    <span className="text-white font-black font-montserrat tracking-tight text-xl">
+                        {(entry.total ?? entry.points ?? 0).toLocaleString()}
+                    </span>
+                    <span className="text-[10px] text-gray-500 font-bold block -mt-1 uppercase">PTS</span>
+                </div>
             </div>
         </div>
     );
