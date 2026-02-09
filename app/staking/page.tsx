@@ -66,7 +66,7 @@ function StakingPageContent() {
     } = useStakingStore();
 
     // Hooks
-    const { isLoading: nftsLoading, isError: nftsError, refetch: refetchNFTs } = useStakingNFTs();
+    const { isLoading: nftsLoading, isError: nftsError, refetch: refetchNFTs, totalDailyReward } = useStakingNFTs();
     const { unclaimedDensity, isFetching: densityFetching, refetch: refetchDensity } = useUnclaimedDensity();
     const claimDensity = useClaimDensity();
     const createLink = useCreateLink();
@@ -244,13 +244,8 @@ function StakingPageContent() {
 
     const unlinkedGoliaths = allGoliaths.filter(g => g.linkedRock !== selectedRock?.id);
 
-    // Calculate total daily rate across all rocks
-    const totalDailyRate = allRocks.reduce((acc, rock) => {
-        const rockLinkedGoliaths = allGoliaths.filter(g => g.linkedRock === rock.id);
-        const multiplier = 100 + (rockLinkedGoliaths.length * 10);
-        return acc + Math.round(rock.dailyReward * (multiplier / 100));
-    }, 0);
-
+    // Use API's TotalDailyReward for accurate rate (accounts for Goliath density/color bonuses)
+    const totalDailyRate = totalDailyReward ? Math.round(totalDailyReward) : 0;
 
     // Mounted check to prevent hydration mismatch
     const [mounted, setMounted] = useState(false);
