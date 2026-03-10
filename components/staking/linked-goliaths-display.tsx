@@ -357,11 +357,11 @@ export function LinkedGoliathsDisplay({
                         {/* Disconnect Button */}
                         <button
                             onClick={() => onGoliathClick(selectedGoliath)}
-                            disabled={loadingGoliathId === selectedGoliath.id.toString()}
+                            disabled={loadingGoliathId === selectedGoliath.id?.toString()}
                             className="w-full py-4 rounded-xl border-2 border-[#DC4537] bg-black text-[#DC4537] font-black uppercase tracking-[0.2em] text-sm hover:bg-[#DC4537] hover:text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                             style={{ fontFamily: 'Din-Condensed, sans-serif' }}
                         >
-                            {loadingGoliathId === selectedGoliath.id.toString() ? (
+                            {loadingGoliathId === selectedGoliath.id?.toString() ? (
                                 <Loader2 className="w-5 h-5 animate-spin mx-auto" />
                             ) : (
                                 "DISCONNECT"
@@ -538,7 +538,7 @@ export function LinkedGoliathsDisplay({
                                     boxShadow: `0 0 15px ${shadowColor}`
                                 }}
                             >
-                                {loadingGoliathId === selectedGoliath.id.toString() ? (
+                                {loadingGoliathId === selectedGoliath.id?.toString() ? (
                                     <div className="w-full h-full flex items-center justify-center bg-black/60">
                                         <Loader2 className="w-6 h-6 text-white animate-spin" />
                                     </div>

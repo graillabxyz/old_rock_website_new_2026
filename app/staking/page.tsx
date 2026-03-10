@@ -113,7 +113,7 @@ function StakingPageContent() {
         const collection = searchParams.get('collection');
 
         if (tokenId && collection === 'Old Rock' && allRocks.length > 0) {
-            const index = allRocks.findIndex(r => r.id.toString() === tokenId);
+            const index = allRocks.findIndex(r => r.id?.toString() === tokenId);
             if (index !== -1) {
                 // Short timeout to ensure store state is settled / swiper is ready
                 setTimeout(() => {

@@ -194,8 +194,8 @@ export function useCreateLink() {
             }
 
             return api.createLink(address || '', {
-                OldRocksId: rockId.toString(),
-                GoliathId: goliathId.toString(),
+                OldRocksId: rockId?.toString() || '',
+                GoliathId: goliathId?.toString() || '',
                 signature,
             });
         },
@@ -219,8 +219,8 @@ export function useDeleteLink() {
             }
 
             return api.deleteLink(address || '', {
-                OldRocksId: rockId.toString(),
-                GoliathId: goliathId.toString(),
+                OldRocksId: rockId?.toString() || '',
+                GoliathId: goliathId?.toString() || '',
                 signature,
             });
         },
@@ -252,9 +252,9 @@ export function useMoveLink() {
             }
 
             return api.deleteAndCreateLink(address || '', {
-                OldRocksIdToDelete: fromRockId.toString(),
-                OldRocksIdToCreate: toRockId.toString(),
-                GoliathId: goliathId.toString(),
+                OldRocksIdToDelete: fromRockId?.toString() || '',
+                OldRocksIdToCreate: toRockId?.toString() || '',
+                GoliathId: goliathId?.toString() || '',
                 signature,
             });
         },
@@ -273,8 +273,8 @@ export function useLinkCooldown() {
 
         try {
             const res = await api.getLinkCooldown({
-                oldRockId: rockId.toString(),
-                goliathId: goliathId.toString(),
+                oldRockId: rockId?.toString() || '',
+                goliathId: goliathId?.toString() || '',
                 walletAddress: address,
             });
             return res.data;
