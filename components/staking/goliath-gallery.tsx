@@ -167,7 +167,7 @@ export function GoliathGallery({
             const lowerQuery = searchQuery.toLowerCase();
             filtered = filtered.filter(g =>
                 g.name?.toLowerCase().includes(lowerQuery) ||
-                g.id.toString().includes(lowerQuery)
+                g.id?.toString().includes(lowerQuery)
             );
         }
 
@@ -552,10 +552,10 @@ export function GoliathGallery({
 
                                         <button
                                             onClick={(e) => { e.stopPropagation(); onGoliathClick(goliath); }}
-                                            disabled={loadingGoliathId === goliath.id.toString() || !!(isAtCapacity && !isLinked) || !!isLinkedElsewhere}
+                                            disabled={loadingGoliathId === goliath.id?.toString() || !!(isAtCapacity && !isLinked) || !!isLinkedElsewhere}
                                             className={cn(
                                                 "w-full py-2 rounded text-[10px] font-black uppercase tracking-wider transition-all",
-                                                loadingGoliathId === goliath.id.toString()
+                                                loadingGoliathId === goliath.id?.toString()
                                                     ? "bg-white/10 text-white/40 cursor-wait"
                                                     : isLinked
                                                         ? "bg-[#DC4537] text-white hover:bg-[#DC4537]/80"
@@ -566,7 +566,7 @@ export function GoliathGallery({
                                                                 : "bg-[#6BC482] text-black hover:bg-[#6BC482]/80"
                                             )}
                                         >
-                                            {loadingGoliathId === goliath.id.toString() ? (
+                                            {loadingGoliathId === goliath.id?.toString() ? (
                                                 <Loader2 className="w-3 h-3 animate-spin mx-auto" />
                                             ) : isLinked ? (
                                                 "DISCONNECT"
